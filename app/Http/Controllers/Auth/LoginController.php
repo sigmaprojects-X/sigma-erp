@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,27 +54,26 @@ class LoginController extends Controller
         $credentials = $request->only('email', 'password');
         $remember = $request->boolean('remember');
 
+        $candidateUser = User::where('email', $request->input('email'))->first();
+        if ($candidateUser && (! $candidateUser->is_active || ! $candidateUser->isActive())) {
+            RateLimiter::hit($throttleKey, 60);
+
+            AuditLog::record(
+                module: 'AUTH',
+                action: 'LOGIN_BLOCKED_INACTIVE',
+                description: "Percobaan login ditolak: Akun {$candidateUser->name} [{$candidateUser->email}] berstatus nonaktif atau masa berlaku telah habis.",
+                user: $candidateUser
+            );
+
+            return back()->withErrors([
+                'email' => 'Akun Anda telah dinonaktifkan atau masa kontrak telah berakhir. Hubungi Administrator.',
+            ])->withInput($request->only('email'));
+        }
+
         if (Auth::attempt($credentials, $remember)) {
             RateLimiter::clear($throttleKey);
 
             $user = Auth::user();
-
-            if (! $user->isActive()) {
-                AuditLog::record(
-                    module: 'AUTH',
-                    action: 'LOGIN_BLOCKED_INACTIVE',
-                    description: "Percobaan login ditolak: Akun {$user->name} [{$user->email}] berstatus nonaktif atau masa berlaku telah habis.",
-                    user: $user
-                );
-
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
-                return back()->withErrors([
-                    'email' => 'Akun Anda telah dinonaktifkan atau masa kontrak telah berakhir. Hubungi Administrator.',
-                ])->withInput($request->only('email'));
-            }
 
             $request->session()->regenerate();
 

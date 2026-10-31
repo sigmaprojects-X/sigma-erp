@@ -65,4 +65,37 @@ class CleanupAndFinalHardeningTest extends TestCase
             'opened_at' => now(),
         ]);
     }
+
+    public function test_login_checks_is_active_before_auth_attempt_so_inactive_account_does_not_leak_password_truth(): void
+    {
+        $this->seedMinimalData();
+
+        $cashier = User::where('role', 'cashier')->firstOrFail();
+        $cashier->update([
+            'is_active' => false,
+            'password' => bcrypt('SecretPass123!'),
+        ]);
+
+        // 1. Login dengan password SALAH pada akun nonaktif
+        $respWrongPass = $this->from(route('login'))->post(route('login.post'), [
+            'email' => $cashier->email,
+            'password' => 'WrongPass999!',
+        ]);
+        $respWrongPass->assertRedirect(route('login'));
+        $respWrongPass->assertSessionHasErrors([
+            'email' => 'Akun Anda telah dinonaktifkan atau masa kontrak telah berakhir. Hubungi Administrator.',
+        ]);
+        $this->assertFalse(auth()->check());
+
+        // 2. Login dengan password BENAR pada akun nonaktif
+        $respCorrectPass = $this->from(route('login'))->post(route('login.post'), [
+            'email' => $cashier->email,
+            'password' => 'SecretPass123!',
+        ]);
+        $respCorrectPass->assertRedirect(route('login'));
+        $respCorrectPass->assertSessionHasErrors([
+            'email' => 'Akun Anda telah dinonaktifkan atau masa kontrak telah berakhir. Hubungi Administrator.',
+        ]);
+        $this->assertFalse(auth()->check());
+    }
 }
