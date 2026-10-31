@@ -250,4 +250,18 @@ class CleanupAndFinalHardeningTest extends TestCase
         \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('products/main-test.jpg');
         \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('products/gallery/gal-1.jpg');
     }
+
+    public function test_readme_contains_sigma_installation_system_requirements_and_backup_restore_guide(): void
+    {
+        $readmePath = base_path('README.md');
+        $this->assertFileExists($readmePath);
+
+        $content = file_get_contents($readmePath);
+
+        $this->assertStringNotContainsString('## About Laravel', $content);
+        $this->assertStringContainsString('PHP 8.3', $content);
+        $this->assertStringContainsString('PostgreSQL 15+', $content);
+        $this->assertStringContainsString('BACKUP-DATABASE.bat', $content);
+        $this->assertStringContainsString('RESTORE-DATABASE.bat', $content);
+    }
 }

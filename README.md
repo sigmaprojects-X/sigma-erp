@@ -1,58 +1,79 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SIGMA ERP & POS Enterprise
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem Enterprise Resource Planning (ERP) dan Point of Sale (POS) terintegrasi berbasis Laravel untuk operasional ritel, grosir, pergudangan multi-cabang, dan pembukuan akuntansi double-entry otomatis.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 1. Kebutuhan Sistem (System Requirements)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Pastikan komputer server/kasir memenuhi spesifikasi minimum berikut sebelum instalasi:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **PHP:** `PHP 8.3` atau lebih baru (dengan ekstensi `pdo_pgsql`, `pgsql`, `mbstring`, `openssl`, `bcmath`, `intl`, `gd`, `zip`, `curl`)
+- **Database:** `PostgreSQL 15+` (direkomendasikan PostgreSQL 16+ dengan ekstensi `pgcrypto` dan `pg_trgm`)
+- **Dependency Manager:** Composer 2.x
+- **Sistem Operasi:** Windows 10 / 11 (64-bit) atau Linux Server
+- **Hardware Minimum:** RAM 4 GB (rekomendasi 8 GB+), penyimpanan kosong minimal 2 GB
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 2. Panduan Instalasi
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### A. Instalasi Otomatis (Windows)
+1. Pastikan layanan **PostgreSQL** sudah aktif dan berjalan di port `5432`.
+2. Jalankan salah satu skrip instalasi berikut sebagai Administrator:
+   - `SETUP-KOMPUTER-BARU.bat` — untuk penyiapan awal di komputer baru (memeriksa PHP 8.3+, PostgreSQL, menginstal dependensi Composer, membuat file `.env`, membuat database `sigma_erp`, menjalankan migrasi, dan seeder awal).
+   - `SETUP.bat` — untuk instalasi/konfigurasi cepat pada lingkungan yang sudah memiliki paket vendor.
+3. Setelah instalasi selesai 100%, jalankan server menggunakan:
+   - `START-SIGMA-SERVER.bat` (menjalankan web server di `http://127.0.0.1:8000` beserta background scheduler `php artisan schedule:work`).
+   - Untuk menghentikan server dan scheduler, jalankan `STOP-SIGMA-SERVER.bat`.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
+### B. Instalasi Manual (Command Line)
 ```bash
-composer require laravel/boost --dev
+# 1. Salin konfigurasi environment
+cp .env.example .env
 
-php artisan boost:install
+# 2. Sesuaikan konfigurasi DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD di .env
+# Pastikan PostgreSQL sudah berjalan dan database sigma_erp sudah dibuat
+
+# 3. Instal dependensi PHP
+composer install --no-interaction --prefer-dist --optimize-autoloader
+
+# 4. Generate Application Key & Storage Link
+php artisan key:generate
+php artisan storage:link
+
+# 5. Jalankan migrasi dan seeder awal
+php artisan migrate --force
+php artisan db:seed --force
+
+# 6. Jalankan server aplikasi dan scheduler latar
+php artisan serve --host=127.0.0.1 --port=8000
+php artisan schedule:work
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## 3. Cara Backup & Restore Database
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Seluruh file cadangan database disimpan secara terpusat di direktori `backups/` pada root proyek dalam format `.sql` (`pg_dump` dengan opsi `--clean --if-exists --no-owner`).
 
-## Code of Conduct
+### A. Backup Database
+1. **Melalui Antarmuka Web (Back-Office):**
+   - Masuk sebagai **Owner** atau **Manager**.
+   - Buka menu **Pengaturan -> Pemeliharaan & Backup Database** (`/settings/maintenance`).
+   - Klik tombol **Buat Backup Sekarang** untuk menghasilkan file `.sql` di folder `backups/`, atau unduh langsung ke komputer lokal.
+2. **Melalui Skrip Windows (`BACKUP-DATABASE.bat`):**
+   - Klik dua kali file `BACKUP-DATABASE.bat` di folder utama aplikasi.
+   - Skrip akan membaca konfigurasi `.env`, menjalankan `pg_dump`, memverifikasi ukuran file hasil backup tidak kosong, dan menyimpannya ke `backups/BACKUP_SIGMA_ERP_<TIMESTAMP>.sql`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### B. Restore Database
+1. **Melalui Skrip Windows (`RESTORE-DATABASE.bat`):**
+   - Klik dua kali file `RESTORE-DATABASE.bat`.
+   - Pilih nomor file backup `.sql` dari daftar yang ditampilkan di layar.
+   - Ketik `YA` saat diminta konfirmasi.
+   - Sebelum menimpa data, skrip secara otomatis membuat **backup pengaman** (`PRE_RESTORE_<TIMESTAMP>.sql`) di folder `backups/`.
+   - Skrip menjalankan `psql -v ON_ERROR_STOP=1` sehingga proses berhenti seketika dan melaporkan error dengan jelas apabila terjadi kegagalan SQL.
+2. **Melalui Command Line Manual:**
+   ```bash
+   psql -h 127.0.0.1 -p 5432 -U postgres -d sigma_erp -v ON_ERROR_STOP=1 -f backups/NAMA_FILE_BACKUP.sql
+   ```
