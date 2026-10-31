@@ -294,47 +294,69 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     // 2c. MODUL PIUTANG PELANGGAN / ACCOUNTS RECEIVABLE (M02 / M07 / M08)
-    Route::prefix('customers')->name('customers.')->middleware('role:owner,manager,store_head,finance,sales,cashier')->group(function () {
-        Route::get('/receivables', [CustomerReceivableController::class, 'index'])->name('receivables.index');
-        Route::get('/{id}/ledger', [CustomerReceivableController::class, 'ledger'])->name('receivables.ledger');
-        Route::get('/{id}/pay', [CustomerReceivableController::class, 'createPayment'])->name('receivables.pay');
-        Route::post('/{id}/pay', [CustomerReceivableController::class, 'storePayment'])->name('receivables.pay.store');
-        Route::get('/payments/{id}/receipt', [CustomerReceivableController::class, 'showReceipt'])->name('receivables.receipt');
+    Route::prefix('customers')->name('customers.')->group(function () {
+        // Rute Manajemen & Aksi Sensitif Loyalitas / Hadiah (Hanya Owner, Manager, Store Head)
+        Route::middleware('role:owner,manager,store_head')->group(function () {
+            Route::get('/loyalty/settings', [LoyaltyController::class, 'settings'])->name('loyalty.settings');
+            Route::post('/loyalty/settings', [LoyaltyController::class, 'updateSettings'])->name('loyalty.settings.update');
+            Route::post('/loyalty/expire-points', [LoyaltyController::class, 'expirePoints'])->name('loyalty.expire');
+            Route::post('/loyalty/{id}/adjust', [LoyaltyController::class, 'adjust'])->name('loyalty.adjust');
 
-        // Program Loyalitas & Poin Reward Pelanggan (iPos 5 Ultimate Parity)
-        Route::get('/loyalty', [LoyaltyController::class, 'index'])->name('loyalty.index');
-        Route::get('/loyalty/settings', [LoyaltyController::class, 'settings'])->name('loyalty.settings');
-        Route::post('/loyalty/settings', [LoyaltyController::class, 'updateSettings'])->name('loyalty.settings.update');
-        Route::post('/loyalty/expire-points', [LoyaltyController::class, 'expirePoints'])->name('loyalty.expire');
-        Route::get('/loyalty/{id}/ledger', [LoyaltyController::class, 'customerLedger'])->name('loyalty.ledger');
-        Route::post('/loyalty/{id}/adjust', [LoyaltyController::class, 'adjust'])->name('loyalty.adjust');
-        Route::get('/loyalty/{id}/lookup', [LoyaltyController::class, 'pointsLookup'])->name('loyalty.lookup');
+            Route::get('/rewards/create', [RewardController::class, 'create'])->name('rewards.create');
+            Route::post('/rewards', [RewardController::class, 'store'])->name('rewards.store');
+            Route::delete('/rewards/{reward}', [RewardController::class, 'destroy'])->name('rewards.destroy');
+        });
 
-        // Hadiah & Merchandise Loyalty
-        Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
-        Route::get('/rewards/create', [RewardController::class, 'create'])->name('rewards.create');
-        Route::post('/rewards', [RewardController::class, 'store'])->name('rewards.store');
-        Route::post('/rewards/redeem', [RewardController::class, 'redeem'])->name('rewards.redeem');
-        Route::delete('/rewards/{reward}', [RewardController::class, 'destroy'])->name('rewards.destroy');
+        // Rute Baca & Operasional Kasir / Staf (Owner, Manager, Store Head, Finance, Sales, Cashier)
+        Route::middleware('role:owner,manager,store_head,finance,sales,cashier')->group(function () {
+            Route::get('/receivables', [CustomerReceivableController::class, 'index'])->name('receivables.index');
+            Route::get('/{id}/ledger', [CustomerReceivableController::class, 'ledger'])->name('receivables.ledger');
+            Route::get('/{id}/pay', [CustomerReceivableController::class, 'createPayment'])->name('receivables.pay');
+            Route::post('/{id}/pay', [CustomerReceivableController::class, 'storePayment'])->name('receivables.pay.store');
+            Route::get('/payments/{id}/receipt', [CustomerReceivableController::class, 'showReceipt'])->name('receivables.receipt');
+
+            // Program Loyalitas & Poin Reward Pelanggan (Baca & Lookup POS)
+            Route::get('/loyalty', [LoyaltyController::class, 'index'])->name('loyalty.index');
+            Route::get('/loyalty/{id}/ledger', [LoyaltyController::class, 'customerLedger'])->name('loyalty.ledger');
+            Route::get('/loyalty/{id}/lookup', [LoyaltyController::class, 'pointsLookup'])->name('loyalty.lookup');
+
+            // Hadiah & Merchandise Loyalty (Baca & Klaim Penukaran)
+            Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
+            Route::post('/rewards/redeem', [RewardController::class, 'redeem'])->name('rewards.redeem');
+        });
     });
 
     // MODUL PROMOSI (Diskon, Buy X Get Y, Tebus Murah)
-    Route::prefix('promotions')->name('promotions.')->middleware('role:owner,manager,store_head,sales,cashier')->group(function () {
-        Route::get('/', [PromotionController::class, 'index'])->name('index');
-        Route::get('/create', [PromotionController::class, 'create'])->name('create');
-        Route::post('/', [PromotionController::class, 'store'])->name('store');
-        Route::patch('/{promotion}/toggle', [PromotionController::class, 'toggle'])->name('toggle');
-        Route::delete('/{promotion}', [PromotionController::class, 'destroy'])->name('destroy');
-        Route::post('/evaluate', [PromotionController::class, 'evaluate'])->name('evaluate');
+    Route::prefix('promotions')->name('promotions.')->group(function () {
+        // Rute Ubah / Buat / Hapus Promo (Hanya Owner, Manager, Store Head)
+        Route::middleware('role:owner,manager,store_head')->group(function () {
+            Route::get('/create', [PromotionController::class, 'create'])->name('create');
+            Route::post('/', [PromotionController::class, 'store'])->name('store');
+            Route::patch('/{promotion}/toggle', [PromotionController::class, 'toggle'])->name('toggle');
+            Route::delete('/{promotion}', [PromotionController::class, 'destroy'])->name('destroy');
+        });
+
+        // Rute Baca & Evaluasi Promo Kasir
+        Route::middleware('role:owner,manager,store_head,sales,cashier')->group(function () {
+            Route::get('/', [PromotionController::class, 'index'])->name('index');
+            Route::post('/evaluate', [PromotionController::class, 'evaluate'])->name('evaluate');
+        });
     });
 
     // MODUL VOUCHER & GIFT CARDS (Ala Indomaret)
-    Route::prefix('vouchers')->name('vouchers.')->middleware('role:owner,manager,store_head,sales,cashier')->group(function () {
-        Route::get('/print-coupons', [VoucherController::class, 'printCoupons'])->name('print-coupons');
-        Route::get('/', [VoucherController::class, 'index'])->name('index');
-        Route::get('/create', [VoucherController::class, 'create'])->name('create');
-        Route::post('/', [VoucherController::class, 'store'])->name('store');
-        Route::delete('/{voucher}', [VoucherController::class, 'destroy'])->name('destroy');
+    Route::prefix('vouchers')->name('vouchers.')->group(function () {
+        // Rute Buat & Hapus Voucher (Hanya Owner, Manager, Store Head)
+        Route::middleware('role:owner,manager,store_head')->group(function () {
+            Route::get('/create', [VoucherController::class, 'create'])->name('create');
+            Route::post('/', [VoucherController::class, 'store'])->name('store');
+            Route::delete('/{voucher}', [VoucherController::class, 'destroy'])->name('destroy');
+        });
+
+        // Rute Baca Daftar Voucher & Cetak Kupon
+        Route::middleware('role:owner,manager,store_head,sales,cashier')->group(function () {
+            Route::get('/print-coupons', [VoucherController::class, 'printCoupons'])->name('print-coupons');
+            Route::get('/', [VoucherController::class, 'index'])->name('index');
+        });
     });
 
     // 2d. MODUL LAPORAN KEUANGAN & BISNIS INTELLIGENCE (M08 & M11)

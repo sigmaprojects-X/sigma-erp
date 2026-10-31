@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\CustomerPointMutation;
@@ -11,6 +12,7 @@ use App\Models\LoyaltyRewardRedemption;
 use App\Models\PosTransaction;
 use App\Models\ProductUnit;
 use App\Models\Store;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -357,7 +359,7 @@ class LoyaltyPointService
                 'loyalty_points' => $after,
             ]);
 
-            return CustomerPointMutation::create([
+            $mutation = CustomerPointMutation::create([
                 'company_id' => $lockedCustomer->company_id,
                 'customer_id' => $lockedCustomer->id,
                 'pos_transaction_id' => null,
@@ -368,6 +370,31 @@ class LoyaltyPointService
                 'description' => "Penyesuaian Manual: {$reason}",
                 'created_by' => $userId,
             ]);
+
+            $actor = $userId ? User::find($userId) : null;
+
+            AuditLog::record(
+                module: 'LOYALTY',
+                action: 'ADJUST_POINTS',
+                description: "Penyesuaian poin manual pelanggan '{$lockedCustomer->name}' ({$lockedCustomer->code}): {$pointsDelta} poin. Alasan: {$reason}",
+                oldValues: [
+                    'customer_id' => $lockedCustomer->id,
+                    'customer_name' => $lockedCustomer->name,
+                    'loyalty_points' => $before,
+                ],
+                newValues: [
+                    'customer_id' => $lockedCustomer->id,
+                    'customer_name' => $lockedCustomer->name,
+                    'loyalty_points' => $after,
+                    'points_delta' => $pointsDelta,
+                    'reason' => $reason,
+                    'mutation_id' => $mutation->id,
+                ],
+                user: $actor,
+                companyId: $lockedCustomer->company_id
+            );
+
+            return $mutation;
         });
     }
 
