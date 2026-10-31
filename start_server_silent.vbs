@@ -15,3 +15,13 @@ output = execObj.StdOut.ReadAll()
 If InStr(output, "LISTENING") = 0 Then
     WshShell.Run "cmd /c php artisan serve --host=0.0.0.0 --port=8008", 0, False
 End If
+
+' Pastikan Laravel Scheduler (php artisan schedule:work) berjalan di latar belakang
+Dim schedCheckCmd, schedExecObj, schedOutput
+schedCheckCmd = "powershell -NoProfile -Command ""if (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*artisan*schedule:work*' }) { Write-Output 'RUNNING' }"""
+Set schedExecObj = WshShell.Exec(schedCheckCmd)
+schedOutput = schedExecObj.StdOut.ReadAll()
+
+If InStr(schedOutput, "RUNNING") = 0 Then
+    WshShell.Run "powershell -NoProfile -WindowStyle Hidden -Command ""$p = Start-Process -FilePath 'php' -ArgumentList 'artisan','schedule:work' -WorkingDirectory '" & scriptDir & "' -WindowStyle Hidden -PassThru; Set-Content -Path '" & scriptDir & "\storage\framework\scheduler.pid' -Value $p.Id -NoNewline""", 0, False
+End If

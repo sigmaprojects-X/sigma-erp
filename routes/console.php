@@ -4,6 +4,7 @@ use App\Models\SalesOrder;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -24,21 +25,43 @@ Artisan::command('sigma:release-expired-reservations', function (InventoryServic
 
     $count = 0;
     foreach ($expiredOrders as $order) {
-        foreach ($order->items as $item) {
-            $baseQty = (float) $item->quantity * (float) ($item->conversion_factor ?? 1);
-            $inventoryService->releaseReservedStock(
-                product: $item->product,
-                store: $order->store,
-                quantity: $baseQty,
-                referenceNumber: $order->order_number,
-                notes: "Pelepasan otomatis: TTL reservasi 30 menit kedaluwarsa [{$order->order_number}]"
-            );
+        $released = DB::transaction(function () use ($order, $inventoryService) {
+            $lockedOrder = SalesOrder::with(['items.product', 'store'])
+                ->where('id', $order->id)
+                ->where('status', 'PENDING')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $lockedOrder) {
+                return false;
+            }
+
+            foreach ($lockedOrder->items as $item) {
+                if (! $item->product || ! $item->product->tracksInventory()) {
+                    continue;
+                }
+
+                $baseQty = (float) $item->quantity * (float) ($item->conversion_factor ?? 1);
+                $inventoryService->releaseReservedStock(
+                    product: $item->product,
+                    store: $lockedOrder->store,
+                    quantity: $baseQty,
+                    referenceNumber: $lockedOrder->order_number,
+                    notes: "Pelepasan otomatis: TTL reservasi 30 menit kedaluwarsa [{$lockedOrder->order_number}]"
+                );
+            }
+
+            $lockedOrder->update([
+                'status' => 'CANCELLED',
+                'notes' => trim(($lockedOrder->notes ?? '') . ' | Dibatalkan otomatis: TTL reservasi 30 menit kedaluwarsa.'),
+            ]);
+
+            return true;
+        });
+
+        if ($released) {
+            $count++;
         }
-        $order->update([
-            'status' => 'CANCELLED',
-            'notes' => trim(($order->notes ?? '') . ' | Dibatalkan otomatis: TTL reservasi 30 menit kedaluwarsa.'),
-        ]);
-        $count++;
     }
 
     $this->info("Berhasil membatalkan dan melepaskan reservasi untuk {$count} pesanan.");

@@ -94,5 +94,16 @@ echo.
 :: 6. Buka Browser Otomatis
 start "" "http://localhost:8008"
 
-:: 7. Jalankan Server PHP
+:: 7. Jalankan Laravel Scheduler di Latar Belakang (Pelepasan Reservasi Stok PWA, dll.)
+echo [*] Menjalankan background scheduler (php artisan schedule:work)...
+powershell -NoProfile -Command "$existing = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*artisan*schedule:work*' }; if (-not $existing) { $p = Start-Process -FilePath 'php' -ArgumentList 'artisan','schedule:work' -WorkingDirectory '%~dp0' -WindowStyle Hidden -PassThru; Set-Content -Path '%~dp0storage\framework\scheduler.pid' -Value $p.Id -NoNewline }"
+
+:: 8. Jalankan Server PHP
 php artisan serve --host=0.0.0.0 --port=8008
+
+:: 9. Hentikan Scheduler Saat Jendela Server Ditutup
+if exist "storage\framework\scheduler.pid" (
+    set /p SCHED_PID=<"storage\framework\scheduler.pid"
+    if defined SCHED_PID taskkill /F /T /PID !SCHED_PID! >nul 2>nul
+    del /f /q "storage\framework\scheduler.pid" >nul 2>nul
+)
