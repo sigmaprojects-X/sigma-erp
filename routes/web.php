@@ -82,6 +82,11 @@ Route::middleware(['auth', 'active'])->group(function () {
         return redirect()->route('sales.index');
     });
 
+    // Cetak Nota Retur Penjualan (Dapat diakses oleh Kasir POS dan Manajemen)
+    Route::get('/sales/returns/{id}/print', [SalesController::class, 'printReturnNote'])
+        ->middleware(['role:owner,manager,store_head,finance,sales,cashier', 'permission:pos_return.buka,sales_invoice.buka'])
+        ->name('sales.returns.print');
+
     // 1. MODUL PENJUALAN & BACK-OFFICE
     Route::prefix('sales')->name('sales.')->middleware('role:owner,manager,store_head,finance,sales')->group(function () {
         Route::get('/', [SalesController::class, 'index'])->middleware('permission:sales_invoice.buka,sales_order.buka,menu_view_sales.buka')->name('index');
@@ -99,7 +104,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/returns', [SalesController::class, 'returnsIndex'])->middleware('permission:pos_return.buka,sales_invoice.buka')->name('returns.index');
         Route::get('/returns/create', [SalesController::class, 'returnsCreate'])->middleware('permission:pos_return.baru,sales_invoice.baru')->name('returns.create');
         Route::post('/returns', [SalesController::class, 'returnsStore'])->middleware('permission:pos_return.baru,sales_invoice.baru')->name('returns.store');
-        Route::get('/returns/{id}/print', [SalesController::class, 'printReturnNote'])->middleware('permission:pos_return.buka,sales_invoice.buka')->name('returns.print');
 
         // Pesanan Penjualan (Sales Orders / SO)
         Route::get('/orders', [SalesOrderController::class, 'index'])->middleware('permission:sales_order.buka')->name('orders.index');

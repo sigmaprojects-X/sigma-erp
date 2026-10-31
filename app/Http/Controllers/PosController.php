@@ -43,8 +43,7 @@ class PosController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
-        $store = Store::where('code', 'STR-001')->firstOrFail();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         // Ambil kasir aktif dari request / user yang sedang login / session
         $allCashiers = User::where('is_active', true)->orderBy('name')->get();
@@ -228,8 +227,7 @@ class PosController extends Controller
     public function search(Request $request): JsonResponse
     {
         $query = (string) $request->input('q', '');
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
-        $store = Store::where('code', 'STR-001')->firstOrFail();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         $results = $this->pricingEngine->search($company, $query, $store, 15);
 
@@ -320,8 +318,7 @@ class PosController extends Controller
             return response()->json(['success' => false, 'message' => 'Masukkan kode barcode atau nama barang.'], 400);
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
-        $store = Store::where('code', 'STR-001')->first() ?? Store::firstOrFail();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         // Cari via Barcode, SKU, atau Nama Produk
         $searchResult = $this->pricingEngine->search($company, $query, $store, 1)->first();
@@ -443,7 +440,7 @@ class PosController extends Controller
         $product = Product::findOrFail($request->product_id);
         $unit = ProductUnit::findOrFail($request->product_unit_id);
         $tier = CustomerTier::findOrFail($request->customer_tier_id);
-        $store = Store::where('code', 'STR-001')->first();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         try {
             $unitPrice = $this->pricingEngine->calculatePrice(
@@ -484,7 +481,7 @@ class PosController extends Controller
         ]);
 
         $tier = CustomerTier::findOrFail($request->customer_tier_id);
-        $store = Store::where('code', 'STR-001')->first();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         try {
             $recalculated = [];
@@ -547,7 +544,7 @@ class PosController extends Controller
             'subtotal' => 'required|numeric|min:0',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
         $code = strtoupper(trim($request->code ?? $request->voucher_code));
         $subtotal = (float) $request->subtotal;
 
@@ -613,12 +610,16 @@ class PosController extends Controller
             'starting_cash' => 'required|numeric|min:0',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
-        $store = Store::where('code', 'STR-001')->firstOrFail();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $user = $request->user() ?? Auth::user();
+
+        // Tentukan kasir yang membuka shift
         $cashierId = $request->input('cashier_id') ?: session('pos_active_cashier_id');
-        $cashier = $cashierId 
-            ? User::find($cashierId) 
-            : (User::where('email', 'kasir1@sigma.test')->first() ?? User::first());
+        if ($cashierId && $user && in_array($user->role, ['owner', 'manager', 'store_head'], true)) {
+            $cashier = User::find($cashierId) ?? $user;
+        } else {
+            $cashier = $user ?? (User::where('email', 'kasir1@sigma.test')->first() ?? User::first());
+        }
 
         $shift = $this->posService->openShift(
             company: $company,
@@ -627,11 +628,45 @@ class PosController extends Controller
             startingCash: (float) $request->starting_cash
         );
 
+        session(['pos_active_cashier_id' => $cashier->id]);
+
         return response()->json([
             'success' => true,
             'message' => 'Shift berhasil dibuka.',
             'shift' => $shift,
         ]);
+    }
+
+    /**
+     * Dapatkan instance Company dan Store aktif berdasarkan user yang login / request.
+     * Mendukung multi-cabang (multi-store) tanpa hardcoding STR-001 / SIGMA-HO.
+     *
+     * @return array{0: Company, 1: Store}
+     */
+    protected function resolveCompanyAndStore(Request $request): array
+    {
+        $user = $request->user() ?? Auth::user();
+
+        if ($user && $user->store && $user->store->company) {
+            $company = $user->store->company;
+            $store = $user->store;
+        } else {
+            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+            if ($user && $user->store) {
+                $store = $user->store;
+            } elseif ($request->filled('store_id')) {
+                $store = Store::where('company_id', $company->id)->find($request->store_id)
+                    ?? Store::where('company_id', $company->id)->where('code', 'STR-001')->first()
+                    ?? Store::where('company_id', $company->id)->first()
+                    ?? Store::firstOrFail();
+            } else {
+                $store = Store::where('company_id', $company->id)->where('code', 'STR-001')->first()
+                    ?? Store::where('company_id', $company->id)->first()
+                    ?? Store::firstOrFail();
+            }
+        }
+
+        return [$company, $store];
     }
 
     /**
@@ -1041,9 +1076,13 @@ class PosController extends Controller
      */
     public function getRecentTransactions(Request $request): JsonResponse
     {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
         $shiftId = $request->input('shift_id');
 
-        $query = PosTransaction::with(['items.product', 'items.unit'])->latest();
+        $query = PosTransaction::with(['items.product', 'items.unit'])
+            ->where('company_id', $company->id)
+            ->where('store_id', $store->id)
+            ->latest();
 
         if ($shiftId) {
             $shift = $this->authorizeShiftAccess($request, (string) $shiftId);
@@ -1194,13 +1233,18 @@ class PosController extends Controller
             return response()->json(['success' => false, 'message' => 'Nomor faktur wajib diisi.'], 422);
         }
 
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
         $transaction = PosTransaction::with([
             'customer',
             'customerTier',
             'store',
             'items.product',
             'items.productUnit',
-        ])->where('invoice_number', $invoiceNumber)->first();
+        ])
+        ->where('company_id', $company->id)
+        ->where('invoice_number', $invoiceNumber)
+        ->first();
 
         if (! $transaction) {
             return response()->json(['success' => false, 'message' => 'Faktur dengan nomor tersebut tidak ditemukan.'], 404);
@@ -1258,7 +1302,7 @@ class PosController extends Controller
             'rounding_applies_to' => 'required|string|in:CASH_ONLY,ALL',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
         $company->update([
             'rounding_enabled' => (bool) $request->rounding_enabled,
             'rounding_step' => (int) $request->rounding_step,

@@ -603,13 +603,9 @@
                     <button type="button" @click="openEditModal()" class="btn-win text-blue-700 font-bold hover:text-blue-800" title="Ubah Qty / Satuan Item">
                         ✏️ Detail Item [F3 / F2]
                     </button>
-                    <button type="button" class="btn-win">Detail Rakitan</button>
-                    <button type="button" class="btn-win">PPOB</button>
-                    <button type="button" class="btn-win">Info</button>
                     <button type="button" @click="triggerCashDrawer()" class="btn-win text-amber-800 font-bold hover:bg-amber-50 hover:border-amber-400" title="Buka Laci Kasir (Cash Drawer Kick)">
                         🔓 Buka Laci [F2]
                     </button>
-                    <button type="button" class="btn-win">Data Serial</button>
                 </div>
 
                 <!-- Pajak, Keluar Dari, Keterangan -->
@@ -794,21 +790,21 @@
                 <button type="button" @click="openReprintModal()" class="btn-win py-1.5 px-3 font-semibold">
                     🖨️ Cetak
                 </button>
-                <button type="button" class="btn-win py-1.5 px-2.5 font-semibold">
+                <button type="button" @click="holdCurrentCart()" class="btn-win py-1.5 px-2.5 font-semibold" title="Tahan / Pending Transaksi (Ctrl+1)">
                     Pending [CTR+1]
                 </button>
-                <button type="button" class="btn-win py-1.5 px-2.5 font-semibold">
+                <button type="button" @click="openPendingModal()" class="btn-win py-1.5 px-2.5 font-semibold" title="Daftar Transaksi Pending (Ctrl+2 / F7)">
                     DR.Pending [CTR+2]
                 </button>
             </div>
 
-            <!-- TOMBOL BAYAR [F12 / F8] RAKSASA PERSIS iPOS 5 -->
+            <!-- TOMBOL BAYAR [F12] RAKSASA PERSIS iPOS 5 -->
             <div class="flex items-center gap-2">
                 <button type="button"
                         @click="openCheckoutModal()"
                         :disabled="cart.length === 0"
                         class="btn-action-primary text-sm font-black py-2.5 px-10 rounded-md flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
-                    <span>💳 BAYAR [F12 / F8]</span>
+                    <span>💳 BAYAR [F12]</span>
                 </button>
             </div>
         </div>
@@ -825,14 +821,15 @@
             <span><strong class="text-amber-300 font-mono">[F3]</strong>=Detail Item / Tier</span>
             <span><strong class="text-amber-300 font-mono">[F4]</strong>=Voucher</span>
             <span><strong class="text-amber-300 font-mono">[F6]</strong>=Tukar Poin</span>
+            <span><strong class="text-emerald-400 font-mono">[F8]</strong>=Tukar/Retur</span>
             <span><strong class="text-emerald-400 font-mono">[F9]</strong>=Cek Harga</span>
-            <span><strong class="text-amber-300 font-mono">[F12/F8]</strong>=Bayar</span>
             <span><strong class="text-amber-300 font-mono">[F10]</strong>=Cetak Ulang</span>
+            <span><strong class="text-amber-300 font-mono">[F12]</strong>=Bayar</span>
             <span><strong class="text-amber-300 font-mono">[Del]</strong>=Hapus Baris</span>
             <span><strong class="text-amber-300 font-mono">[ESC]</strong>=Batal/Tutup</span>
         </div>
         <div class="font-mono text-blue-200 text-[10px]">
-            SIGMA ERP Engine v1.0 | PostgreSQL 18
+            SIGMA ERP Engine v1.0 | PostgreSQL 16+
         </div>
     </footer>
 
@@ -2499,6 +2496,91 @@
         </div>
     </div>
 
+    <!-- M. MODAL TUKAR POIN LOYALITAS PELANGGAN [F6] -->
+    <div x-show="tukarPoinModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-[#edf0f4] border-2 border-slate-600 rounded p-4 max-w-md w-full shadow-2xl text-xs space-y-3 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-300 pb-1.5">
+                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                    <span>⭐</span>
+                    <span>Penukaran Poin Loyalitas Pelanggan [F6]</span>
+                </h3>
+                <button type="button" @click="tukarPoinModal = false; focusQuantityInput()" class="text-slate-500 font-bold text-base cursor-pointer">&times;</button>
+            </div>
+
+            <template x-if="!selectedCustomer || selectedCustomer.code === 'CUST-UMUM'">
+                <div class="p-3 bg-amber-50 border border-amber-300 rounded space-y-2">
+                    <div class="font-bold text-amber-900">Pelanggan Umum (Non-Member) Terpilih</div>
+                    <p class="text-[11px] text-amber-800">
+                        Penukaran poin loyalitas hanya dapat digunakan untuk pelanggan/member terdaftar yang memiliki saldo poin. Silakan pilih member pada data Pelanggan terlebih dahulu.
+                    </p>
+                </div>
+            </template>
+
+            <template x-if="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM'">
+                <div class="space-y-2.5">
+                    <div class="p-2.5 bg-white border border-slate-300 rounded space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-600">Pelanggan:</span>
+                            <span class="font-bold text-slate-900" x-text="selectedCustomer.name"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-600">Saldo Poin Tersedia:</span>
+                            <span class="font-bold text-amber-800 font-mono text-sm" x-text="(selectedCustomer.loyalty_points || 0) + ' Poin'"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-[11px] text-slate-500">
+                            <span>Nilai Konversi:</span>
+                            <span x-text="'1 Poin = Rp ' + formatRupiah(pointRate) + ' (Min. ' + minPointsToRedeem + ' Poin)'"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Jumlah Poin yang Ditukarkan:</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number"
+                                   min="0"
+                                   :max="selectedCustomer.loyalty_points || 0"
+                                   x-model.number="redeemPointsInput"
+                                   @input="onPointsInputChange()"
+                                   @keydown.enter.prevent="applyPointsRedemption(); tukarPoinModal = false; focusQuantityInput();"
+                                   placeholder="Masukkan kuota poin..."
+                                   class="excel-input flex-1 font-mono text-base font-bold p-1.5">
+                            <button type="button"
+                                    @click="redeemAllCustomerPoints()"
+                                    class="btn-win px-3 py-2 font-bold text-[11px] cursor-pointer">
+                                Tukar Semua
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-2 bg-emerald-50 border border-emerald-300 rounded flex justify-between items-center font-bold text-emerald-900">
+                        <span>Potongan Diskon Belanja:</span>
+                        <span class="font-mono text-sm" x-text="'Rp ' + formatRupiah(Math.min(Math.max(0, subtotal - voucherDiscount), (parseInt(redeemPointsInput) || 0) * pointRate))"></span>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex gap-2 pt-2 border-t border-slate-300">
+                <template x-if="redeemPoints > 0">
+                    <button type="button"
+                            @click="resetRedeemPoints(); tukarPoinModal = false; focusQuantityInput();"
+                            class="btn-win text-rose-700 font-bold px-3 py-1.5 cursor-pointer">
+                        Batalkan Poin
+                    </button>
+                </template>
+                <button type="button" @click="tukarPoinModal = false; focusQuantityInput()" class="btn-win px-3 py-1.5 cursor-pointer">
+                    Tutup (ESC)
+                </button>
+                <template x-if="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM'">
+                    <button type="button"
+                            @click="applyPointsRedemption(); tukarPoinModal = false; focusQuantityInput();"
+                            class="btn-win bg-blue-600 text-white hover:bg-blue-700 flex-1 py-1.5 justify-center font-bold cursor-pointer">
+                        Terapkan Diskon Poin
+                    </button>
+                </template>
+            </div>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT STATE & KEYBOARD SHORTCUTS ENGINE -->
     <script>
         function posDesktopApp() {
@@ -3886,6 +3968,7 @@
                             voucher_code: this.voucherCode || null,
                             redeem_points: this.redeemPoints || 0,
                             notes: this.transactionNotes || null,
+                            manager_pin: this.managerPin || null,
                         };
 
                         const res = await fetch('/pos/checkout', {
@@ -4147,12 +4230,17 @@
 
                 selectTransactionForReprint(t) {
                     this.selectedReprintTx = t;
-                    this.isPastShiftReprint = false;
+                    this.isPastShiftReprint = Boolean(t.cashier_shift_id && this.activeShiftId && t.cashier_shift_id !== this.activeShiftId);
+                    this.managerPin = '';
                 },
 
                 async executeReprint() {
                     if (!this.selectedReprintTx) {
                         alert('Pilih faktur transaksi terlebih dahulu.');
+                        return;
+                    }
+                    if (this.isPastShiftReprint && !this.managerPin) {
+                        alert('Cetak ulang transaksi dari shift lampau memerlukan PIN Otorisasi Manajer.');
                         return;
                     }
                     try {
@@ -4166,6 +4254,7 @@
                             body: JSON.stringify({
                                 shift_id: this.activeShiftId,
                                 paper: this.printerPaperSize,
+                                manager_pin: this.managerPin || null,
                             }),
                         });
                         const data = await res.json().catch(() => ({}));
