@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\CustomerTier;
 use App\Models\Product;
 use App\Models\ProductBarcode;
+use App\Models\ProductBom;
 use App\Models\ProductCategory;
 use App\Models\ProductPrice;
 use App\Models\ProductStock;
@@ -77,8 +78,13 @@ class MasterDataController extends Controller
                 ELSE 7 END")
             ->get();
         $autoSku = 'PRD-'.date('ymd').'-'.strtoupper(Str::random(4));
+        $componentProducts = Product::where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
+            ->with('units')
+            ->orderBy('name')
+            ->get();
 
-        return view('master.product_form', compact('categories', 'suppliers', 'units', 'customerTiers', 'autoSku'));
+        return view('master.product_form', compact('categories', 'suppliers', 'units', 'customerTiers', 'autoSku', 'componentProducts'));
     }
 
     /**
@@ -86,7 +92,15 @@ class MasterDataController extends Controller
      */
     public function editProduct(string $id): View
     {
-        $product = Product::with(['units.barcodes', 'units.prices.customerTier', 'supplier', 'category', 'stocks'])->findOrFail($id);
+        $product = Product::with([
+            'units.barcodes',
+            'units.prices.customerTier',
+            'supplier',
+            'category',
+            'stocks',
+            'boms.componentProduct',
+            'boms.componentUnit',
+        ])->findOrFail($id);
         $categories = ProductCategory::where('is_active', true)->orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $units = Unit::where('is_active', true)->orderBy('code')->get();
@@ -100,8 +114,14 @@ class MasterDataController extends Controller
                 WHEN code = 'KHUSUS' THEN 6 
                 ELSE 7 END")
             ->get();
+        $componentProducts = Product::where('is_active', true)
+            ->where('id', '!=', $product->id)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
+            ->with('units')
+            ->orderBy('name')
+            ->get();
 
-        return view('master.product_form', compact('product', 'categories', 'suppliers', 'units', 'customerTiers'));
+        return view('master.product_form', compact('product', 'categories', 'suppliers', 'units', 'customerTiers', 'componentProducts'));
     }
 
     /**
@@ -397,6 +417,39 @@ class MasterDataController extends Controller
                         'min_quantity' => 1.00,
                         'price' => (float) $request->price_grosir,
                         'is_active' => true,
+                    ]);
+                }
+            }
+
+            // 7. Simpan Komponen Resep BOM (untuk RAKITAN_PROSES & RAKITAN_NON_PROSES)
+            if (
+                in_array($productType, [Product::TYPE_RAKITAN_PROSES, Product::TYPE_RAKITAN_NON_PROSES], true)
+                && $request->has('bom_components')
+                && is_array($request->input('bom_components'))
+            ) {
+                $seenComponents = [];
+                foreach ($request->input('bom_components') as $compRow) {
+                    $compProductId = $compRow['component_product_id'] ?? null;
+                    $compUnitId = $compRow['component_product_unit_id'] ?? null;
+                    $compQty = (float) ($compRow['quantity'] ?? 0);
+
+                    if (
+                        ! $compProductId
+                        || ! $compUnitId
+                        || $compProductId === $product->id
+                        || $compQty <= 0
+                        || isset($seenComponents[$compProductId])
+                    ) {
+                        continue;
+                    }
+
+                    $seenComponents[$compProductId] = true;
+                    ProductBom::create([
+                        'company_id' => $company->id,
+                        'parent_product_id' => $product->id,
+                        'component_product_id' => $compProductId,
+                        'component_product_unit_id' => $compUnitId,
+                        'quantity' => $compQty,
                     ]);
                 }
             }
@@ -709,6 +762,40 @@ class MasterDataController extends Controller
                         }
                     }
                 }
+            }
+
+            // Sinkronisasi Komponen Resep BOM (untuk RAKITAN_PROSES & RAKITAN_NON_PROSES)
+            if (in_array($productType, [Product::TYPE_RAKITAN_PROSES, Product::TYPE_RAKITAN_NON_PROSES], true)) {
+                if ($request->has('bom_components') && is_array($request->input('bom_components'))) {
+                    ProductBom::where('parent_product_id', $product->id)->delete();
+                    $seenComponents = [];
+                    foreach ($request->input('bom_components') as $compRow) {
+                        $compProductId = $compRow['component_product_id'] ?? null;
+                        $compUnitId = $compRow['component_product_unit_id'] ?? null;
+                        $compQty = (float) ($compRow['quantity'] ?? 0);
+
+                        if (
+                            ! $compProductId
+                            || ! $compUnitId
+                            || $compProductId === $product->id
+                            || $compQty <= 0
+                            || isset($seenComponents[$compProductId])
+                        ) {
+                            continue;
+                        }
+
+                        $seenComponents[$compProductId] = true;
+                        ProductBom::create([
+                            'company_id' => $company->id,
+                            'parent_product_id' => $product->id,
+                            'component_product_id' => $compProductId,
+                            'component_product_unit_id' => $compUnitId,
+                            'quantity' => $compQty,
+                        ]);
+                    }
+                }
+            } else {
+                ProductBom::where('parent_product_id', $product->id)->delete();
             }
 
             AuditLog::record(

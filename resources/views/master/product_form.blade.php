@@ -95,6 +95,32 @@
             'discount_4' => 0,
         ];
     }
+
+    $initialBomComponents = [];
+    if ($isEdit && $product->relationLoaded('boms') && $product->boms->count() > 0) {
+        foreach ($product->boms as $bomRow) {
+            $initialBomComponents[] = [
+                'component_product_id' => $bomRow->component_product_id,
+                'component_product_unit_id' => $bomRow->component_product_unit_id,
+                'quantity' => (float) $bomRow->quantity,
+            ];
+        }
+    }
+
+    $componentProductsList = isset($componentProducts)
+        ? $componentProducts->map(fn ($cp) => [
+            'id' => $cp->id,
+            'sku' => $cp->sku,
+            'name' => $cp->name,
+            'cost_price' => (float) $cp->cost_price,
+            'units' => $cp->units->map(fn ($cu) => [
+                'id' => $cu->id,
+                'unit_code' => $cu->unit_code,
+                'unit_name' => $cu->unit_name,
+                'conversion_factor' => (float) $cu->conversion_factor,
+            ])->values()->all(),
+        ])->values()->all()
+        : [];
 @endphp
 
 <div x-data="itemForm({
@@ -106,7 +132,9 @@
         productName: '{{ $isEdit ? addslashes($product->name) : '' }}',
         customerTiersList: {{ json_encode($customerTiersList) }},
         masterUnits: {{ json_encode($units->pluck('code')->all()) }},
-        units: {{ json_encode($initialUnits) }}
+        units: {{ json_encode($initialUnits) }},
+        bomComponents: {{ json_encode($initialBomComponents) }},
+        componentProductsList: {{ json_encode($componentProductsList) }}
      })"
      @keydown.window.f10.prevent="submitForm()"
      @keydown.window.escape="cancelForm()"
@@ -325,6 +353,113 @@
                             </template>
                         </div>
                     </div>
+                </div>
+
+                <!-- 1.1B KOMPONEN PENYUSUN (BOM / PAKET BUNDLING) -->
+                <div x-show="['RAKITAN_PROSES', 'RAKITAN_NON_PROSES'].includes(selectedType)"
+                     class="p-5 rounded-2xl bg-gradient-to-b from-indigo-50/80 to-purple-50/40 border-2 border-indigo-200/90 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <h3 class="text-xs font-black uppercase tracking-wider text-indigo-950 flex items-center gap-2">
+                                <span x-text="selectedType === 'RAKITAN_PROSES' ? '⚙️' : '🎁'"></span>
+                                <span x-text="selectedType === 'RAKITAN_PROSES' ? 'Resep Komponen Rakitan Produksi (BOM Assembly)' : 'Daftar Isi Komponen Paket Bundling'"></span>
+                            </h3>
+                            <p class="text-[11px] text-indigo-800 mt-0.5">
+                                <template x-if="selectedType === 'RAKITAN_PROSES'">
+                                    <span>Komponen di bawah ini akan dikurangi saat melakukan proses perakitan di Gudang.</span>
+                                </template>
+                                <template x-if="selectedType === 'RAKITAN_NON_PROSES'">
+                                    <span>Saat paket bundling ini terjual di Kasir POS, stok fisik masing-masing komponen di bawah ini otomatis terpotong.</span>
+                                </template>
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    @click="syncCostPriceFromBom()"
+                                    x-show="bomComponents.length > 0"
+                                    class="px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-800 border border-indigo-300 font-extrabold text-[11px] rounded-xl transition-all cursor-pointer">
+                                <span>🔄 Gunakan Total HPP Komponen</span>
+                            </button>
+                            <button type="button"
+                                    @click="addBomRow()"
+                                    class="px-3.5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer">
+                                <span>➕ Tambah Komponen</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <template x-if="bomComponents.length === 0">
+                        <div class="p-4 rounded-xl bg-white/80 border border-dashed border-indigo-300 text-center text-xs text-slate-500">
+                            Belum ada komponen penyusun. Klik <strong>+ Tambah Komponen</strong> untuk memilih barang penyusun rakitan/paket.
+                        </div>
+                    </template>
+
+                    <template x-if="bomComponents.length > 0">
+                        <div class="bg-white border border-indigo-200 rounded-2xl overflow-hidden shadow-2xs">
+                            <table class="w-full text-left text-xs divide-y divide-slate-200">
+                                <thead class="bg-indigo-100/70 text-indigo-950 font-black text-[10.5px] uppercase">
+                                    <tr>
+                                        <th class="px-4 py-2.5">Barang Komponen Penyusun</th>
+                                        <th class="px-3 py-2.5 w-44">Satuan Komponen</th>
+                                        <th class="px-3 py-2.5 w-32 text-center">Kuantitas</th>
+                                        <th class="px-4 py-2.5 w-40 text-right">Estimasi HPP</th>
+                                        <th class="px-3 py-2.5 w-16 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="(comp, cIdx) in bomComponents" :key="cIdx">
+                                        <tr>
+                                            <td class="px-4 py-2">
+                                                <select :name="'bom_components[' + cIdx + '][component_product_id]'"
+                                                        x-model="comp.component_product_id"
+                                                        @change="onBomProductChange(cIdx)"
+                                                        class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white">
+                                                    <option value="">-- Pilih Barang Komponen --</option>
+                                                    <template x-for="cp in componentProductsList" :key="cp.id">
+                                                        <option :value="cp.id" x-text="cp.sku + ' - ' + cp.name"></option>
+                                                    </template>
+                                                </select>
+                                            </td>
+                                            <td class="px-3 py-2">
+                                                <select :name="'bom_components[' + cIdx + '][component_product_unit_id]'"
+                                                        x-model="comp.component_product_unit_id"
+                                                        class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white">
+                                                    <template x-for="cu in getComponentUnits(comp.component_product_id)" :key="cu.id">
+                                                        <option :value="cu.id" x-text="cu.unit_code + ' (x' + cu.conversion_factor + ')'"></option>
+                                                    </template>
+                                                </select>
+                                            </td>
+                                            <td class="px-3 py-2 text-center">
+                                                <input type="number"
+                                                       step="any"
+                                                       min="0.0001"
+                                                       :name="'bom_components[' + cIdx + '][quantity]'"
+                                                       x-model.number="comp.quantity"
+                                                       class="w-24 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-center bg-white">
+                                            </td>
+                                            <td class="px-4 py-2 text-right font-mono font-bold text-slate-700"
+                                                x-text="formatRupiah(getBomRowCost(comp))">
+                                            </td>
+                                            <td class="px-3 py-2 text-center">
+                                                <button type="button"
+                                                        @click="removeBomRow(cIdx)"
+                                                        class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-bold text-xs cursor-pointer">
+                                                    🗑️
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                                <tfoot class="bg-indigo-50/70 font-mono text-xs font-black text-indigo-950">
+                                    <tr>
+                                        <td colspan="3" class="px-4 py-2.5 text-right uppercase">Total Estimasi HPP Komponen:</td>
+                                        <td class="px-4 py-2.5 text-right" x-text="formatRupiah(getTotalBomCost())"></td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- 1.2 IDENTITAS UTAMA (SKU & NAMA) -->
@@ -1286,6 +1421,8 @@ function itemForm(config) {
         customerTiersList: config.customerTiersList || [],
         masterUnits: config.masterUnits || [],
         units: config.units || [],
+        bomComponents: config.bomComponents || [],
+        componentProductsList: config.componentProductsList || [],
         mainImagePreview: null,
 
         tracksInventory() {
@@ -1298,6 +1435,54 @@ function itemForm(config) {
             }
             if (!this.tracksInventory() && this.activeTab === 'dimensions') {
                 this.activeTab = 'general';
+            }
+            if (['RAKITAN_PROSES', 'RAKITAN_NON_PROSES'].includes(this.selectedType) && this.bomComponents.length === 0) {
+                this.addBomRow();
+            }
+        },
+
+        addBomRow() {
+            const firstProd = this.componentProductsList[0] || null;
+            const firstUnit = (firstProd && firstProd.units && firstProd.units[0]) ? firstProd.units[0].id : '';
+            this.bomComponents.push({
+                component_product_id: firstProd ? firstProd.id : '',
+                component_product_unit_id: firstUnit,
+                quantity: 1,
+            });
+        },
+
+        removeBomRow(idx) {
+            this.bomComponents.splice(idx, 1);
+        },
+
+        onBomProductChange(idx) {
+            const row = this.bomComponents[idx];
+            const units = this.getComponentUnits(row.component_product_id);
+            row.component_product_unit_id = units.length > 0 ? units[0].id : '';
+        },
+
+        getComponentUnits(productId) {
+            const found = this.componentProductsList.find(p => p.id === productId);
+            return found && found.units ? found.units : [];
+        },
+
+        getBomRowCost(row) {
+            const prod = this.componentProductsList.find(p => p.id === row.component_product_id);
+            if (!prod) return 0;
+            const unit = (prod.units || []).find(u => u.id === row.component_product_unit_id);
+            const conv = unit ? (parseFloat(unit.conversion_factor) || 1) : 1;
+            return (parseFloat(prod.cost_price) || 0) * conv * (parseFloat(row.quantity) || 0);
+        },
+
+        getTotalBomCost() {
+            return this.bomComponents.reduce((sum, r) => sum + this.getBomRowCost(r), 0);
+        },
+
+        syncCostPriceFromBom() {
+            const total = this.getTotalBomCost();
+            if (total > 0) {
+                this.costPrice = Math.round(total);
+                this.recalculateAllUnits();
             }
         },
 
