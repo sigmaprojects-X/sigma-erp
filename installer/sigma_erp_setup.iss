@@ -263,15 +263,14 @@ uses
 var
   // Halaman-halaman wizard kustom
   DbConfigPage: TInputQueryWizardPage;
-  DataDirPage: TInputDirWizardPage;
   PortPage: TInputQueryWizardPage;
   PrereqPage: TOutputMsgMemoWizardPage;
 
   // Variabel konfigurasi yang dikumpulkan dari pengguna
-  SelectedDataDir: String;
   SelectedDbPass: String;
   SelectedPort: String;
   AppKeyGenerated: Boolean;
+  InstallSuccess: Boolean;
 
 // ===========================================================================
 // HELPER: Cek apakah sebuah program ada di PATH sistem
@@ -286,14 +285,16 @@ begin
 end;
 
 // ===========================================================================
-// HELPER: Jalankan perintah artisan Laravel
+// HELPER: Jalankan perintah artisan Laravel dan catat output ke installer.log
 // ===========================================================================
 function RunArtisan(const ArtisanArgs: String): Boolean;
 var
   ResultCode: Integer;
+  LogFile: String;
 begin
+  LogFile := ExpandConstant('{app}') + '\storage\logs\installer.log';
   Result := Exec('cmd.exe',
-    '/C cd /D "' + ExpandConstant('{app}') + '" && php artisan ' + ArtisanArgs + ' >nul 2>&1',
+    '/C cd /D "' + ExpandConstant('{app}') + '" && php artisan ' + ArtisanArgs + ' >> "' + LogFile + '" 2>&1',
     ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := Result and (ResultCode = 0);
 end;
@@ -349,29 +350,9 @@ begin
   DbConfigPage.Values[3] := 'postgres';
   DbConfigPage.Values[4] := DbDefaultPass;
 
-  // ---- Halaman 3: Lokasi Folder Data -----
-  DataDirPage := CreateInputDirPage(
-    DbConfigPage.ID,
-    'Lokasi Penyimpanan Data & Backup',
-    'Pilih folder untuk menyimpan data backup database SIGMA ERP.',
-    'Untuk keamanan data maksimal jika Windows perlu di-install ulang, ' +
-    'disarankan menyimpan data di Drive non-sistem (contoh: D:\SIGMA_DATA).' + #13#10 +
-    #13#10 + 'Folder yang dipilih:',
-    False,
-    'SIGMA_DATA'
-  );
-
-  // Rekomendasikan drive non-sistem
-  if DirExists('D:\') then
-    DataDirPage.Add('D:\SIGMA_DATA')
-  else if DirExists('E:\') then
-    DataDirPage.Add('E:\SIGMA_DATA')
-  else
-    DataDirPage.Add(ExpandConstant('{commonappdata}\SIGMA_DATA'));
-
-  // ---- Halaman 4: Port Web Server -----
+  // ---- Halaman 3: Port Web Server -----
   PortPage := CreateInputQueryPage(
-    DataDirPage.ID,
+    DbConfigPage.ID,
     'Konfigurasi Port Web Server',
     'Tentukan port jaringan yang digunakan oleh Server SIGMA ERP.',
     'Port default adalah 8008. Ubah jika port tersebut sudah digunakan oleh aplikasi lain di komputer ini.' +
@@ -388,7 +369,6 @@ procedure CurPageChanged(CurPageID: Integer);
 var
   Report: String;
   PhpOk, PsqlOk: Boolean;
-  PhpVersion, PsqlVersion: String;
 begin
   if CurPageID = PrereqPage.ID then
   begin
@@ -400,9 +380,9 @@ begin
 
     // PHP
     if PhpOk then
-      Report := Report + '[OK]  PHP 8.2+          : Terdeteksi di PATH sistem'
+      Report := Report + '[OK]  PHP 8.3+          : Terdeteksi di PATH sistem'
     else
-      Report := Report + '[KRITIS] PHP 8.2+       : TIDAK DITEMUKAN!  ' +
+      Report := Report + '[KRITIS] PHP 8.3+       : TIDAK DITEMUKAN!  ' +
         'Download: https://windows.php.net/download/';
     Report := Report + #13#10;
 
@@ -425,9 +405,9 @@ begin
       Report := Report + #13#10 +
         'PERHATIAN: PHP tidak ditemukan!' + #13#10 +
         'Anda dapat melanjutkan instalasi, namun aplikasi TIDAK AKAN BERJALAN' + #13#10 +
-        'sebelum PHP 8.2+ diinstall dan ditambahkan ke PATH Windows.' + #13#10 +
+        'sebelum PHP 8.3+ diinstall dan ditambahkan ke PATH Windows.' + #13#10 +
         #13#10 +
-        'Download PHP 8.2+ Thread-Safe (x64):' + #13#10 +
+        'Download PHP 8.3+ Thread-Safe (x64):' + #13#10 +
         '  https://windows.php.net/download/' + #13#10 +
         #13#10 +
         'Download PostgreSQL 16 untuk Windows:' + #13#10 +
@@ -448,8 +428,6 @@ end;
 // VALIDASI INPUT TIAP HALAMAN SEBELUM LANJUT
 // ===========================================================================
 function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  DbPort: Integer;
 begin
   Result := True;
 
@@ -475,32 +453,6 @@ begin
     SelectedDbPass := DbConfigPage.Values[4];
   end;
 
-  // Validasi halaman Lokasi Data
-  if CurPageID = DataDirPage.ID then
-  begin
-    SelectedDataDir := DataDirPage.Values[0];
-    if SelectedDataDir = '' then
-    begin
-      MsgBox('Harap pilih atau ketikkan lokasi folder penyimpanan data.', mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-    // Coba buat folder jika belum ada
-    if not DirExists(SelectedDataDir) then
-    begin
-      if not ForceDirectories(SelectedDataDir) then
-      begin
-        MsgBox(
-          'Gagal membuat folder: ' + SelectedDataDir + #13#10 +
-          'Pastikan Anda memiliki izin administrator untuk folder tersebut.',
-          mbError, MB_OK
-        );
-        Result := False;
-        Exit;
-      end;
-    end;
-  end;
-
   // Validasi halaman Port Server
   if CurPageID = PortPage.ID then
   begin
@@ -523,126 +475,176 @@ end;
 // ===========================================================================
 function ShouldRunApp: Boolean;
 begin
-  Result := True;
+  Result := InstallSuccess;
 end;
 
 // ===========================================================================
-// POST-INSTALL: Konfigurasi .env, migrasi DB, shortcut, firewall
+// HELPER: Set atau tambahkan pasangan KEY=VALUE pada TStringList (.env)
+// ===========================================================================
+procedure SetEnvKeyValue(EnvList: TStringList; const Key, Value: String);
+var
+  i, EqPos: Integer;
+  Trimmed, CandidateKey: String;
+  Found: Boolean;
+begin
+  Found := False;
+  for i := 0 to EnvList.Count - 1 do
+  begin
+    Trimmed := Trim(EnvList[i]);
+    if (Length(Trimmed) > 0) and (Trimmed[1] = '#') then
+      Trimmed := Trim(Copy(Trimmed, 2, Length(Trimmed)));
+
+    EqPos := Pos('=', Trimmed);
+    if EqPos > 1 then
+    begin
+      CandidateKey := Trim(Copy(Trimmed, 1, EqPos - 1));
+      if CandidateKey = Key then
+      begin
+        EnvList[i] := Key + '=' + Value;
+        Found := True;
+        Break;
+      end;
+    end;
+  end;
+
+  if not Found then
+    EnvList.Add(Key + '=' + Value);
+end;
+
+// ===========================================================================
+// POST-INSTALL: Konfigurasi .env, migrasi DB, seeder awal, shortcut, firewall
 // ===========================================================================
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  AppDir, EnvFile, EnvExample: String;
+  AppDir, EnvFile, EnvExample, LogFile: String;
   DbHost, DbPort, DbName, DbUser, AppUrl: String;
   EnvContent: TStringList;
-  i: Integer;
-  Line, LineKey, SetLine: String;
   ResultCode: Integer;
   FirewallName: String;
 begin
   if CurStep = ssPostInstall then
   begin
+    InstallSuccess := True;
     AppDir := ExpandConstant('{app}');
     EnvFile := AppDir + '\.env';
     EnvExample := AppDir + '\.env.example';
+    LogFile := AppDir + '\storage\logs\installer.log';
 
-    // === Langkah 1: Buat .env dari .env.example jika belum ada ===
+    // === Langkah 1: Buat folder logs & cache yang dibutuhkan ===
+    ForceDirectories(AppDir + '\storage\logs');
+    ForceDirectories(AppDir + '\storage\framework\cache\data');
+    ForceDirectories(AppDir + '\storage\framework\sessions');
+    ForceDirectories(AppDir + '\storage\framework\views');
+    ForceDirectories(AppDir + '\storage\app\public');
+    ForceDirectories(AppDir + '\storage\app\backups');
+    ForceDirectories(AppDir + '\bootstrap\cache');
+
+    // === Langkah 2: Buat .env dari .env.example jika belum ada ===
     if not FileExists(EnvFile) then
     begin
       if FileExists(EnvExample) then
         FileCopy(EnvExample, EnvFile, False);
     end;
 
-    // === Langkah 2: Tulis konfigurasi ke .env ===
-    if FileExists(EnvFile) then
-    begin
-      DbHost := Trim(DbConfigPage.Values[0]);
-      DbPort := Trim(DbConfigPage.Values[1]);
-      DbName := Trim(DbConfigPage.Values[2]);
-      DbUser := Trim(DbConfigPage.Values[3]);
-      AppUrl := 'http://localhost:' + SelectedPort;
+    // === Langkah 3: Tulis konfigurasi ke .env secara deterministik ===
+    DbHost := Trim(DbConfigPage.Values[0]);
+    DbPort := Trim(DbConfigPage.Values[1]);
+    DbName := Trim(DbConfigPage.Values[2]);
+    DbUser := Trim(DbConfigPage.Values[3]);
+    AppUrl := 'http://localhost:' + SelectedPort;
 
-      if DbHost = '' then DbHost := '127.0.0.1';
-      if DbPort = '' then DbPort := '5432';
-      if DbName = '' then DbName := 'sigma_erp';
-      if DbUser = '' then DbUser := 'postgres';
+    if DbHost = '' then DbHost := '127.0.0.1';
+    if DbPort = '' then DbPort := '5432';
+    if DbName = '' then DbName := 'sigma_erp';
+    if DbUser = '' then DbUser := 'postgres';
 
-      EnvContent := TStringList.Create;
-      try
+    EnvContent := TStringList.Create;
+    try
+      if FileExists(EnvFile) then
         EnvContent.LoadFromFile(EnvFile);
-        for i := 0 to EnvContent.Count - 1 do
-        begin
-          Line := EnvContent[i];
-          if Pos('=', Line) > 1 then
-          begin
-            LineKey := Copy(Line, 1, Pos('=', Line) - 1);
-            SetLine := '';
 
-            if LineKey = 'APP_URL'       then SetLine := 'APP_URL=' + AppUrl;
-            if LineKey = 'APP_PORT'      then SetLine := 'APP_PORT=' + SelectedPort;
-            if LineKey = 'APP_ENV'       then SetLine := 'APP_ENV=production';
-            if LineKey = 'APP_DEBUG'     then SetLine := 'APP_DEBUG=false';
-            if LineKey = 'DB_HOST'       then SetLine := 'DB_HOST=' + DbHost;
-            if LineKey = 'DB_PORT'       then SetLine := 'DB_PORT=' + DbPort;
-            if LineKey = 'DB_DATABASE'   then SetLine := 'DB_DATABASE=' + DbName;
-            if LineKey = 'DB_USERNAME'   then SetLine := 'DB_USERNAME=' + DbUser;
-            if LineKey = 'DB_PASSWORD'   then SetLine := 'DB_PASSWORD=' + SelectedDbPass;
-            if LineKey = 'DB_SCHEMA'     then SetLine := 'DB_SCHEMA=sigma';
+      SetEnvKeyValue(EnvContent, 'APP_ENV', 'production');
+      SetEnvKeyValue(EnvContent, 'APP_DEBUG', 'false');
+      SetEnvKeyValue(EnvContent, 'APP_PORT', SelectedPort);
+      SetEnvKeyValue(EnvContent, 'APP_URL', AppUrl);
+      SetEnvKeyValue(EnvContent, 'DB_CONNECTION', 'pgsql');
+      SetEnvKeyValue(EnvContent, 'DB_HOST', DbHost);
+      SetEnvKeyValue(EnvContent, 'DB_PORT', DbPort);
+      SetEnvKeyValue(EnvContent, 'DB_DATABASE', DbName);
+      SetEnvKeyValue(EnvContent, 'DB_USERNAME', DbUser);
+      SetEnvKeyValue(EnvContent, 'DB_PASSWORD', SelectedDbPass);
+      SetEnvKeyValue(EnvContent, 'DB_SCHEMA', 'sigma');
 
-            if SetLine <> '' then
-              EnvContent[i] := SetLine;
-          end;
-        end;
-        EnvContent.SaveToFile(EnvFile);
-      finally
-        EnvContent.Free;
-      end;
+      EnvContent.SaveToFile(EnvFile);
+    finally
+      EnvContent.Free;
     end;
 
-    // === Langkah 3: Simpan jalur data kustom ===
-    SaveStringToFile(AppDir + '\database_storage_path.txt', SelectedDataDir, False);
-
-    // === Langkah 4: Buat folder logs & cache yang dibutuhkan ===
-    ForceDirectories(AppDir + '\storage\logs');
-    ForceDirectories(AppDir + '\storage\framework\cache\data');
-    ForceDirectories(AppDir + '\storage\framework\sessions');
-    ForceDirectories(AppDir + '\storage\framework\views');
-    ForceDirectories(AppDir + '\storage\app\public');
-    ForceDirectories(AppDir + '\bootstrap\cache');
-
-    // === Langkah 5: Generate APP_KEY jika PHP tersedia ===
-    if ProgramExists('php') then
+    // === Langkah 4: Generate APP_KEY, Buat Database, Migrasi & Seeder ===
+    if not ProgramExists('php') then
     begin
-      // Generate Application Key
-      RunArtisan('key:generate --force');
-
-      // Buat symlink storage
-      RunArtisan('storage:link --force');
-
-      // Bersihkan cache konfigurasi
-      RunArtisan('optimize:clear');
-
-      // Cache konfigurasi untuk performa produksi
-      RunArtisan('config:cache');
-      RunArtisan('route:cache');
-      RunArtisan('view:cache');
-
-      // Jalankan Migrasi Database (jika PostgreSQL tersedia)
-      if ProgramExists('psql') then
-      begin
-        // Coba buat database jika belum ada
-        Exec('cmd.exe',
-          '/C set PGPASSWORD=' + SelectedDbPass + ' && psql -U ' +
-          DbConfigPage.Values[3] + ' -h ' + DbConfigPage.Values[0] +
-          ' -p ' + DbConfigPage.Values[1] +
-          ' -c "CREATE DATABASE ' + DbConfigPage.Values[2] + ';" >nul 2>&1',
-          AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-        // Jalankan migrasi
-        RunArtisan('migrate --force');
-      end;
+      InstallSuccess := False;
+      MsgBox('PHP 8.3+ tidak ditemukan di PATH sistem! Instalasi database belum dapat dijalankan. Silakan lihat ' + LogFile, mbCriticalError, MB_OK);
+      Exit;
     end;
 
-    // === Langkah 6: Tambahkan exception Firewall Windows (jika task dipilih) ===
+    if not RunArtisan('key:generate --force') then
+    begin
+      InstallSuccess := False;
+      MsgBox('Gagal membuat APP_KEY Laravel! Silakan periksa log di: ' + LogFile, mbCriticalError, MB_OK);
+      Exit;
+    end;
+
+    RunArtisan('storage:link --force');
+
+    if not ProgramExists('psql') then
+    begin
+      InstallSuccess := False;
+      MsgBox('psql.exe tidak ditemukan di PATH sistem! Pastikan PostgreSQL 15+ sudah terinstall.', mbCriticalError, MB_OK);
+      Exit;
+    end;
+
+    // Buat database sigma_erp jika belum ada
+    Exec('cmd.exe',
+      '/C set "PGPASSWORD=' + SelectedDbPass + '" && psql -v ON_ERROR_STOP=1 -U ' +
+      DbUser + ' -h ' + DbHost + ' -p ' + DbPort +
+      ' -d postgres -c "CREATE DATABASE ' + DbName + ';" >> "' + LogFile + '" 2>&1',
+      AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    // Pastikan koneksi ke database & schema sigma berhasil
+    if not Exec('cmd.exe',
+      '/C set "PGPASSWORD=' + SelectedDbPass + '" && psql -v ON_ERROR_STOP=1 -U ' +
+      DbUser + ' -h ' + DbHost + ' -p ' + DbPort +
+      ' -d ' + DbName + ' -c "CREATE SCHEMA IF NOT EXISTS sigma;" >> "' + LogFile + '" 2>&1',
+      AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+    begin
+      InstallSuccess := False;
+      MsgBox('Gagal terhubung atau menyiapkan database PostgreSQL (' + DbName + '). Periksa apakah PostgreSQL berjalan dan password benar. Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      Exit;
+    end;
+
+    if not RunArtisan('migrate --force') then
+    begin
+      InstallSuccess := False;
+      MsgBox('Gagal menjalankan migrasi database (php artisan migrate --force)! Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      Exit;
+    end;
+
+    if not RunArtisan('db:seed --force') then
+    begin
+      InstallSuccess := False;
+      MsgBox('Gagal menjalankan seeder data awal (php artisan db:seed --force)! Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      Exit;
+    end;
+
+    if not RunArtisan('optimize:clear') then
+    begin
+      InstallSuccess := False;
+      MsgBox('Gagal membersihkan cache aplikasi! Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      Exit;
+    end;
+
+    // === Langkah 5: Tambahkan exception Firewall Windows (jika task dipilih) ===
     if IsTaskSelected('firewall') then
     begin
       FirewallName := 'SIGMA ERP Server (Port ' + SelectedPort + ')';

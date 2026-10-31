@@ -16,7 +16,7 @@ where php >nul 2>nul
 if %errorlevel% neq 0 (
     color 0C
     echo [ERROR] PHP tidak terdeteksi di komputer ini!
-    echo Silakan install PHP 8.2+ atau masukkan path PHP ke System Environment Variables.
+    echo Silakan install PHP 8.3+ atau masukkan path PHP ke System Environment Variables.
     echo.
     pause
     exit /b 1

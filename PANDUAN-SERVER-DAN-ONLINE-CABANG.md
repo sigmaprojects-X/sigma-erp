@@ -81,7 +81,7 @@ Jika komputer server lama rusak atau Anda ingin memindahkan SIGMA ERP ke kompute
 
 ### Langkah B: Di Komputer Baru
 1. Pasang aplikasi pendukung di komputer baru:
-   - **PHP 8.2+** (centang *Add to PATH*).
+   - **PHP 8.3+** (centang *Add to PATH*).
    - **PostgreSQL 16+** (dengan password yang Anda ingat).
 2. Pindahkan folder `SIGMA ERP` dari Flashdisk ke drive `D:\` atau `C:\`.
 3. Klik 2x file **`SETUP-KOMPUTER-BARU.bat`**.

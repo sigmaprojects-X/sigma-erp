@@ -8,59 +8,151 @@ echo        SIGMA ERP ^& POS - SETUP OTOMATIS KOMPUTER SERVER BARU
 echo ===============================================================================
 echo.
 echo Script ini akan menyiapkan seluruh dependensi, file konfigurasi, database,
-echo dan shortcut desktop agar aplikasi langsung siap digunakan di komputer ini.
+echo data awal (seeder), dan shortcut desktop agar aplikasi siap digunakan.
 echo.
 
 cd /d "%~dp0"
 
-:: 1. Cek PHP
+:: 1. Cek PHP 8.3+
 where php >nul 2>nul
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     color 0C
     echo [ERROR] PHP tidak terdeteksi!
-    echo Harap install PHP 8.2+ terlebih dahulu dan centang 'Add to PATH'.
+    echo Harap install PHP 8.3+ terlebih dahulu dan centang 'Add to PATH'.
     pause
     exit /b 1
 )
-echo [OK] PHP terdeteksi: 
+
+php -r "exit(version_compare(PHP_VERSION, '8.3.0', '>=') ? 0 : 1);"
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Versi PHP terlalu lama! SIGMA ERP membutuhkan PHP 8.3+.
+    php -v
+    pause
+    exit /b 1
+)
+
+echo [OK] PHP 8.3+ terdeteksi:
 php -v | findstr /i "php 8"
 echo.
 
 :: 2. Siapkan File .env
 if not exist ".env" (
-    echo [*] Membuat file .env dari template...
-    copy .env.example .env >nul
-    echo [*] Menggenerate APP_KEY...
-    php artisan key:generate --force
+    if not exist ".env.example" (
+        color 0C
+        echo [ERROR] File .env.example tidak ditemukan!
+        pause
+        exit /b 1
+    )
+    echo [*] Membuat file .env dari template .env.example...
+    copy /y ".env.example" ".env" >nul
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] Gagal menyalin .env.example ke .env!
+        pause
+        exit /b 1
+    )
 ) else (
-    echo [OK] File .env sudah ada.
+    echo [OK] File .env sudah tersedia.
 )
 
-:: 3. Konfirmasi Password PostgreSQL
+:: 3. Konfirmasi Password PostgreSQL & Tulis .env Secara Deterministik
 echo.
+set "DB_PASS=885588"
 set /p DB_PASS="Masukkan Password PostgreSQL Anda [Tekan Enter jika default '885588']: "
-if "%DB_PASS%"=="" set DB_PASS=885588
+if "!DB_PASS!"=="" set "DB_PASS=885588"
 
-powershell -NoProfile -Command "(Get-Content .env) -replace '^DB_PASSWORD=.*', 'DB_PASSWORD=%DB_PASS%' | Set-Content .env"
-
-:: 4. Buat Database sigma_erp Jika Belum Ada
-echo [*] Memastikan database PostgreSQL 'sigma_erp' tersedia...
-set PGPASSWORD=%DB_PASS%
-where psql >nul 2>nul
-if %errorlevel% equ 0 (
-    psql -U postgres -h 127.0.0.1 -p 5432 -c "CREATE DATABASE sigma_erp;" >nul 2>nul
+set "SIGMA_ENV_DB_PASS=!DB_PASS!"
+php -r "$file = '.env'; $lines = file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : []; $updates = ['APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'DB_CONNECTION' => 'pgsql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_DATABASE' => 'sigma_erp', 'DB_USERNAME' => 'postgres', 'DB_PASSWORD' => getenv('SIGMA_ENV_DB_PASS') ?: '', 'DB_SCHEMA' => 'sigma']; $seen = []; foreach ($lines as $i => $line) { if (preg_match('/^\s*#?\s*([A-Z0-9_]+)\s*=/', $line, $m)) { $k = $m[1]; if (array_key_exists($k, $updates)) { $lines[$i] = $k . '=' . $updates[$k]; $seen[$k] = true; } } } foreach ($updates as $k => $v) { if (!isset($seen[$k])) { $lines[] = $k . '=' . $v; } } file_put_contents($file, implode(PHP_EOL, $lines) . PHP_EOL);"
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal menulis konfigurasi database ke file .env!
+    pause
+    exit /b 1
 )
 
-:: 5. Jalankan Migrasi Database
+echo [*] Menggenerate APP_KEY...
+php artisan key:generate --force
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal membuat APP_KEY Laravel!
+    pause
+    exit /b 1
+)
+
+:: 4. Deteksi Binary psql & Buat Database sigma_erp
+set PSQL_BIN=psql
+where psql >nul 2>nul
+if !errorlevel! neq 0 (
+    if exist "C:\Program Files\PostgreSQL\18\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\18\bin\psql.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\17\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\17\bin\psql.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\16\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\16\bin\psql.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\15\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\15\bin\psql.exe"
+    ) else (
+        color 0C
+        echo [ERROR] psql.exe tidak ditemukan! Pastikan PostgreSQL 15+ sudah terinstall.
+        pause
+        exit /b 1
+    )
+)
+
+echo [*] Memastikan database PostgreSQL 'sigma_erp' dan schema 'sigma' tersedia...
+set "PGPASSWORD=!DB_PASS!"
+%PSQL_BIN% -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -p 5432 -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'sigma_erp'" | findstr /c:"1" >nul
+if !errorlevel! neq 0 (
+    %PSQL_BIN% -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -p 5432 -d postgres -c "CREATE DATABASE sigma_erp;"
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] Gagal membuat database 'sigma_erp'. Periksa apakah service PostgreSQL berjalan dan password benar!
+        pause
+        exit /b 1
+    )
+)
+
+%PSQL_BIN% -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -p 5432 -d sigma_erp -c "CREATE SCHEMA IF NOT EXISTS sigma;"
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal menginisialisasi schema 'sigma' pada database 'sigma_erp'!
+    pause
+    exit /b 1
+)
+
+:: 5. Jalankan Migrasi Database & Seeder Awal
 echo [*] Menjalankan migrasi database SIGMA ERP...
 php artisan migrate --force
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal menjalankan migrasi database! Proses setup dihentikan.
+    pause
+    exit /b 1
+)
 echo [OK] Struktur tabel database siap.
+
+echo [*] Menjalankan seeder data awal (User, Perusahaan, Toko, CoA)...
+php artisan db:seed --force
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal menjalankan seeder data awal (db:seed)! Proses setup dihentikan.
+    pause
+    exit /b 1
+)
+echo [OK] Data awal dan akun pengguna berhasil disiapkan.
 
 :: 6. Optimasi Cache Laravel
 echo [*] Membersihkan dan mengoptimalkan cache aplikasi...
-php artisan optimize:clear >nul 2>nul
+php artisan optimize:clear
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal membersihkan cache aplikasi!
+    pause
+    exit /b 1
+)
 
-:: 7. Buat Shortcut di Desktop Windows & Windows Startup Otomatis dengan Logo Resmi SIGMA HD
+:: 7. Buat Shortcut di Desktop Windows & Windows Startup Otomatis
 echo [*] Membuat Shortcut di Desktop Windows & Mengaktifkan Auto-Start Komputer...
 powershell -NoProfile -Command ^
     "$ws = New-Object -ComObject WScript.Shell; " ^
@@ -89,7 +181,7 @@ powershell -NoProfile -Command ^
     "$s3.IconLocation = $icon + ',0'; " ^
     "$s3.Description = 'Layar Kasir Fullscreen Kiosk'; " ^
     "$s3.Save(); " ^
-    "& ie4uinit.exe -show" >nul 2>nul
+    "& ie4uinit.exe -show"
 
 echo.
 echo ===============================================================================
@@ -102,6 +194,5 @@ echo    - SIGMA KASIR & POS (Layar Kasir Standar - Otomatis Nyalakan Server)
 echo    - SIGMA POS Kasir (Kiosk) (Layar Kasir Cepat / Fullscreen)
 echo 2. Auto-Start Windows telah AKTIF:
 echo    - Server SIGMA akan OTOMATIS berjalan di background saat komputer dinyalakan.
-echo    - Anda tidak perlu lagi membuka folder atau menjalankan file .bat secara manual!
 echo.
 pause

@@ -13,43 +13,61 @@ echo.
 
 cd /d "%~dp0"
 
-:: 1. Cek Ketersediaan PHP
+:: 1. Cek Ketersediaan PHP 8.3+
 where php >nul 2>nul
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     color 0C
-    echo [PERINGATAN] PHP belum terdeteksi di PATH sistem Windows!
-    echo Harap pastikan PHP 8.2+ terinstall dan ditambahkan ke System Environment PATH.
-    echo.
+    echo [ERROR] PHP belum terdeteksi di PATH sistem Windows!
+    echo Harap pastikan PHP 8.3+ terinstall dan ditambahkan ke System Environment PATH.
+    pause
+    exit /b 1
 )
 
-:: 2. Tentukan Default Drive & Folder Instalasi
+php -r "exit(version_compare(PHP_VERSION, '8.3.0', '>=') ? 0 : 1);"
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Versi PHP tidak memenuhi syarat! SIGMA ERP membutuhkan PHP 8.3+.
+    php -v
+    pause
+    exit /b 1
+)
+
+:: 2. Deteksi Binary psql
+set PSQL_BIN=psql
+where psql >nul 2>nul
+if !errorlevel! neq 0 (
+    if exist "C:\Program Files\PostgreSQL\18\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\18\bin\psql.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\17\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\17\bin\psql.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\16\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\16\bin\psql.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\15\bin\psql.exe" (
+        set PSQL_BIN="C:\Program Files\PostgreSQL\15\bin\psql.exe"
+    ) else (
+        color 0C
+        echo [ERROR] psql.exe tidak ditemukan! Pastikan PostgreSQL 15+ sudah terinstall.
+        pause
+        exit /b 1
+    )
+)
+
+:: 3. Tentukan Default Folder Instalasi & Parameter
 set "DEFAULT_APP_DIR=C:\SIGMA-ERP"
-if exist "D:\" (
-    set "DEFAULT_DATA_DIR=D:\SIGMA-DATABASE"
-) else (
-    set "DEFAULT_DATA_DIR=C:\SIGMA-DATABASE"
-)
-
-:: 3. Jalankan GUI Pemilihan Folder jika PowerShell tersedia
 set "CHOSEN_APP_DIR=%DEFAULT_APP_DIR%"
-set "CHOSEN_DATA_DIR=%DEFAULT_DATA_DIR%"
 set "CHOSEN_PORT=8008"
 set "CHOSEN_PASS=885588"
 
 echo -------------------------------------------------------------------------------
-echo KONFIGURASI PENEMPATAN APLIKASI ^& DATABASE:
+echo KONFIGURASI PENEMPATAN APLIKASI ^& KONEKSI DATABASE:
 echo -------------------------------------------------------------------------------
 echo [1] Lokasi Aplikasi default : %DEFAULT_APP_DIR%
-echo [2] Lokasi Database default : %DEFAULT_DATA_DIR% (Aman dari Install Ulang Windows)
-echo [3] Port Web Server default : %CHOSEN_PORT%
+echo [2] Port Web Server default : %CHOSEN_PORT%
 echo -------------------------------------------------------------------------------
 echo.
 
 set /p USER_APP="Tentukan Folder Instalasi Aplikasi [%DEFAULT_APP_DIR%]: "
 if not "%USER_APP%"=="" set "CHOSEN_APP_DIR=%USER_APP%"
-
-set /p USER_DATA="Tentukan Folder Penyimpanan Database [%DEFAULT_DATA_DIR%]: "
-if not "%USER_DATA%"=="" set "CHOSEN_DATA_DIR=%USER_DATA%"
 
 set /p USER_PORT="Tentukan Port Aplikasi [%CHOSEN_PORT%]: "
 if not "%USER_PORT%"=="" set "CHOSEN_PORT=%USER_PORT%"
@@ -64,55 +82,117 @@ echo ===========================================================================
 echo.
 
 :: 4. Buat Direktori Tujuan
-if not exist "%CHOSEN_APP_DIR%" mkdir "%CHOSEN_APP_DIR%"
-if not exist "%CHOSEN_DATA_DIR%" mkdir "%CHOSEN_DATA_DIR%"
+if not exist "%CHOSEN_APP_DIR%" (
+    mkdir "%CHOSEN_APP_DIR%"
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] Gagal membuat folder instalasi: %CHOSEN_APP_DIR%
+        pause
+        exit /b 1
+    )
+)
 
 :: 5. Salin Berkas Aplikasi ke Folder Tujuan
 echo [1/6] Menyalin seluruh berkas aplikasi SIGMA ERP ^& POS...
 robocopy "%~dp0." "%CHOSEN_APP_DIR%" /E /XD ".git" "node_modules" "storage\logs" "backups" /XF "SETUP.bat" "SETUP-STANDALONE.bat" "*.zip" >nul
+if !errorlevel! geq 8 (
+    color 0C
+    echo [ERROR] Gagal menyalin berkas aplikasi ke %CHOSEN_APP_DIR%!
+    pause
+    exit /b 1
+)
 echo [OK] Berkas aplikasi berhasil disalin.
 
-:: 6. Konfigurasi File .env di Folder Tujuan
+:: 6. Konfigurasi File .env di Folder Tujuan Secara Deterministik
 echo [2/6] Mengonfigurasi file environment sistem (.env)...
 cd /d "%CHOSEN_APP_DIR%"
 
 if not exist ".env" (
     if exist ".env.example" (
-        copy .env.example .env >nul
+        copy /y ".env.example" ".env" >nul
+        if !errorlevel! neq 0 (
+            color 0C
+            echo [ERROR] Gagal membuat file .env dari .env.example!
+            pause
+            exit /b 1
+        )
+    ) else (
+        color 0C
+        echo [ERROR] File .env.example tidak ditemukan di %CHOSEN_APP_DIR%!
+        pause
+        exit /b 1
     )
 )
 
-powershell -NoProfile -Command ^
-    "$env = Get-Content '.env'; " ^
-    "$env = $env -replace '^APP_PORT=.*', 'APP_PORT=%CHOSEN_PORT%'; " ^
-    "$env = $env -replace '^APP_URL=.*', 'APP_URL=http://localhost:%CHOSEN_PORT%'; " ^
-    "$env = $env -replace '^DB_PASSWORD=.*', 'DB_PASSWORD=%CHOSEN_PASS%'; " ^
-    "$env | Set-Content '.env'"
+set "SIGMA_ENV_PORT=!CHOSEN_PORT!"
+set "SIGMA_ENV_DB_PASS=!CHOSEN_PASS!"
+php -r "$file = '.env'; $lines = file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : []; $port = getenv('SIGMA_ENV_PORT') ?: '8008'; $updates = ['APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'APP_PORT' => $port, 'APP_URL' => 'http://localhost:' . $port, 'DB_CONNECTION' => 'pgsql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_DATABASE' => 'sigma_erp', 'DB_USERNAME' => 'postgres', 'DB_PASSWORD' => getenv('SIGMA_ENV_DB_PASS') ?: '', 'DB_SCHEMA' => 'sigma']; $seen = []; foreach ($lines as $i => $line) { if (preg_match('/^\s*#?\s*([A-Z0-9_]+)\s*=/', $line, $m)) { $k = $m[1]; if (array_key_exists($k, $updates)) { $lines[$i] = $k . '=' . $updates[$k]; $seen[$k] = true; } } } foreach ($updates as $k => $v) { if (!isset($seen[$k])) { $lines[] = $k . '=' . $v; } } file_put_contents($file, implode(PHP_EOL, $lines) . PHP_EOL);"
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal menulis konfigurasi ke file .env!
+    pause
+    exit /b 1
+)
+echo [OK] Konfigurasi tersimpan di .env.
 
-echo %CHOSEN_DATA_DIR% > "%CHOSEN_APP_DIR%\database_storage_path.txt"
-echo [OK] Konfigurasi tersimpan (.env ^& database_storage_path.txt).
-
-:: 7. Generate Application Key jika diperlukan
+:: 7. Generate Application Key
 echo [3/6] Mengamankan Application Security Key...
-where php >nul 2>nul
-if %errorlevel% equ 0 (
-    php artisan key:generate --force >nul 2>nul
-    echo [OK] Application Security Key aktif.
+php artisan key:generate --force
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal menjalankan php artisan key:generate!
+    pause
+    exit /b 1
+)
+echo [OK] Application Security Key aktif.
+
+:: 8. Buat Database sigma_erp, Jalankan Migrasi & Seeder Awal
+echo [4/6] Menginisialisasi Database, Schema ^& Data Awal PostgreSQL...
+set "PGPASSWORD=!CHOSEN_PASS!"
+%PSQL_BIN% -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -p 5432 -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'sigma_erp'" | findstr /c:"1" >nul
+if !errorlevel! neq 0 (
+    %PSQL_BIN% -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -p 5432 -d postgres -c "CREATE DATABASE sigma_erp;"
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] Gagal membuat database 'sigma_erp'. Pastikan PostgreSQL berjalan dan password benar!
+        pause
+        exit /b 1
+    )
 )
 
-:: 8. Jalankan Migrasi Database
-echo [4/6] Menginisialisasi Database ^& Schema PostgreSQL...
-where php >nul 2>nul
-if %errorlevel% equ 0 (
-    php artisan migrate --force >nul 2>nul
-    echo [OK] Struktur tabel database siap.
+%PSQL_BIN% -v ON_ERROR_STOP=1 -U postgres -h 127.0.0.1 -p 5432 -d sigma_erp -c "CREATE SCHEMA IF NOT EXISTS sigma;"
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal membuat schema 'sigma' pada database 'sigma_erp'!
+    pause
+    exit /b 1
 )
+
+php artisan migrate --force
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Migrasi tabel database gagal! Instalasi dihentikan.
+    pause
+    exit /b 1
+)
+
+php artisan db:seed --force
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Seeding data awal (db:seed) gagal! Instalasi dihentikan.
+    pause
+    exit /b 1
+)
+echo [OK] Struktur tabel dan data awal (user/master) siap digunakan.
 
 :: 9. Optimasi Cache Laravel
 echo [5/6] Mengoptimalkan performa cache sistem...
-where php >nul 2>nul
-if %errorlevel% equ 0 (
-    php artisan optimize:clear >nul 2>nul
+php artisan optimize:clear
+if !errorlevel! neq 0 (
+    color 0C
+    echo [ERROR] Gagal membersihkan cache sistem!
+    pause
+    exit /b 1
 )
 
 :: 10. Buat Shortcut Windows Desktop & Start Menu dengan Logo Resmi SIGMA HD
@@ -148,7 +228,7 @@ powershell -NoProfile -Command ^
     "$s4.WorkingDirectory = '%CHOSEN_APP_DIR%'; " ^
     "$s4.IconLocation = $icon + ',0'; " ^
     "$s4.Save(); " ^
-    "& ie4uinit.exe -show" >nul 2>nul
+    "& ie4uinit.exe -show"
 
 echo.
 echo ===============================================================================
@@ -156,7 +236,6 @@ echo                INSTALASI SIGMA ERP ^& POS PRO BERHASIL 100%!
 echo ===============================================================================
 echo.
 echo Folder Aplikasi : %CHOSEN_APP_DIR%
-echo Folder Database : %CHOSEN_DATA_DIR%
 echo URL Aplikasi    : http://localhost:%CHOSEN_PORT%
 echo.
 echo Shortcut telah dibuat di Desktop Windows:

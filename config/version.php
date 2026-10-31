@@ -6,7 +6,7 @@ return [
     'build_number' => '20261030',
     'release_date' => '2026-10-30',
     'channel' => 'stable',
-    'min_php_version' => '8.2.0',
+    'min_php_version' => '8.3.0',
     'min_postgres_version' => '15.0',
     'latest_version' => '1.0.2',
     'update_available' => false,
