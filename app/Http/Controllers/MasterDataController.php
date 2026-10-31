@@ -843,7 +843,21 @@ class MasterDataController extends Controller
                 || DB::table('stock_movement_items')->where('product_id', $product->id)->exists(),
             'Konsinyasi' => DB::table('consignment_receipt_items')->where('product_id', $product->id)->exists()
                 || DB::table('consignment_settlement_items')->where('product_id', $product->id)->exists(),
-            'Promosi / Diskon' => DB::table('promotions')->where('buy_product_id', $product->id)->orWhere('reward_product_id', $product->id)->exists(),
+            'Promosi / Diskon' => DB::table('promotions')->where(function ($q) use ($product) {
+                $q->where('buy_product_id', $product->id)
+                    ->orWhere('reward_product_id', $product->id);
+                if (DB::getSchemaBuilder()->hasColumn('promotions', 'product_id')) {
+                    $q->orWhere('product_id', $product->id);
+                }
+            })->exists(),
+            'Penukaran Poin / Reward' => (DB::getSchemaBuilder()->hasTable('loyalty_reward_redemptions') && DB::getSchemaBuilder()->hasTable('loyalty_rewards')
+                && DB::table('loyalty_reward_redemptions')
+                    ->join('loyalty_rewards', 'loyalty_rewards.id', '=', 'loyalty_reward_redemptions.loyalty_reward_id')
+                    ->where('loyalty_rewards.product_id', $product->id)
+                    ->exists())
+                || (DB::getSchemaBuilder()->hasTable('loyalty_reward_redemptions')
+                    && DB::getSchemaBuilder()->hasColumn('loyalty_reward_redemptions', 'product_id')
+                    && DB::table('loyalty_reward_redemptions')->where('product_id', $product->id)->exists()),
             'Perakitan / BOM' => DB::table('product_boms')->where('parent_product_id', $product->id)->orWhere('component_product_id', $product->id)->exists()
                 || DB::table('product_assemblies')->where('parent_product_id', $product->id)->exists()
                 || DB::table('product_assembly_items')->where('component_product_id', $product->id)->exists(),
@@ -864,20 +878,10 @@ class MasterDataController extends Controller
         // 3. Eksekusi Penghapusan Aman untuk Barang yang Belum Pernah Bertransaksi (Salah Input)
         $productName = $product->name;
         $productSku = $product->sku;
+        $mainImageToDelete = $product->image_path;
+        $additionalImagesToDelete = is_array($product->additional_images) ? $product->additional_images : [];
 
         DB::transaction(function () use ($product, $productName, $productSku) {
-            // Hapus file gambar jika ada
-            if ($product->image_path && Storage::disk('public')->exists($product->image_path)) {
-                Storage::disk('public')->delete($product->image_path);
-            }
-            if (! empty($product->additional_images) && is_array($product->additional_images)) {
-                foreach ($product->additional_images as $img) {
-                    if (Storage::disk('public')->exists($img)) {
-                        Storage::disk('public')->delete($img);
-                    }
-                }
-            }
-
             // Hapus relasi master child
             ProductPrice::where('product_id', $product->id)->delete();
             ProductBarcode::where('product_id', $product->id)->delete();
@@ -901,6 +905,18 @@ class MasterDataController extends Controller
                 description: "Menghapus master produk salah input [{$productName}] (SKU: {$productSku}) yang belum pernah bertransaksi."
             );
         });
+
+        // Hapus file gambar hanya setelah transaksi database berhasil commit
+        if ($mainImageToDelete && Storage::disk('public')->exists($mainImageToDelete)) {
+            Storage::disk('public')->delete($mainImageToDelete);
+        }
+        if (! empty($additionalImagesToDelete)) {
+            foreach ($additionalImagesToDelete as $img) {
+                if (Storage::disk('public')->exists($img)) {
+                    Storage::disk('public')->delete($img);
+                }
+            }
+        }
 
         return redirect()->route('master.products')->with('success', "Alhamdulillah, barang salah input [{$productName}] berhasil dihapus dari sistem.");
     }

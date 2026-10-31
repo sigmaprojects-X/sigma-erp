@@ -139,4 +139,115 @@ class CleanupAndFinalHardeningTest extends TestCase
 
         \Illuminate\Support\Facades\Log::shouldHaveReceived('error')->once();
     }
+
+    public function test_destroy_product_blocks_loyalty_redemptions_and_promotions_and_deletes_images_only_after_commit(): void
+    {
+        $this->seedMinimalData();
+
+        $company = Company::firstOrFail();
+        $store = Store::firstOrFail();
+        $owner = User::where('role', 'owner')->firstOrFail();
+        $tier = \App\Models\CustomerTier::firstOrFail();
+        $customer = \App\Models\Customer::first() ?? \App\Models\Customer::create([
+            'company_id' => $company->id,
+            'customer_tier_id' => $tier->id,
+            'code' => 'CUST-RDM-01',
+            'name' => 'Pelanggan Uji Reward',
+            'is_active' => true,
+        ]);
+
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        // 1. Produk dengan riwayat penukaran reward loyalty (loyalty_reward_redemptions) harus ditolak dihapus
+        $productWithRedemption = \App\Models\Product::create([
+            'company_id' => $company->id,
+            'store_id' => $store->id,
+            'sku' => 'SKU-REWARD-01',
+            'name' => 'Merchandise Payung SIGMA',
+            'slug' => 'merchandise-payung-sigma',
+            'category' => 'Merchandise',
+            'cost_price' => 25000,
+            'last_purchase_price' => 25000,
+            'total_stock_value' => 0,
+            'total_quantity' => 0,
+            'is_active' => true,
+        ]);
+
+        $reward = \App\Models\LoyaltyReward::create([
+            'company_id' => $company->id,
+            'code' => 'RWD-PAYUNG-01',
+            'name' => 'Hadiah Payung SIGMA',
+            'product_id' => $productWithRedemption->id,
+            'points_required' => 100,
+            'stock_quantity' => 5,
+            'is_active' => true,
+        ]);
+
+        \App\Models\LoyaltyRewardRedemption::create([
+            'company_id' => $company->id,
+            'store_id' => $store->id,
+            'customer_id' => $customer->id,
+            'loyalty_reward_id' => $reward->id,
+            'redemption_number' => 'RDM-TEST-0001',
+            'points_used' => 100,
+            'quantity' => 1,
+            'redemption_date' => now()->toDateString(),
+            'created_by' => $owner->id,
+        ]);
+
+        $respBlocked = $this->actingAs($owner)
+            ->from(route('master.products'))
+            ->delete(route('master.products.destroy', $productWithRedemption->id));
+
+        $respBlocked->assertRedirect(route('master.products'));
+        $respBlocked->assertSessionHas('error');
+        $this->assertDatabaseHas('products', ['id' => $productWithRedemption->id]);
+
+        // 2. Pastikan penghapusan file gambar hanya dieksekusi SETELAH transaksi DB commit
+        \Illuminate\Support\Facades\Storage::disk('public')->put('products/main-test.jpg', 'dummy-main');
+        \Illuminate\Support\Facades\Storage::disk('public')->put('products/gallery/gal-1.jpg', 'dummy-gal');
+
+        $productRollback = \App\Models\Product::create([
+            'company_id' => $company->id,
+            'store_id' => $store->id,
+            'sku' => 'SKU-ROLLBACK-IMG',
+            'name' => 'Barang Uji Rollback Gambar',
+            'slug' => 'barang-uji-rollback-gambar',
+            'category' => 'Umum',
+            'cost_price' => 10000,
+            'last_purchase_price' => 10000,
+            'total_stock_value' => 0,
+            'total_quantity' => 0,
+            'image_path' => 'products/main-test.jpg',
+            'additional_images' => ['products/gallery/gal-1.jpg'],
+            'is_active' => true,
+        ]);
+
+        // Pasang listener yang menggagalkan transaksi saat Product::deleting dipicu di dalam DB::transaction
+        $shouldFailDelete = true;
+        \App\Models\Product::deleting(function ($model) use ($productRollback, &$shouldFailDelete) {
+            if ($shouldFailDelete && $model->id === $productRollback->id) {
+                throw new \RuntimeException('Simulated DB failure inside transaction before commit');
+            }
+        });
+
+        try {
+            $this->actingAs($owner)->delete(route('master.products.destroy', $productRollback->id));
+        } catch (\Throwable $e) {
+            // Expected rollback
+        }
+
+        // Karena transaksi gagal/rollback, file gambar TIDAK BOLEH sudah terhapus!
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists('products/main-test.jpg');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists('products/gallery/gal-1.jpg');
+        $this->assertDatabaseHas('products', ['id' => $productRollback->id]);
+
+        // Sekarang izinkan transaksi commit dan pastikan gambar terhapus setelah commit
+        $shouldFailDelete = false;
+        $respSuccess = $this->actingAs($owner)->delete(route('master.products.destroy', $productRollback->id));
+        $respSuccess->assertRedirect(route('master.products'));
+        $this->assertDatabaseMissing('products', ['id' => $productRollback->id]);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('products/main-test.jpg');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('products/gallery/gal-1.jpg');
+    }
 }
