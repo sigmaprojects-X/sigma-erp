@@ -54,16 +54,7 @@ class PosService
      */
     public function openShift(Company $company, Store $store, string $cashierId, float $startingCash): CashierShift
     {
-        $existingShift = CashierShift::where('store_id', $store->id)
-            ->where('cashier_id', $cashierId)
-            ->where('status', 'OPEN')
-            ->first();
-
-        if ($existingShift) {
-            return $existingShift;
-        }
-
-        if ($company && $company->cashier_require_starting_cash && $startingCash < 0) {
+        if ($startingCash < 0) {
             throw new \InvalidArgumentException('Modal awal kasir tidak boleh bernilai negatif.');
         }
 
@@ -73,17 +64,29 @@ class PosService
             );
         }
 
-        $shiftNumber = 'SHF-'.date('Ymd').'-'.strtoupper(Str::random(5));
+        return DB::transaction(function () use ($company, $store, $cashierId, $startingCash) {
+            $existingShift = CashierShift::where('store_id', $store->id)
+                ->where('cashier_id', $cashierId)
+                ->where('status', 'OPEN')
+                ->lockForUpdate()
+                ->first();
 
-        return CashierShift::create([
-            'company_id' => $company->id,
-            'store_id' => $store->id,
-            'cashier_id' => $cashierId,
-            'shift_number' => $shiftNumber,
-            'starting_cash' => $startingCash,
-            'status' => 'OPEN',
-            'opened_at' => now(),
-        ]);
+            if ($existingShift) {
+                return $existingShift;
+            }
+
+            $shiftNumber = 'SHF-'.date('Ymd').'-'.strtoupper(Str::random(5));
+
+            return CashierShift::create([
+                'company_id' => $company->id,
+                'store_id' => $store->id,
+                'cashier_id' => $cashierId,
+                'shift_number' => $shiftNumber,
+                'starting_cash' => $startingCash,
+                'status' => 'OPEN',
+                'opened_at' => now(),
+            ]);
+        });
     }
 
     /**
