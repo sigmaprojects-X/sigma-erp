@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AuditLog;
 use App\Models\CashDrop;
 use App\Models\CashierShift;
 use App\Models\Company;
@@ -17,6 +18,7 @@ use App\Models\ProductBom;
 use App\Models\ProductUnit;
 use App\Models\Promotion;
 use App\Models\Store;
+use App\Models\TaxConfiguration;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Services\BatchExpiryService;
@@ -25,6 +27,7 @@ use App\Services\LoyaltyPointService;
 use App\Services\PromoEngineService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class PosService
@@ -208,7 +211,8 @@ class PosService
         ?float $roundingAmount = null,
         ?float $splitCashAmount = null,
         ?float $splitNonCashAmount = null,
-        ?string $splitNonCashMethod = null
+        ?string $splitNonCashMethod = null,
+        ?string $managerPin = null
     ): PosTransaction {
         if ($shift->status !== 'OPEN') {
             throw new \RuntimeException('Tidak dapat memproses checkout: Shift kasir belum dibuka atau sudah ditutup.');
@@ -216,6 +220,32 @@ class PosService
 
         if (empty($cartItems)) {
             throw new \InvalidArgumentException('Keranjang belanja tidak boleh kosong.');
+        }
+
+        // Otorisasi PIN Manajer jika diskon manual diajukan bersama manager_pin
+        $authorizedManager = null;
+        if ($managerPin !== null && $managerPin !== '') {
+            $candidates = User::where('is_active', true)
+                ->whereNotNull('manager_pin')
+                ->get()
+                ->filter(fn (User $u) => Gate::forUser($u)->allows('use-manager-pin'));
+
+            foreach ($candidates as $mgr) {
+                if ($mgr->verifyManagerPin($managerPin)) {
+                    $authorizedManager = $mgr;
+                    break;
+                }
+            }
+
+            if (! $authorizedManager) {
+                AuditLog::record(
+                    module: 'AUTH',
+                    action: 'MANAGER_PIN_FAILED',
+                    description: 'Percobaan otorisasi PIN Manajer gagal untuk diskon manual pada checkout POS.',
+                    companyId: $shift->company_id
+                );
+                throw new AuthorizationException('PIN Manajer tidak valid untuk otorisasi diskon manual.');
+            }
         }
 
         return DB::transaction(function () use (
@@ -227,8 +257,6 @@ class PosService
             $voucherCode,
             $notes,
             $customerId,
-            $taxAmount,
-            $taxMode,
             $salesPersonId,
             $bankName,
             $bankAccountNumber,
@@ -236,20 +264,39 @@ class PosService
             $creditAmount,
             $splitPaymentMethod,
             $redeemPoints,
-            $roundingAmount,
             $splitCashAmount,
             $splitNonCashAmount,
-            $splitNonCashMethod
+            $splitNonCashMethod,
+            $authorizedManager
         ) {
+            $company = $shift->company ?? Company::findOrFail($shift->company_id);
+
+            // Resolusi customer_tier_id di server: pakai tier milik customer jika customer_id ada, atau tier default company
+            $defaultTier = CustomerTier::where('company_id', $company->id)
+                ->where('is_default', true)
+                ->first()
+                ?? CustomerTier::where('company_id', $company->id)->first()
+                ?? $tier;
+
+            $customer = null;
+            if ($customerId) {
+                $customer = Customer::where('company_id', $company->id)->find($customerId);
+            }
+
+            $tier = ($customer && $customer->customerTier)
+                ? $customer->customerTier
+                : $defaultTier;
+
             $invoiceNumber = $this->autoNumberService->generateNextNumber(
                 documentType: 'POS',
                 storeCode: $shift->store?->code,
-                company: $shift->company ?? Company::find($shift->company_id)
+                company: $company
             );
 
             $totalItemsCount = 0;
             $subtotal = 0.0;
             $preparedItems = [];
+            $totalManualDiscount = 0.0;
 
             // 1. Proses Setiap Baris Item Keranjang Belanja
             foreach ($cartItems as $item) {
@@ -284,20 +331,16 @@ class PosService
                     store: $shift->store
                 );
 
-                $itemSubtotal = $quantity * $unitPrice;
-                $itemDiscount = (float) ($item['discount_amount'] ?? 0.00);
+                $itemSubtotal = round($quantity * $unitPrice, 2);
 
-                // Validasi Promo Tebus Murah dari Mesin Promo (AGENTS.md Section 3)
-                if (! empty($item['is_tebus_murah']) || ! empty($item['promotion_id'])) {
-                    $promoId = $item['promotion_id'] ?? null;
-                    $promo = $promoId ? Promotion::find($promoId) : null;
-                    if ($promo && $promo->type === 'TEBUS_MURAH' && $promo->is_active) {
-                        $targetSpecialTotal = (float) $promo->special_price * $quantity;
-                        $itemDiscount = max(0.0, $itemSubtotal - $targetSpecialTotal);
-                    }
+                // Abaikan discount_amount dari klien kecuali diotorisasi oleh PIN Manajer (Gate use-manager-pin)
+                $itemDiscount = 0.0;
+                if ($authorizedManager && isset($item['discount_amount']) && (float) $item['discount_amount'] > 0) {
+                    $itemDiscount = min($itemSubtotal, round((float) $item['discount_amount'], 2));
+                    $totalManualDiscount += $itemDiscount;
                 }
 
-                $itemTotal = max(0, $itemSubtotal - $itemDiscount);
+                $itemTotal = max(0.0, round($itemSubtotal - $itemDiscount, 2));
 
                 // Kuantitas dasar untuk pengurangan stok fisik
                 $conversionFactor = (float) $unit->conversion_factor;
@@ -410,7 +453,6 @@ class PosService
                     );
                 }
 
-                $subtotal += $itemTotal;
                 $totalItemsCount += (int) ceil($quantity);
 
                 $preparedItems[] = [
@@ -427,6 +469,94 @@ class PosService
                     'discount_amount' => $itemDiscount,
                     'total_price' => $itemTotal,
                 ];
+            }
+
+            // 1b. Hitung ulang diskon promosi aktif di server memakai PromoEngineService
+            $activePromos = $this->promoEngine->getActivePromotions($company, $shift->store);
+            $rawCartSubtotal = (float) collect($preparedItems)->sum('subtotal');
+
+            foreach ($activePromos as $promo) {
+                if ($promo->type === 'TEBUS_MURAH' && $promo->reward_product_id) {
+                    $nonRewardSubtotal = (float) collect($preparedItems)
+                        ->where('product_id', '!=', $promo->reward_product_id)
+                        ->sum('subtotal');
+
+                    if ($nonRewardSubtotal >= (float) $promo->min_spend) {
+                        $remainingQuota = (float) ($promo->reward_quantity ?: 1.0);
+                        foreach ($preparedItems as &$pItem) {
+                            if ($pItem['product_id'] === $promo->reward_product_id && $remainingQuota > 0) {
+                                $eligibleQty = min($pItem['quantity'], $remainingQuota);
+                                $specialPrice = (float) $promo->special_price;
+                                if ($pItem['unit_price'] > $specialPrice) {
+                                    $promoDisc = round($eligibleQty * ($pItem['unit_price'] - $specialPrice), 2);
+                                    $pItem['discount_amount'] = min($pItem['subtotal'], round($pItem['discount_amount'] + $promoDisc, 2));
+                                    $pItem['total_price'] = max(0.0, round($pItem['subtotal'] - $pItem['discount_amount'], 2));
+                                }
+                                $remainingQuota -= $eligibleQty;
+                            }
+                        }
+                        unset($pItem);
+                    }
+                } elseif ($promo->type === 'BUY_X_GET_Y' && $promo->buy_product_id && $promo->reward_product_id) {
+                    if ($promo->min_spend > 0 && $rawCartSubtotal < (float) $promo->min_spend) {
+                        continue;
+                    }
+                    $buyQty = (float) $promo->buy_quantity;
+                    $ownedQty = (float) collect($preparedItems)->where('product_id', $promo->buy_product_id)->sum('quantity');
+                    if ($buyQty > 0 && $ownedQty >= $buyQty) {
+                        $freeQuota = floor($ownedQty / $buyQty) * (float) $promo->reward_quantity;
+                        foreach ($preparedItems as &$pItem) {
+                            if ($pItem['product_id'] === $promo->reward_product_id && $freeQuota > 0) {
+                                $eligibleQty = min($pItem['quantity'], $freeQuota);
+                                $promoDisc = round($eligibleQty * $pItem['unit_price'], 2);
+                                $pItem['discount_amount'] = min($pItem['subtotal'], round($pItem['discount_amount'] + $promoDisc, 2));
+                                $pItem['total_price'] = max(0.0, round($pItem['subtotal'] - $pItem['discount_amount'], 2));
+                                $freeQuota -= $eligibleQty;
+                            }
+                        }
+                        unset($pItem);
+                    }
+                }
+            }
+
+            $subtotalAfterItemPromos = (float) collect($preparedItems)->sum('total_price');
+            $promoEval = $this->promoEngine->evaluateCart($company, $shift->store, $preparedItems, $subtotalAfterItemPromos);
+            $cartPromoDiscount = 0.0;
+            foreach ($promoEval['applied_promotions'] as $appliedPromo) {
+                if (in_array($appliedPromo['type'], ['DISCOUNT_PERCENT', 'DISCOUNT_NOMINAL'], true)) {
+                    $cartPromoDiscount += (float) $appliedPromo['discount_amount'];
+                }
+            }
+
+            if ($cartPromoDiscount > 0 && $subtotalAfterItemPromos > 0) {
+                $remainingPromoDiscount = min($subtotalAfterItemPromos, round($cartPromoDiscount, 2));
+                foreach ($preparedItems as &$pItem) {
+                    if ($remainingPromoDiscount <= 0) {
+                        break;
+                    }
+                    $share = min($pItem['total_price'], $remainingPromoDiscount);
+                    $pItem['discount_amount'] = round($pItem['discount_amount'] + $share, 2);
+                    $pItem['total_price'] = max(0.0, round($pItem['subtotal'] - $pItem['discount_amount'], 2));
+                    $remainingPromoDiscount = round($remainingPromoDiscount - $share, 2);
+                }
+                unset($pItem);
+            }
+
+            $subtotal = (float) collect($preparedItems)->sum('total_price');
+
+            if ($authorizedManager && $totalManualDiscount > 0) {
+                AuditLog::record(
+                    module: 'POS',
+                    action: 'MANUAL_DISCOUNT',
+                    description: "Otorisasi diskon manual POS Faktur {$invoiceNumber} sebesar Rp " . number_format($totalManualDiscount, 0, ',', '.') . " oleh {$authorizedManager->name}.",
+                    newValues: [
+                        'invoice_number' => $invoiceNumber,
+                        'manual_discount_amount' => $totalManualDiscount,
+                        'approved_by' => $authorizedManager->id,
+                    ],
+                    user: $authorizedManager,
+                    companyId: $company->id
+                );
             }
 
             // 2. Validasi Voucher / Gift Card (AGENTS.md Section 3)
@@ -454,11 +584,6 @@ class PosService
                 }
             }
 
-            $customer = null;
-            if ($customerId) {
-                $customer = Customer::find($customerId);
-            }
-
             // Validasi & Hitung Potongan Penukaran Poin Pelanggan (Loyalty Points)
             $pointsDiscount = 0.0;
             $redeemedPointsCount = 0;
@@ -473,19 +598,48 @@ class PosService
 
             $totalDiscounts = $voucherDiscount + $pointsDiscount;
 
-            $tax = max(0.0, (float) ($taxAmount ?? 0.00));
-            if ($taxMode === 'PPN_EXCLUDE' && $tax > 0) {
-                $rawGrandTotal = max(0.0, ($subtotal - $totalDiscounts) + $tax);
+            // Hitung ulang tax_amount dan tax_mode di server dari konfigurasi pajak aktif (abaikan nilai klien)
+            $activeTaxConfig = TaxConfiguration::where('company_id', $company->id)
+                ->where('is_tax_enabled', true)
+                ->where(function ($q) {
+                    $q->whereNull('effective_from')->orWhere('effective_from', '<=', now()->toDateString());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()->toDateString());
+                })
+                ->latest('effective_from')
+                ->first();
+
+            if ($activeTaxConfig && $activeTaxConfig->is_tax_enabled) {
+                $enforcedTaxMode = $activeTaxConfig->is_tax_inclusive ? 'PPN_INCLUDE' : 'PPN_EXCLUDE';
+                $taxRatePercent = (float) $activeTaxConfig->tax_rate_percent;
+            } elseif (($company->is_tax_registered ?? false) && ! in_array($company->tax_mode, ['NON', 'NON_TAX'], true)) {
+                $enforcedTaxMode = in_array($company->tax_mode, ['INCLUSIVE', 'PPN_INCLUDE'], true) ? 'PPN_INCLUDE' : 'PPN_EXCLUDE';
+                $taxRatePercent = (float) ($company->default_tax_rate ?: 11.00);
             } else {
-                $rawGrandTotal = max(0.0, $subtotal - $totalDiscounts);
+                $enforcedTaxMode = 'NON';
+                $taxRatePercent = 0.0;
             }
 
-            // Hitung Pembulatan Transaksi (Rounding Engine)
-            $company = $shift->company ?? Company::find($shift->company_id);
-            if ($roundingAmount !== null) {
-                $finalRoundingAmount = (float) $roundingAmount;
-            } elseif ($company && ($company->rounding_enabled ?? false)) {
-                $finalRoundingAmount = $this->calculateRounding($rawGrandTotal, $company, $paymentMethod, $splitPaymentMethod, $splitNonCashMethod);
+            $taxableBase = max(0.0, $subtotal - $totalDiscounts);
+            if ($enforcedTaxMode === 'PPN_EXCLUDE' && $taxRatePercent > 0) {
+                $tax = round($taxableBase * ($taxRatePercent / 100), 2);
+                $rawGrandTotal = max(0.0, $taxableBase + $tax);
+            } elseif ($enforcedTaxMode === 'PPN_INCLUDE' && $taxRatePercent > 0) {
+                $tax = round($taxableBase * ($taxRatePercent / (100 + $taxRatePercent)), 2);
+                $rawGrandTotal = $taxableBase;
+            } else {
+                $tax = 0.0;
+                $rawGrandTotal = $taxableBase;
+            }
+            $taxMode = $enforcedTaxMode;
+
+            // Hitung Pembulatan Transaksi di server (abaikan nilai klien, batasi maksimal +/- 500)
+            if ($company && ($company->rounding_enabled ?? false)) {
+                $finalRoundingAmount = max(
+                    -500.0,
+                    min(500.0, $this->calculateRounding($rawGrandTotal, $company, $paymentMethod, $splitPaymentMethod, $splitNonCashMethod))
+                );
             } else {
                 $finalRoundingAmount = 0.0;
             }
@@ -1050,6 +1204,8 @@ class PosService
             default => round($amount / $step) * $step,
         };
 
-        return round($rounded - $amount, 2);
+        $diff = round($rounded - $amount, 2);
+
+        return max(-500.0, min(500.0, $diff));
     }
 }

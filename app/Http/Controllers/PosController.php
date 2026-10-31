@@ -700,24 +700,20 @@ class PosController extends Controller
     {
         $request->validate([
             'shift_id' => 'required|uuid',
-            'customer_tier_id' => 'required|uuid',
+            'customer_tier_id' => 'nullable|uuid',
             'customer_id' => 'nullable|uuid',
             'sales_person_id' => 'nullable|uuid',
-            'tax_amount' => 'nullable|numeric|min:0',
-            'tax_mode' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|uuid',
             'items.*.product_unit_id' => 'required|uuid',
             'items.*.quantity' => 'required|numeric|min:0.01',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
-            'items.*.is_tebus_murah' => 'nullable|boolean',
-            'items.*.promotion_id' => 'nullable|uuid',
+            'manager_pin' => 'nullable|string',
             'payment_method' => 'required|string|in:CASH,QRIS,TRANSFER,VOUCHER,TEMPO,SPLIT',
             'split_payment_method' => 'nullable|string|in:CASH,TRANSFER,QRIS',
             'split_cash_amount' => 'nullable|numeric|min:0',
             'split_non_cash_amount' => 'nullable|numeric|min:0',
             'split_non_cash_method' => 'nullable|string|in:QRIS,TRANSFER',
-            'rounding_amount' => 'nullable|numeric',
             'bank_name' => 'nullable|string|max:50',
             'bank_account_number' => 'nullable|string|max:50',
             'payment_reference' => 'nullable|string|max:100',
@@ -729,39 +725,18 @@ class PosController extends Controller
         ]);
 
         $shift = CashierShift::findOrFail($request->shift_id);
-        $tier = CustomerTier::findOrFail($request->customer_tier_id);
+        $company = $shift->company ?? Company::findOrFail($shift->company_id);
 
-        // Aturan Pajak Ditetapkan Terpusat oleh Pengaturan Pajak ERP (AGENTS.md Section 5 - Zero Kasir Override)
-        $reqTaxMode = $request->tax_mode ? match(strtoupper($request->tax_mode)) {
-            'INCLUSIVE', 'PPN_INCLUDE' => 'PPN_INCLUDE',
-            'EXCLUSIVE', 'PPN_EXCLUDE' => 'PPN_EXCLUDE',
-            'NON', 'NON_TAX' => 'NON',
-            default => null,
-        } : null;
+        $defaultTier = CustomerTier::where('company_id', $company->id)
+            ->where('is_default', true)
+            ->first()
+            ?? CustomerTier::where('company_id', $company->id)->firstOrFail();
 
-        if ($reqTaxMode !== null) {
-            $enforcedTaxMode = $reqTaxMode;
-        } else {
-            $company = $shift->company ?? Company::find($shift->company_id);
-            $taxConfig = TaxConfiguration::where('company_id', $company->id)
-                ->where('is_tax_enabled', true)
-                ->where(function ($q) {
-                    $q->whereNull('effective_from')->orWhere('effective_from', '<=', now()->toDateString());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()->toDateString());
-                })
-                ->latest('effective_from')
-                ->first();
+        $customer = $request->filled('customer_id')
+            ? Customer::where('company_id', $company->id)->find($request->customer_id)
+            : null;
 
-            if ($taxConfig && $taxConfig->is_tax_enabled) {
-                $enforcedTaxMode = $taxConfig->is_tax_inclusive ? 'PPN_INCLUDE' : 'PPN_EXCLUDE';
-            } elseif (($company->is_tax_registered ?? false) && !in_array($company->tax_mode, ['NON', 'NON_TAX'])) {
-                $enforcedTaxMode = in_array($company->tax_mode, ['INCLUSIVE', 'PPN_INCLUDE']) ? 'PPN_INCLUDE' : 'PPN_EXCLUDE';
-            } else {
-                $enforcedTaxMode = 'NON';
-            }
-        }
+        $tier = ($customer && $customer->customerTier) ? $customer->customerTier : $defaultTier;
 
         try {
             $transaction = $this->posService->checkout(
@@ -772,9 +747,9 @@ class PosController extends Controller
                 paidAmount: (float) $request->paid_amount,
                 voucherCode: $request->voucher_code,
                 notes: $request->notes,
-                customerId: $request->customer_id,
-                taxAmount: $request->tax_amount !== null ? (float) $request->tax_amount : null,
-                taxMode: $enforcedTaxMode,
+                customerId: $customer?->id,
+                taxAmount: null,
+                taxMode: null,
                 salesPersonId: $request->sales_person_id,
                 bankName: $request->bank_name,
                 bankAccountNumber: $request->bank_account_number,
@@ -782,10 +757,11 @@ class PosController extends Controller
                 creditAmount: $request->credit_amount !== null ? (float) $request->credit_amount : null,
                 splitPaymentMethod: $request->split_payment_method,
                 redeemPoints: (int) ($request->redeem_points ?? 0),
-                roundingAmount: $request->rounding_amount !== null ? (float) $request->rounding_amount : null,
+                roundingAmount: null,
                 splitCashAmount: $request->split_cash_amount !== null ? (float) $request->split_cash_amount : null,
                 splitNonCashAmount: $request->split_non_cash_amount !== null ? (float) $request->split_non_cash_amount : null,
-                splitNonCashMethod: $request->split_non_cash_method
+                splitNonCashMethod: $request->split_non_cash_method,
+                managerPin: $request->input('manager_pin')
             );
 
             return response()->json([
@@ -806,6 +782,11 @@ class PosController extends Controller
                 'points_discount' => (float) ($transaction->points_discount_amount ?? 0),
                 'points_earned' => (int) ($transaction->points_earned ?? 0),
             ]);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 403);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
