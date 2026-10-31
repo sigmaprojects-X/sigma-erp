@@ -9,9 +9,11 @@ use App\Models\StockMutation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -286,22 +288,160 @@ class MaintenanceController extends Controller
     }
 
     /**
+     * Daftar eksplisit tabel sistem & master yang TIDAK dihapus saat Reset Demo.
+     *
+     * @return list<string>
+     */
+    protected function getDemoResetExcludedTables(): array
+    {
+        return [
+            // Tabel sistem & internal Laravel
+            'migrations',
+            'cache',
+            'cache_locks',
+            'jobs',
+            'job_batches',
+            'failed_jobs',
+            'sessions',
+            'password_reset_tokens',
+
+            // Tabel master utama & konfigurasi perusahaan/toko/pengguna
+            'companies',
+            'stores',
+            'user_groups',
+            'users',
+
+            // Tabel master pelanggan, pemasok, produk, dan harga
+            'customer_tiers',
+            'customers',
+            'suppliers',
+            'units',
+            'product_categories',
+            'products',
+            'product_units',
+            'product_barcodes',
+            'product_prices',
+            'product_boms',
+
+            // Tabel master akuntansi, bank, pajak, penomoran, dan aturan promo/loyalitas
+            'bank_accounts',
+            'chart_of_accounts',
+            'accounting_settings',
+            'tax_configurations',
+            'transaction_number_patterns',
+            'loyalty_programs',
+            'loyalty_rewards',
+            'promotions',
+        ];
+    }
+
+    /**
+     * Bangun daftar tabel transaksi dari skema nyata (Schema::getTables) dengan urutan child-first.
+     *
+     * @return list<string>
+     */
+    protected function getTablesToEmptyForDemoReset(): array
+    {
+        $excluded = array_flip($this->getDemoResetExcludedTables());
+        $searchPath = (string) config('database.connections.pgsql.search_path', 'sigma,public');
+        $allowedSchemas = array_values(array_filter(array_map('trim', explode(',', $searchPath))));
+        $allowedSchemas[] = 'sigma';
+        $allowedSchemas[] = 'public';
+
+        $candidates = [];
+        foreach (Schema::getTables() as $tableInfo) {
+            $name = $tableInfo['name'] ?? null;
+            $schema = $tableInfo['schema'] ?? null;
+
+            if (! $name || isset($excluded[$name])) {
+                continue;
+            }
+
+            if ($schema !== null && ! in_array($schema, $allowedSchemas, true)) {
+                continue;
+            }
+
+            $candidates[$name] = true;
+        }
+
+        $tableNames = array_keys($candidates);
+
+        // Bangun graf ketergantungan foreign key: child (referencing) harus dihapus sebelum parent (referenced)
+        $childrenOf = [];
+        foreach ($tableNames as $tbl) {
+            $childrenOf[$tbl] = [];
+        }
+
+        foreach ($tableNames as $tbl) {
+            foreach (Schema::getForeignKeys($tbl) as $fk) {
+                $parent = $fk['foreign_table'] ?? null;
+                if ($parent && $parent !== $tbl && isset($candidates[$parent])) {
+                    $childrenOf[$parent][$tbl] = true;
+                }
+            }
+        }
+
+        $visited = [];
+        $ordered = [];
+
+        $visit = function (string $tbl) use (&$visit, &$visited, &$ordered, $childrenOf): void {
+            if (isset($visited[$tbl])) {
+                return;
+            }
+            $visited[$tbl] = true;
+
+            foreach (array_keys($childrenOf[$tbl] ?? []) as $child) {
+                $visit($child);
+            }
+
+            $ordered[] = $tbl;
+        };
+
+        foreach ($tableNames as $tbl) {
+            $visit($tbl);
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * Jalankan seeder data master & akuntansi untuk Reset Demo.
+     */
+    protected function runDemoSeeders(): void
+    {
+        Artisan::call('db:seed', [
+            '--class' => 'MasterDataSeeder',
+            '--force' => true,
+        ]);
+        Artisan::call('db:seed', [
+            '--class' => 'AccountingSeeder',
+            '--force' => true,
+        ]);
+    }
+
+    /**
      * Reset Demo Data — Hapus semua data transaksi & reseed data master.
      *
-     * HANYA untuk mode demo/presentasi. Dilindungi oleh role:owner.
-     * Menghapus: transaksi POS, shift kasir, pesanan penjualan, jurnal, mutasi stok.
-     * Mempertahankan: data master (produk, supplier, pelanggan, CoA, dll).
+     * HANYA untuk role owner. Nonaktif di production kecuali SIGMA_ALLOW_DEMO_RESET=true.
      *
      * AGENTS.md: All writes in DB::transaction, RBAC strictly enforced.
      */
     public function resetDemo(Request $request): RedirectResponse
     {
-        // Proteksi Tambahan: Reset demo DILARANG pada Mode Production untuk keamanan data toko
-        if (app()->isProduction()) {
-            return redirect()->route('settings.maintenance.index')->with('error', '⚠️ Reset Data Demo DITOLAK! Sistem sedang berjalan dalam Mode Production. Silakan alihkan sistem ke Mode Development terlebih dahulu jika ingin mereset data uji coba.');
+        if ($request->user()?->role !== 'owner') {
+            abort(403, 'Hanya Owner yang diizinkan menjalankan Reset Demo.');
         }
 
-        // Validasi PIN konfirmasi untuk keamanan extra
+        $isProduction = app()->isProduction() || config('app.env') === 'production';
+        $allowDemoReset = filter_var(
+            config('app.allow_demo_reset', env('SIGMA_ALLOW_DEMO_RESET', false)),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        if ($isProduction && ! $allowDemoReset) {
+            return redirect()->route('settings.maintenance.index')->with('error', '⚠️ Reset Data Demo DITOLAK! Sistem sedang berjalan dalam Mode Production tanpa flag SIGMA_ALLOW_DEMO_RESET=true.');
+        }
+
         $request->validate([
             'confirm_text' => ['required', 'in:RESET DEMO'],
         ], [
@@ -310,84 +450,63 @@ class MaintenanceController extends Controller
 
         try {
             DB::transaction(function () {
-                $tablesToEmpty = [
-                    // Detail transaksi kasir & shifts
-                    'pos_transaction_items',
-                    'pos_return_items',
-                    'pos_returns',
-                    'cash_drops',
-                    'pos_transactions',
-                    'cashier_shifts',
-                    'pos_shifts',
-
-                    // Penjualan & Pesanan
-                    'sales_order_items',
-                    'sales_orders',
-
-                    // Pembelian, PO & Retur Beli
-                    'purchase_items',
-                    'purchase_order_items',
-                    'purchase_orders',
-                    'goods_receipt_items',
-                    'goods_receipts',
-                    'purchase_returns',
-                    'purchase_return_items',
-                    'purchases',
-                    'supplier_payments',
-
-                    // Hutang & Piutang
-                    'accounts_receivable',
-                    'accounts_payable',
-                    'customer_payments',
-
-                    // Inventaris, Mutasi & Stock Opname
-                    'stock_mutations',
-                    'stock_opname_items',
-                    'stock_opnames',
-                    'stock_transfer_items',
-                    'stock_transfers',
-                    'inventory_adjustments',
-                    'quarantine_mutations',
-
-                    // Konsinyasi
-                    'consignment_settlement_items',
-                    'consignment_settlements',
-                    'consignment_stock_mutations',
-                    'consignment_items',
-                    'consignments',
-
-                    // Akuntansi & Jurnal
-                    'journal_entry_lines',
-                    'journal_entries',
-
-                    // Produk & Relasi (Bersihkan seluruh item agar reset demo kembali bersih ke item demo default saja)
-                    'product_assemblies',
-                    'product_boms',
-                    'product_prices',
-                    'product_barcodes',
-                    'product_stocks',
-                    'product_units',
-                    'products',
-                ];
+                $tablesToEmpty = $this->getTablesToEmptyForDemoReset();
 
                 foreach ($tablesToEmpty as $tbl) {
-                    if (\Illuminate\Support\Facades\Schema::hasTable($tbl)) {
-                        DB::table($tbl)->delete();
+                    DB::table($tbl)->delete();
+                }
+
+                // Reset saldo turunan pada tabel master yang dipertahankan
+                if (Schema::hasTable('customers')) {
+                    $customerReset = ['current_credit_balance' => 0];
+                    if (Schema::hasColumn('customers', 'loyalty_points')) {
+                        $customerReset['loyalty_points'] = 0;
                     }
+                    if (Schema::hasColumn('customers', 'lifetime_points')) {
+                        $customerReset['lifetime_points'] = 0;
+                    }
+                    if (Schema::hasColumn('customers', 'deposit_balance')) {
+                        $customerReset['deposit_balance'] = 0;
+                    }
+                    DB::table('customers')->update($customerReset);
+                }
+
+                if (Schema::hasTable('suppliers') && Schema::hasColumn('suppliers', 'deposit_balance')) {
+                    DB::table('suppliers')->update(['deposit_balance' => 0]);
+                }
+
+                if (Schema::hasTable('products')) {
+                    $productReset = ['total_quantity' => 0];
+                    if (Schema::hasColumn('products', 'total_stock_value')) {
+                        $productReset['total_stock_value'] = 0;
+                    }
+                    DB::table('products')->update($productReset);
+                }
+
+                if (Schema::hasTable('transaction_number_patterns') && Schema::hasColumn('transaction_number_patterns', 'last_sequence')) {
+                    DB::table('transaction_number_patterns')->update(['last_sequence' => 0]);
+                }
+
+                // Jalankan seeding di dalam transaksi yang sama
+                $this->runDemoSeeders();
+
+                // Pastikan pelanggan hasil seeder juga memiliki saldo piutang & poin 0 karena seluruh transaksi telah dihapus
+                if (Schema::hasTable('customers')) {
+                    $customerPostSeedReset = ['current_credit_balance' => 0];
+                    if (Schema::hasColumn('customers', 'loyalty_points')) {
+                        $customerPostSeedReset['loyalty_points'] = 0;
+                    }
+                    if (Schema::hasColumn('customers', 'lifetime_points')) {
+                        $customerPostSeedReset['lifetime_points'] = 0;
+                    }
+                    if (Schema::hasColumn('customers', 'deposit_balance')) {
+                        $customerPostSeedReset['deposit_balance'] = 0;
+                    }
+                    DB::table('customers')->update($customerPostSeedReset);
                 }
             });
 
-            // Re-seed data master (stok awal, harga, dsb)
-            \Illuminate\Support\Facades\Artisan::call('db:seed', [
-                '--class' => 'MasterDataSeeder',
-                '--force' => true,
-            ]);
-            \Illuminate\Support\Facades\Artisan::call('db:seed', [
-                '--class' => 'AccountingSeeder',
-                '--force' => true,
-            ]);
-
-            \Illuminate\Support\Facades\Cache::flush();
+            Cache::flush();
 
             return redirect()->route('settings.maintenance.index')
                 ->with('success', '✅ Reset demo berhasil! Semua data transaksi dihapus dan data master telah di-reload ulang.');

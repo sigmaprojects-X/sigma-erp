@@ -616,7 +616,7 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::post('/optimize-db', [MaintenanceController::class, 'optimizeDatabase'])->name('optimize-db');
             Route::post('/switch-mode', [MaintenanceController::class, 'switchMode'])->name('switch-mode');
             // Demo Reset — owner only (extra protection via confirm_text)
-            Route::post('/reset-demo', [MaintenanceController::class, 'resetDemo'])->name('reset-demo');
+            Route::post('/reset-demo', [MaintenanceController::class, 'resetDemo'])->middleware('role:owner')->name('reset-demo');
         });
 
         // 5g. AUDIT LOG & JEJAK AKTIVITAS SISTEM (ANTI-FRAUD)
