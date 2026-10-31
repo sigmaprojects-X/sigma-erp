@@ -45,6 +45,7 @@ class ItemStockManagementController extends Controller
 
         $query = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with([
                 'category',
                 'baseUnit',
@@ -523,6 +524,7 @@ class ItemStockManagementController extends Controller
 
         $query = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with([
                 'category',
                 'baseUnit',

@@ -63,7 +63,11 @@ class InventoryReportController extends Controller
         $store = $storeId ? Store::find($storeId) : null;
 
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
-        $products = Product::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+        $products = Product::where('company_id', $company->id)
+            ->where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
+            ->orderBy('name')
+            ->get();
 
         $productId = $request->input('product_id') ?: ($products->first()?->id ?? null);
         $report = null;

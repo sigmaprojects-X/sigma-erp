@@ -237,4 +237,80 @@ class ProductTypeClassificationTest extends TestCase
 
         $this->assertSame(0, ProductBom::where('parent_product_id', $rakitan->id)->count());
     }
+
+    public function test_non_inventory_types_are_excluded_from_stock_opname_restock_and_inventory_valuation(): void
+    {
+        $company = \App\Models\Company::where('code', 'SIGMA-HO')->firstOrFail();
+        $store = \App\Models\Store::where('code', 'STR-001')->firstOrFail();
+
+        // Buat item JASA, RAKITAN_NON_PROSES, NON_INVENTORY, dan BIAYA
+        foreach ([
+            Product::TYPE_JASA => 'JSA-OPN-01',
+            Product::TYPE_RAKITAN_NON_PROSES => 'PKT-OPN-01',
+            Product::TYPE_NON_INVENTORY => 'NIN-OPN-01',
+            Product::TYPE_BIAYA => 'BYA-OPN-01',
+        ] as $type => $sku) {
+            $p = Product::factory()->create([
+                'company_id' => $company->id,
+                'store_id' => $store->id,
+                'sku' => $sku,
+                'name' => "Item {$type}",
+                'type' => $type,
+                'cost_price' => 10000,
+                'min_stock_alert' => 0,
+            ]);
+            ProductUnit::factory()->create([
+                'company_id' => $company->id,
+                'store_id' => $store->id,
+                'product_id' => $p->id,
+                'unit_code' => 'PCS',
+                'unit_name' => 'Pcs',
+                'conversion_factor' => 1,
+                'is_base_unit' => true,
+            ]);
+            \App\Models\ProductStock::factory()->create([
+                'company_id' => $company->id,
+                'store_id' => $store->id,
+                'product_id' => $p->id,
+                'physical_quantity' => 0,
+                'reserved_quantity' => 0,
+                'quarantined_quantity' => 0,
+            ]);
+        }
+
+        // Set PRD-001 (BARANG fisik) menjadi stok 2 dengan min_stock_alert 5 agar muncul di rekomendasi restock
+        $physicalProduct = Product::where('sku', 'PRD-001')->firstOrFail();
+        $physicalProduct->update(['min_stock_alert' => 5]);
+        \App\Models\ProductStock::where('product_id', $physicalProduct->id)->update(['physical_quantity' => 2]);
+
+        // 1. Start Stock Opname -> Hanya boleh memuat PRD-001 (1 item fisik), bukan JASA/BUNDLING/NON_INVENTORY/BIAYA
+        $warehouseService = app(\App\Services\WarehouseService::class);
+        $opname = $warehouseService->startOpname(
+            company: $company,
+            store: $store,
+            opnameDate: now()->toDateString(),
+            notes: 'Uji opname hanya barang fisik',
+            userId: $this->owner->id
+        );
+        $this->assertSame(1, $opname->items()->count());
+        $this->assertSame($physicalProduct->id, $opname->items->first()->product_id);
+
+        // 2. Rekomendasi Restock -> Hanya boleh memuat PRD-001
+        $purchasingService = app(\App\Services\PurchasingService::class);
+        $recommendations = $purchasingService->getRestockRecommendations($store);
+        $this->assertSame(1, $recommendations->count());
+        $this->assertSame('PRD-001', $recommendations->first()['sku']);
+
+        // 3. Laporan Nilai Persediaan (Valuation) -> Hanya boleh memuat PRD-001
+        $invReportService = app(\App\Services\InventoryReportService::class);
+        $valuation = $invReportService->getStockValuationReport($company, $store);
+        $this->assertSame(1, $valuation['total_sku_count']);
+
+        // 4. Dashboard Monitoring Gudang (/warehouse/inventory) -> Tidak boleh menampilkan JASA-OPN-01
+        $invPage = $this->actingAs($this->owner)->get(route('warehouse.inventory.index'));
+        $invPage->assertStatus(200);
+        $invPage->assertSee('PRD-001');
+        $invPage->assertDontSee('JSA-OPN-01');
+        $invPage->assertDontSee('BYA-OPN-01');
+    }
 }

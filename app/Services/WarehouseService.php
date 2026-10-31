@@ -360,7 +360,7 @@ class WarehouseService
             $totalSystemQty = 0.0;
 
             foreach ($stocks as $st) {
-                if (! $st->product || ! $st->product->is_active) {
+                if (! $st->product || ! $st->product->is_active || ! $st->product->tracksInventory()) {
                     continue;
                 }
 
@@ -519,6 +519,7 @@ class WarehouseService
         // 1. Ambil seluruh produk aktif dan stoknya di toko cabang peminta & gudang pengirim
         $products = Product::where('company_id', $companyId)
             ->where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with([
                 'category',
                 'units' => fn ($u) => $u->where('is_active', true)->orderByDesc('conversion_factor'),

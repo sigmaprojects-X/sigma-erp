@@ -49,7 +49,7 @@ class PurchasingService
 
         foreach ($stocks as $stock) {
             $product = $stock->product;
-            if (! $product || ! $product->is_active) {
+            if (! $product || ! $product->is_active || ! $product->tracksInventory()) {
                 continue;
             }
 

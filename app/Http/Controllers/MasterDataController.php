@@ -1360,6 +1360,7 @@ class MasterDataController extends Controller
     public function stockCard(Request $request): View
     {
         $products = Product::where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with(['category', 'baseUnit', 'barcodes', 'stocks'])
             ->orderBy('name')
             ->get();

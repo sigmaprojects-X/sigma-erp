@@ -57,7 +57,7 @@ class InventoryReportService
 
         foreach ($stocks as $stock) {
             $product = $stock->product;
-            if (!$product) {
+            if (!$product || !$product->tracksInventory()) {
                 continue;
             }
 
@@ -254,7 +254,7 @@ class InventoryReportService
 
         foreach ($stocks as $stock) {
             $product = $stock->product;
-            if (!$product || !$product->is_active) {
+            if (!$product || !$product->is_active || !$product->tracksInventory()) {
                 continue;
             }
 
@@ -330,7 +330,7 @@ class InventoryReportService
 
         foreach ($stocks as $stock) {
             $product = $stock->product;
-            if (!$product || !$product->is_active) {
+            if (!$product || !$product->is_active || !$product->tracksInventory()) {
                 continue;
             }
 

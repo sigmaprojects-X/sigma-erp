@@ -47,6 +47,7 @@ class InventoryController extends Controller
         // Query Products & Stock di Toko Terpilih
         $query = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with([
                 'category',
                 'baseUnit',
@@ -156,6 +157,7 @@ class InventoryController extends Controller
 
         $query = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with([
                 'category',
                 'baseUnit',
