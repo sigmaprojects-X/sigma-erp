@@ -98,4 +98,45 @@ class CleanupAndFinalHardeningTest extends TestCase
         ]);
         $this->assertFalse(auth()->check());
     }
+
+    public function test_pos_checkout_hides_raw_message_for_non_business_exception_and_logs_details(): void
+    {
+        $this->seedMinimalData();
+
+        $company = Company::firstOrFail();
+        $store = Store::firstOrFail();
+        $cashier = User::where('role', 'cashier')->firstOrFail();
+        $product = \App\Models\Product::firstOrFail();
+        $unit = \App\Models\ProductUnit::where('product_id', $product->id)->firstOrFail();
+
+        $shift = app(PosService::class)->openShift($company, $store, $cashier->id, 100000);
+
+        $mockPosService = \Mockery::mock(PosService::class);
+        $mockPosService->shouldReceive('checkout')
+            ->once()
+            ->andThrow(new \ErrorException('SQLSTATE[42P01]: Undefined table: secret_internal_table at /var/www/sigma'));
+        $this->app->instance(PosService::class, $mockPosService);
+
+        \Illuminate\Support\Facades\Log::spy();
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.checkout'), [
+            'shift_id' => $shift->id,
+            'payment_method' => 'CASH',
+            'paid_amount' => 50000,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'product_unit_id' => $unit->id,
+                    'quantity' => 1,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(500);
+        $response->assertJson(['success' => false]);
+        $this->assertStringNotContainsString('SQLSTATE', (string) $response->json('message'));
+        $this->assertStringNotContainsString('secret_internal_table', (string) $response->json('message'));
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('error')->once();
+    }
 }

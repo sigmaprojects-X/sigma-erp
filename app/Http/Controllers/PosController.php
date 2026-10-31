@@ -27,6 +27,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class PosController extends Controller
@@ -852,11 +853,46 @@ class PosController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 403);
-        } catch (\Exception $e) {
+        } catch (
+            \InvalidArgumentException
+            | \DomainException
+            | \App\Exceptions\InsufficientStockException
+            | \App\Exceptions\NegativeInventoryException
+            | \App\Exceptions\UnbalancedJournalException $e
+        ) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 422);
+        } catch (\RuntimeException $e) {
+            if (! ($e instanceof \Illuminate\Database\QueryException) && ! ($e instanceof \PDOException)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
+            Log::error('POS Checkout Database Error: '.$e->getMessage(), [
+                'exception' => $e,
+                'shift_id' => $shift->id,
+                'user_id' => $request->user()?->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan sistem saat memproses transaksi. Silakan coba lagi atau hubungi administrator.',
+            ], 500);
+        } catch (\Throwable $e) {
+            Log::error('POS Checkout Unexpected Error: '.$e->getMessage(), [
+                'exception' => $e,
+                'shift_id' => $shift->id,
+                'user_id' => $request->user()?->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan sistem saat memproses transaksi. Silakan coba lagi atau hubungi administrator.',
+            ], 500);
         }
     }
 
