@@ -29,6 +29,32 @@ use Illuminate\Support\Str;
 class AccountingService
 {
     /**
+     * Pastikan tanggal jurnal tidak berada pada tahun buku yang sudah ditutup (status CLOSED).
+     */
+    public function assertPeriodOpen(Company $company, ?string $entryDate = null): string
+    {
+        $effectiveDate = $entryDate ?: now()->toDateString();
+        $timestamp = strtotime($effectiveDate);
+
+        if ($timestamp === false) {
+            throw new \InvalidArgumentException("Format tanggal jurnal tidak valid: {$effectiveDate}");
+        }
+
+        $year = (int) date('Y', $timestamp);
+        $isClosed = DB::table('fiscal_year_closings')
+            ->where('company_id', $company->id)
+            ->where('fiscal_year', $year)
+            ->whereRaw("UPPER(COALESCE(status, 'CLOSED')) = 'CLOSED'")
+            ->exists();
+
+        if ($isClosed) {
+            throw new \InvalidArgumentException("Periode transaksi tahun buku {$year} telah ditutup buku dan dikunci.");
+        }
+
+        return date('Y-m-d', $timestamp);
+    }
+
+    /**
      * Buat Entri Jurnal Umum Double-Entry Seimbang (AGENTS.md Section 5).
      *
      * Setiap transaksi WAJIB memiliki Total Debit == Total Kredit (Balanced).
@@ -48,17 +74,7 @@ class AccountingService
         }
 
         // Kunci Periode Tutup Buku Tahunan (Period Locking Protection)
-        if ($referenceType !== 'YEAR_END_CLOSING' && $entryDate) {
-            $year = (int) date('Y', strtotime($entryDate));
-            $isClosed = DB::table('fiscal_year_closings')
-                ->where('company_id', $company->id)
-                ->where('fiscal_year', $year)
-                ->exists();
-
-            if ($isClosed) {
-                throw new \InvalidArgumentException("Periode transaksi tahun buku {$year} telah ditutup buku dan dikunci.");
-            }
-        }
+        $effectiveDate = $this->assertPeriodOpen($company, $entryDate);
 
         return DB::transaction(function () use (
             $company,
@@ -68,8 +84,10 @@ class AccountingService
             $lines,
             $store,
             $userId,
-            $entryDate
+            $effectiveDate
         ) {
+            $this->assertPeriodOpen($company, $effectiveDate);
+
             $totalDebit = 0.0;
             $totalCredit = 0.0;
             $processedLines = [];
@@ -120,7 +138,7 @@ class AccountingService
                 'company_id' => $company->id,
                 'store_id' => $store?->id,
                 'entry_number' => $entryNumber,
-                'entry_date' => $entryDate ?: now()->toDateString(),
+                'entry_date' => $effectiveDate,
                 'reference_type' => $referenceType,
                 'reference_number' => $referenceNumber,
                 'description' => $description,
@@ -1103,6 +1121,10 @@ class AccountingService
             ];
         }
 
+        $entryDate = $posReturn->return_date
+            ? (\is_string($posReturn->return_date) ? $posReturn->return_date : $posReturn->return_date->format('Y-m-d'))
+            : ($posReturn->created_at ? $posReturn->created_at->format('Y-m-d') : now()->toDateString());
+
         return $this->createJournalEntry(
             company: $company,
             referenceType: 'POS_RETURN',
@@ -1110,7 +1132,8 @@ class AccountingService
             description: "Jurnal Pembalikan Retur POS No: {$posReturn->return_number}",
             lines: $lines,
             store: $store,
-            userId: $posReturn->processed_by
+            userId: $posReturn->processed_by,
+            entryDate: $entryDate
         );
     }
 
@@ -1168,6 +1191,10 @@ class AccountingService
             ];
         }
 
+        $entryDate = $purchaseReturn->return_date
+            ? (\is_string($purchaseReturn->return_date) ? $purchaseReturn->return_date : $purchaseReturn->return_date->format('Y-m-d'))
+            : ($purchaseReturn->created_at ? $purchaseReturn->created_at->format('Y-m-d') : now()->toDateString());
+
         return $this->createJournalEntry(
             company: $company,
             referenceType: 'PURCHASE_RETURN',
@@ -1175,7 +1202,8 @@ class AccountingService
             description: "Jurnal Retur Pembelian ke Supplier No: {$purchaseReturn->return_number}",
             lines: $lines,
             store: $store,
-            userId: $purchaseReturn->created_by
+            userId: $purchaseReturn->created_by,
+            entryDate: $entryDate
         );
     }
 
@@ -1247,6 +1275,12 @@ class AccountingService
     {
         $company = $opname->company;
         $store = $opname->store;
+        $entryDate = $opname->opname_date
+            ? (\is_string($opname->opname_date) ? $opname->opname_date : $opname->opname_date->format('Y-m-d'))
+            : ($opname->approved_at ? $opname->approved_at->format('Y-m-d') : now()->toDateString());
+
+        $this->assertPeriodOpen($company, $entryDate);
+
         $discrepancyValue = (float) $opname->total_discrepancy_value;
 
         if (abs($discrepancyValue) < 0.01) {
@@ -1293,7 +1327,8 @@ class AccountingService
             description: "Jurnal Penyesuaian Rekonsiliasi Stock Opname No: {$opname->opname_number}",
             lines: $lines,
             store: $store,
-            userId: $opname->approved_by ?? $opname->created_by
+            userId: $opname->approved_by ?? $opname->created_by,
+            entryDate: $entryDate
         );
     }
 
@@ -1423,6 +1458,10 @@ class AccountingService
     {
         $company = $adjustment->company;
         $store = $adjustment->store;
+        $entryDate = $adjustment->adjustment_date ? (\is_string($adjustment->adjustment_date) ? $adjustment->adjustment_date : $adjustment->adjustment_date->format('Y-m-d')) : now()->toDateString();
+
+        $this->assertPeriodOpen($company, $entryDate);
+
         $totalCost = (float) $adjustment->total_cost_value;
 
         if ($totalCost < 0.01) {
@@ -1581,6 +1620,10 @@ class AccountingService
     {
         $company = $movement->company;
         $store = $movement->store;
+        $entryDate = $movement->movement_date ? (\is_string($movement->movement_date) ? $movement->movement_date : $movement->movement_date->format('Y-m-d')) : now()->toDateString();
+
+        $this->assertPeriodOpen($company, $entryDate);
+
         $totalCost = (float) $movement->total_cost_value;
 
         if ($totalCost < 0.01) {

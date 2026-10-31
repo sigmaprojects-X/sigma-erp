@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AccountingSetting;
+use App\Models\AuditLog;
 use App\Models\ChartOfAccount;
 use App\Models\Company;
 use App\Models\FiscalYearClosing;
@@ -26,6 +27,7 @@ class FiscalYearClosingService
 
         $existingClosing = FiscalYearClosing::where('company_id', $company->id)
             ->where('fiscal_year', $fiscalYear)
+            ->whereRaw("UPPER(COALESCE(status, 'CLOSED')) = 'CLOSED'")
             ->with(['closer', 'closingJournalEntry', 'retainedEarningsAccount'])
             ->first();
 
@@ -126,10 +128,15 @@ class FiscalYearClosingService
         return DB::transaction(function () use ($company, $fiscalYear, $user, $notes) {
             $existing = FiscalYearClosing::where('company_id', $company->id)
                 ->where('fiscal_year', $fiscalYear)
+                ->lockForUpdate()
                 ->first();
 
-            if ($existing) {
+            if ($existing && strtoupper((string) ($existing->status ?? 'CLOSED')) === 'CLOSED') {
                 throw new \InvalidArgumentException("Tahun buku {$fiscalYear} sudah pernah ditutup sebelumnya.");
+            }
+
+            if ($existing) {
+                $existing->delete();
             }
 
             $summary = $this->getClosingSummary($company, $fiscalYear);
@@ -227,18 +234,37 @@ class FiscalYearClosingService
                 'notes' => $notes ?: "Tutup buku tahunan {$fiscalYear} dilakukan oleh {$user->name}",
             ]);
 
+            AuditLog::record(
+                module: 'ACCOUNTING',
+                action: 'CLOSE_FISCAL_YEAR',
+                description: "Tutup buku tahunan {$fiscalYear} dilakukan oleh {$user->name}.",
+                oldValues: null,
+                newValues: [
+                    'fiscal_year' => $fiscalYear,
+                    'status' => 'CLOSED',
+                    'net_profit' => (float) $closing->net_profit,
+                ],
+                user: $user,
+                companyId: $company->id
+            );
+
             return $closing->load(['closingJournalEntry', 'retainedEarningsAccount', 'closer']);
         });
     }
 
     /**
-     * Buka Kembali Tahun Buku yang Ditutup (Hanya untuk Owner jika terdapat koreksi audit).
+     * Buka Kembali Tahun Buku yang Ditutup (Hanya untuk Owner/Manager jika terdapat koreksi audit).
      */
     public function reopenFiscalYear(Company $company, int $fiscalYear, User $user): void
     {
-        DB::transaction(function () use ($company, $fiscalYear) {
+        if (! in_array($user->role, ['owner', 'manager'], true)) {
+            throw new \InvalidArgumentException('Hanya Owner atau Manajer yang berwenang membuka kembali tahun buku yang telah ditutup.');
+        }
+
+        DB::transaction(function () use ($company, $fiscalYear, $user) {
             $closing = FiscalYearClosing::where('company_id', $company->id)
                 ->where('fiscal_year', $fiscalYear)
+                ->lockForUpdate()
                 ->firstOrFail();
 
             if ($closing->closing_journal_entry_id) {
@@ -250,6 +276,22 @@ class FiscalYearClosingService
             }
 
             $closing->delete();
+
+            AuditLog::record(
+                module: 'ACCOUNTING',
+                action: 'REOPEN_FISCAL_YEAR',
+                description: "Pembukaan kembali (reopen) tahun buku {$fiscalYear} oleh {$user->name}.",
+                oldValues: [
+                    'fiscal_year' => $fiscalYear,
+                    'status' => 'CLOSED',
+                ],
+                newValues: [
+                    'fiscal_year' => $fiscalYear,
+                    'status' => 'REOPENED',
+                ],
+                user: $user,
+                companyId: $company->id
+            );
         });
     }
 }
