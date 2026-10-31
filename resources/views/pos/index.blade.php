@@ -7,41 +7,61 @@
     <title>SIGMA POS Pro - Kasir Penjualan Modern • {{ $store->name }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        /* SIGMA Modern Pro POS Styling */
+        /* SIGMA Modern Enterprise POS Styling */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f1f5f9;
+            background-color: #f0f4f8;
+            color: #1e293b;
         }
         .pos-table th {
             background-color: #f8fafc;
-            border-bottom: 2px solid #e2e8f0;
-            font-size: 11.5px;
-            font-weight: 700;
-            color: #475569;
-            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 11px;
+            font-weight: 800;
+            color: #334155;
+            padding: 9px 12px;
             user-select: none;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.04em;
             text-transform: uppercase;
         }
         .pos-table td {
             border-bottom: 1px solid #f1f5f9;
             font-size: 12px;
-            padding: 7px 10px;
+            padding: 8px 12px;
             white-space: nowrap;
         }
         .pos-input {
             border: 1px solid #cbd5e1;
             background-color: #ffffff;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 12px;
-            padding: 5px 8px;
+            padding: 6px 10px;
             transition: all 130ms ease;
+            color: #1e293b;
         }
         .pos-input:focus {
             outline: none;
             border-color: #2563eb;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
             background-color: #ffffff;
+        }
+        .excel-input {
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff;
+            border-radius: 7px;
+            font-size: 11.5px;
+            padding: 4px 8px;
+            transition: all 120ms ease;
+            color: #1e293b;
+        }
+        .excel-input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2.5px rgba(37, 99, 235, 0.15);
+        }
+        .excel-input:read-only {
+            background-color: #f8fafc;
+            color: #475569;
         }
         .btn-pos-cmd {
             background-color: #ffffff;
@@ -51,7 +71,7 @@
             font-weight: 600;
             color: #334155;
             padding: 5px 10px;
-            border-radius: 7px;
+            border-radius: 8px;
             display: inline-flex;
             align-items: center;
             gap: 5px;
@@ -62,12 +82,34 @@
             background-color: #f8fafc;
             border-color: #94a3b8;
             color: #0f172a;
-            transform: translateY(-0.5px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .btn-pos-cmd:active {
-            transform: scale(0.97);
-            background-color: #f1f5f9;
+            transform: scale(0.98);
+        }
+        .btn-win {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #334155;
+            padding: 5px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 130ms ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        .btn-win:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn-win:active {
+            transform: scale(0.98);
         }
         .btn-action-primary {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -86,8 +128,8 @@
         }
         /* Custom scrollbar for modern dense view */
         ::-webkit-scrollbar {
-            width: 7px;
-            height: 7px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: #f8fafc;
@@ -102,101 +144,136 @@
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="h-screen w-screen overflow-hidden select-none flex flex-col justify-between text-slate-800"
+<body class="h-screen w-screen overflow-hidden select-none flex flex-col justify-between text-slate-800 bg-[#F4F7FC]"
       x-data="posDesktopApp()"
       x-init="initApp()"
       @keydown.window="handleGlobalKeys($event)">
 
-    <!-- MODERN HEADER BAR -->
-    <div class="bg-[#0B1F4D] text-white text-xs px-4 py-2 flex flex-col md:flex-row items-center justify-between border-b border-[#132D6B] shadow-md gap-2">
-        <div class="flex items-center gap-3 font-semibold tracking-wide flex-wrap">
-            <a href="{{ route('sales.index') }}"
-               class="bg-[#125BCE] hover:bg-[#0E4DB3] active:bg-[#0B3D8F] text-white font-extrabold px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 shadow-sm transition-all hover:scale-102 cursor-pointer border border-[#18BDEB]/30"
-               title="Kembali ke Dashboard & Menu ERP Utama">
-                <span>🏠 Menu ERP</span>
-            </a>
-            <span class="w-1.5 h-1.5 rounded-full bg-slate-700 hidden sm:inline"></span>
+    <!-- MODERN ENTERPRISE HEADER TOP BAR -->
+    <div class="bg-gradient-to-r from-[#03153b] via-[#082b6b] to-[#041945] text-white text-xs px-3.5 py-2 flex items-center justify-between border-b border-blue-900/60 shadow-md gap-2 shrink-0">
+        
+        <!-- LEFT: BRAND & SYSTEM PILLS -->
+        <div class="flex items-center gap-2.5 font-semibold tracking-wide flex-wrap">
             
-            <!-- LOGO & TOKO RESMI SIGMA -->
-            <div class="flex items-center gap-2.5">
-                <img src="{{ asset('logo.svg') }}" alt="SIGMA ERP" class="h-7 w-7 object-contain drop-shadow-md">
-                <div class="flex items-center gap-1.5">
-                    <span class="font-black text-sm tracking-tight text-white">SIGMA <span class="text-[#18BDEB]">POS PRO</span></span>
-                    <span class="bg-[#FFB800]/20 text-[#FFB800] border border-[#FFB800]/40 font-black px-1.5 py-0.5 rounded text-[9.5px] tracking-wide shadow-2xs">
-                        PRO
-                    </span>
+            <!-- BRAND TITLE WITH CYAN CART BADGE -->
+            <div class="flex items-center gap-2 mr-1">
+                <div class="w-7 h-7 rounded-lg bg-[#00F2FE]/20 text-[#00F2FE] border border-[#00F2FE]/40 flex items-center justify-center shadow-xs">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
+                        <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                    </svg>
                 </div>
-                <span class="font-bold text-slate-300 hidden lg:inline">[{{ $store->code }} - {{ $store->name }}]</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="font-black text-sm tracking-tight text-white">SIGMA <span class="text-[#18BDEB]">POS Pro</span></span>
+                    <span class="text-slate-500 font-light text-sm mx-1 hidden sm:inline">|</span>
+                    <span class="text-slate-300 font-normal text-xs hidden lg:inline">Kasir Penjualan Profesional</span>
+                </div>
             </div>
 
-            <span class="w-1.5 h-1.5 rounded-full bg-slate-700 hidden sm:inline"></span>
+            <!-- MENU ERP DROPDOWN PILL -->
+            <a href="{{ route('sales.index') }}"
+               class="px-3 py-1 bg-[#0A3D8C] hover:bg-[#0E4DB3] border border-blue-400/30 rounded-full text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+               title="Kembali ke Dashboard & Menu ERP Utama">
+                <span>🏠 Menu ERP</span>
+                <span class="text-[10px] text-blue-200">▾</span>
+            </a>
 
-            <!-- WIDGET KASIR BERTUGAS (PROMINEN & JELAS) -->
-            <div class="flex items-center gap-2.5 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/50 px-3 py-1 rounded-xl cursor-pointer shadow-xs transition-all group"
+            <!-- STORE BADGE PILL -->
+            <div class="px-3 py-1 bg-[#06214C] border border-blue-400/30 rounded-full text-white text-xs font-medium flex items-center gap-2 shadow-xs hidden sm:flex">
+                <span>🏪</span>
+                <span class="font-bold">SIGMA POS PRO</span>
+                <span class="bg-[#FFB800] text-slate-950 font-black text-[9px] px-1.5 py-0.2 rounded">PRO</span>
+            </div>
+
+            <!-- KASIR BERTUGAS CHIP -->
+            <div class="bg-[#06214C] border border-blue-400/30 hover:border-blue-400/60 rounded-full pl-1.5 pr-3 py-0.5 flex items-center gap-2 cursor-pointer shadow-xs transition-all"
                  @click="openSwitchCashierModal()"
                  title="Klik untuk Ganti Kasir yang Bertugas">
-                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-[#125BCE] to-[#18BDEB] text-white font-black flex items-center justify-center text-xs shadow-xs group-hover:scale-105 transition-transform">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-[#125BCE] to-[#18BDEB] text-white font-black text-[11px] flex items-center justify-center shadow-xs">
                     {{ strtoupper(substr($cashier->name, 0, 1)) }}
                 </div>
                 <div class="flex flex-col text-left">
-                    <div class="flex items-center gap-1">
-                        <span class="text-[9px] uppercase font-bold tracking-wider text-[#18BDEB]">Kasir Bertugas</span>
-                        <span class="text-[8.5px] bg-slate-700/80 px-1 py-0.2 rounded text-slate-300 font-mono">Ganti ▾</span>
-                    </div>
-                    <div class="text-xs font-bold text-white tracking-tight">
-                        {{ $cashier->name }}
-                    </div>
-                </div>
-                <div class="pl-2 border-l border-slate-700/80">
-                    @if($activeShift)
-                        <span class="bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 text-[10px] rounded-full font-mono flex items-center gap-1 font-bold">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span>Shift #{{ $activeShift->shift_number }}</span>
-                        </span>
-                    @else
-                        <span class="bg-rose-950 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] rounded-full font-mono animate-pulse font-bold">
-                            Shift Belum Buka
-                        </span>
-                    @endif
+                    <span class="text-[8.5px] uppercase font-bold text-slate-400 leading-tight">KASIR BERTUGAS</span>
+                    <span class="text-xs font-bold text-white leading-tight">{{ $cashier->name }}</span>
                 </div>
             </div>
+
+            <!-- ACTIVE SHIFT PILL -->
+            @if($activeShift)
+                <div class="px-3 py-1 bg-emerald-950/50 border border-emerald-500/60 rounded-full text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Shift : {{ $activeShift->shift_number }}</span>
+                </div>
+            @else
+                <div class="px-3 py-1 bg-rose-950/50 border border-rose-500/60 rounded-full text-rose-300 text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs animate-pulse">
+                    <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                    <span>Shift Belum Buka</span>
+                </div>
+            @endif
         </div>
 
-        <!-- RIGHT CONTROLS: CEK HARGA [F9], PRINTER & ACTIONS -->
-        <div class="flex items-center gap-2.5 text-xs text-slate-300 flex-wrap">
-            <!-- TOMBOL CEK HARGA & STOK BARANG [F9] -->
+        <!-- RIGHT: ACTIONS & CONTROLS -->
+        <div class="flex items-center gap-2 text-xs text-slate-300 flex-wrap">
+            
+            <!-- TOMBOL CEK HARGA [F9] PILL -->
             <button type="button"
                     @click="openLookupModal()"
-                    class="flex items-center gap-1.5 bg-[#125BCE] hover:bg-[#0E4DB3] active:bg-[#0B3D8F] border border-[#18BDEB]/40 px-3 py-1.5 rounded-xl text-white transition-all text-xs font-bold shadow-xs hover:scale-102 cursor-pointer"
+                    class="px-3 py-1 bg-[#1877F2] hover:bg-[#1565C0] text-white rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                     title="Cek Harga & Ketersediaan Stok Real-Time [F9]">
                 <span>🔍</span>
-                <span class="hidden sm:inline">Cek Harga</span>
-                <kbd class="px-1 py-0.2 bg-black/30 rounded text-[9.5px] font-mono text-[#18BDEB]">F9</kbd>
+                <span>Cek Harga</span>
+                <kbd class="px-1 py-0.2 bg-black/20 rounded text-[9.5px] font-mono text-cyan-200">F9</kbd>
             </button>
 
-            <!-- SETTING MINI PRINTER PILL -->
+            <!-- PRINTER STATUS PILL -->
             <button type="button"
                     @click="openPrinterSettings()"
-                    class="flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-750 border border-slate-700/80 hover:border-blue-400/60 px-3 py-1.5 rounded-xl text-slate-200 hover:text-white transition-all text-xs font-semibold shadow-xs cursor-pointer hover:scale-102"
+                    class="px-3 py-1 bg-[#06214C] border border-blue-400/30 hover:border-blue-400 text-slate-200 text-xs font-medium rounded-full flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
                     title="Pengaturan Kertas & Printer Thermal Kasir">
                 <span>🖨️</span>
-                <span class="hidden sm:inline">Printer:</span>
-                <span class="font-bold text-blue-400 font-mono" x-text="printerPaperSize + 'mm'"></span>
-                <span class="text-[9.5px] bg-blue-900/50 text-blue-300 border border-blue-500/30 px-1 py-0.2 rounded font-mono">Setting</span>
+                <span>Printer</span>
+                <span class="font-bold text-blue-300 font-mono" x-text="printerPaperSize + 'mm'"></span>
             </button>
 
             <!-- LIVE DIGITAL CLOCK -->
-            <span class="font-mono font-bold text-emerald-400 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60 text-xs hidden xl:inline" x-text="liveClock"></span>
+            <div class="px-3 py-1 bg-[#06214C] border border-blue-400/30 text-cyan-300 font-mono text-xs font-bold rounded-full flex items-center gap-1.5 shadow-xs hidden xl:flex">
+                <span>📅</span>
+                <span x-text="liveClock"></span>
+            </div>
 
-            <!-- SHIFT ACTIONS -->
+            <!-- CASH DROP & SHIFT BUTTONS -->
             <div class="flex items-center gap-1.5">
                 @if($activeShift)
-                    <button type="button" @click="openCashDropModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 transition-colors">Cash Drop</button>
-                    <button type="button" @click="openBlindCloseModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 transition-colors">Tutup Shift</button>
+                    <button type="button"
+                            @click="openCashDropModal()"
+                            class="px-3 py-1 bg-[#D97706] hover:bg-[#B45309] text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer">
+                        Cash Drop
+                    </button>
+                    <button type="button"
+                            @click="openBlindCloseModal()"
+                            class="px-3 py-1 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer">
+                        Tutup Shift
+                    </button>
                 @else
-                    <button type="button" @click="openShiftModal = true" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors">Buka Shift</button>
+                    <button type="button"
+                            @click="openShiftModal = true"
+                            class="px-3 py-1 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer">
+                        Buka Shift
+                    </button>
                 @endif
-                <button type="button" @click="openReprintModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30 transition-colors">[F10 Cetak Ulang]</button>
+                <button type="button"
+                        @click="openReprintModal()"
+                        class="px-3 py-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1">
+                    <span>🖨️</span>
+                    <span>Cetak Ulang</span>
+                </button>
+            </div>
+
+            <!-- WINDOW CONTROLS SIMULATION -->
+            <div class="flex items-center gap-2.5 text-slate-400 text-xs ml-1 select-none hidden 2xl:flex">
+                <span class="hover:text-white cursor-pointer transition-colors" title="Minimize">⎯</span>
+                <span class="hover:text-white cursor-pointer transition-colors" title="Maximize">▢</span>
+                <span class="hover:text-rose-400 cursor-pointer transition-colors" title="Close">✕</span>
             </div>
         </div>
     </div>
@@ -220,72 +297,78 @@
         <!-- ========================================== -->
         <!-- 1. FORM HEADER KIRI ATAS & LED GRAND TOTAL -->
         <!-- ========================================== -->
-        <div class="grid grid-cols-12 gap-2 bg-white border border-slate-200/90 rounded-lg p-2.5 shadow-xs">
+        <div class="grid grid-cols-12 gap-2.5 shrink-0">
 
             <!-- KIRI ATAS: FIELD FORM TRANSAKSI & SCAN BARIS UTAMA -->
-            <div class="col-span-8 flex flex-col justify-between gap-1.5">
-                <!-- Baris 1: No Transaksi, Tanggal, Pelanggan, Sales -->
-                <div class="grid grid-cols-12 gap-x-2 gap-y-1 items-center text-[11.5px]">
+            <div class="col-span-8 bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col justify-between gap-2.5">
+                
+                <!-- Baris 1: No Transaksi, Tanggal, Pelanggan -->
+                <div class="flex items-center justify-between gap-3 text-[11.5px] border-b border-slate-100 pb-2">
                     <!-- No Transaksi -->
-                    <div class="col-span-3 flex items-center gap-1.5">
-                        <label class="w-20 text-slate-600 font-semibold text-right">No. Transaksi :</label>
-                        <div class="flex-1 flex items-center gap-1">
-                            <input type="text" value="[AUTO]" readonly class="excel-input w-20 text-center font-mono font-bold bg-slate-50 text-slate-600 border-slate-200">
-                            <input type="text" value="{{ $store->code }}" readonly class="excel-input w-12 text-center font-mono bg-slate-50 text-slate-600 border-slate-200">
-                        </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-500 font-semibold">No. Transaksi :</span>
+                        <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono font-bold text-[11px]">AUTO</span>
+                        <span class="font-bold text-slate-800 text-xs font-mono">{{ $store->code }}-001</span>
                     </div>
 
                     <!-- Tanggal -->
-                    <div class="col-span-3 flex items-center gap-1.5">
-                        <label class="w-14 text-slate-600 font-semibold text-right">Tanggal :</label>
-                        <input type="text" x-model="transactionDate" readonly class="excel-input flex-1 font-mono text-center bg-slate-50 text-slate-700 border-slate-200">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-500 font-semibold">Tanggal :</span>
+                        <div class="flex items-center gap-1.5 font-mono text-xs text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-md">
+                            <span>📅</span>
+                            <span x-text="transactionDate"></span>
+                        </div>
                     </div>
 
                     <!-- Pelanggan Interaktif [F3] -->
-                    <div class="col-span-6 flex items-center gap-1.5">
-                        <label class="w-22 text-slate-600 font-semibold text-right">Pelanggan [F3]:</label>
-                        <div class="flex-1 flex items-center gap-1">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-500 font-semibold">Pelanggan [F3] :</span>
+                        <div class="flex items-center gap-1">
                             <select x-ref="customerSelect"
                                     x-model="selectedCustomerId"
                                     @change="onCustomerChange()"
-                                    class="excel-input flex-1 font-bold text-slate-800 cursor-pointer bg-white border-slate-300 hover:border-slate-400 focus:border-blue-600 shadow-2xs">
+                                    class="excel-input font-bold text-slate-800 cursor-pointer bg-white border-slate-300 hover:border-slate-400 focus:border-blue-600 shadow-2xs text-xs py-0.5 max-w-[260px] truncate">
                                 @foreach($customers as $cust)
                                     <option value="{{ $cust->id }}" {{ $cust->code === 'CUST-UMUM' ? 'selected' : '' }}>
-                                        {{ $cust->name }}
+                                        {{ $cust->name }} {{ $cust->code === 'CUST-UMUM' ? '(Pelanggan Umum / Eceran)' : '' }}
                                     </option>
                                 @endforeach
                             </select>
-                            <button type="button" @click="cycleCustomer()" class="btn-win px-2 py-0.5 text-slate-600 hover:text-blue-600" title="Ganti Pelanggan Cepat (F3)">🔍</button>
+                            <button type="button" @click="cycleCustomer()" class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-blue-600 cursor-pointer" title="Ganti Pelanggan Cepat (F3)">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Baris 2: Sales Kasir (Komisi Sales) & Indikator Plafon Kredit -->
-                <div class="grid grid-cols-12 gap-x-2 items-center text-[11.5px]">
-                    <div class="col-span-3 flex items-center gap-1.5">
-                        <label class="w-16 text-slate-600 font-semibold text-right">Sales :</label>
-                        <div class="flex-1 flex items-center gap-1">
+                <!-- Baris 2: Sales Kasir & Plafon Kredit -->
+                <div class="flex items-center justify-between gap-3 text-[11.5px]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-500 font-semibold">Sales :</span>
+                        <div class="flex items-center gap-1">
                             <select x-ref="salesSelect"
                                     x-model="selectedSalesId"
-                                    class="excel-input flex-1 bg-white font-medium text-slate-800 border-slate-300 hover:border-slate-400">
+                                    class="excel-input bg-white font-medium text-slate-800 border-slate-300 hover:border-slate-400 py-0.5 text-xs">
                                 @foreach($salesList as $s)
                                     <option value="{{ $s->id }}" {{ $s->id === $cashier->id ? 'selected' : '' }}>
                                         {{ $s->name }}
                                     </option>
                                 @endforeach
                             </select>
-                            <button type="button" @click="cycleSales()" class="btn-win px-1.5 py-0.5 text-slate-600" title="Ganti Sales Pegawai">✏️</button>
+                            <button type="button" @click="cycleSales()" class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-blue-600 cursor-pointer" title="Ganti Sales Pegawai">
+                                ✏️
+                            </button>
                         </div>
                     </div>
 
-                    <!-- INDIKATOR PLAFON KREDIT & TEMPO (AGENTS.md Section 4A) -->
-                    <div class="col-span-9 flex items-center gap-2">
+                    <!-- INDIKATOR PLAFON KREDIT & TEMPO -->
+                    <div class="flex items-center gap-2">
                         <!-- Pelanggan UMUM (Retail Non-Kredit) -->
                         <div x-show="isWalkInCustomer" class="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
-                            <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-200">UMUM / CASH</span>
+                            <span class="bg-blue-100 text-blue-800 border border-blue-200 font-bold px-2 py-0.5 rounded text-[10.5px]">UMUM / CASH</span>
                             <span>Pelanggan retail eceran standar.</span>
                             <template x-if="selectedCustomer && (selectedCustomer.loyalty_points || 0) > 0">
-                                <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10.5px]">
+                                <span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10.5px]">
                                     <span>⭐ Poin:</span>
                                     <strong x-text="formatRupiah(selectedCustomer.loyalty_points)"></strong>
                                 </span>
@@ -324,10 +407,18 @@
                 <!-- ======================================================== -->
                 <!-- BARIS SCAN UTAMA DENGAN OPSI "JUMLAH SEBELUM SCAN"       -->
                 <!-- ======================================================== -->
-                <div class="bg-gradient-to-r from-blue-50/90 via-sky-50/50 to-indigo-50/90 border border-blue-200/90 rounded-lg p-1.5 flex items-center gap-3 shadow-2xs">
+                <div class="bg-slate-50/80 border border-slate-200 rounded-xl p-1.5 flex items-center gap-2.5">
+                    
+                    <!-- BARCODE SCANNER ICON -->
+                    <div class="text-slate-500 flex items-center justify-center pl-1 shrink-0" title="Barcode Scanner Ready">
+                        <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14"/>
+                        </svg>
+                    </div>
+
                     <!-- OPSI JUMLAH (QUANTITY SEBELUM SCAN) -->
-                    <div class="flex items-center gap-1.5">
-                        <label for="inputJumlah" class="text-xs font-black text-slate-700 uppercase tracking-tight">Jumlah :</label>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <label for="inputJumlah" class="text-xs font-black text-slate-700 uppercase tracking-tight">JUMLAH :</label>
                         <input type="number"
                                id="inputJumlah"
                                x-ref="inputJumlah"
@@ -337,13 +428,13 @@
                                @focus="$event.target.select()"
                                min="1"
                                step="1"
-                               class="excel-input w-20 text-center font-mono font-black text-sm text-blue-900 border-2 border-blue-500 rounded bg-white shadow-2xs focus:bg-amber-50">
+                               class="w-14 h-9 text-center font-mono font-black text-sm text-blue-700 border-2 border-blue-400 rounded-lg bg-blue-50/40 focus:bg-amber-50 focus:border-blue-600 focus:outline-none transition-all">
                     </div>
 
                     <!-- KODE ITEM / SCAN BARCODE INPUT (F1) -->
-                    <div class="flex-1 flex items-center gap-1.5 relative">
-                        <label for="inputBarcode" class="text-xs font-black text-slate-700 uppercase tracking-tight whitespace-nowrap">
-                            Kode Item / Barcode (F1) :
+                    <div class="flex-1 flex items-center gap-2 relative">
+                        <label for="inputBarcode" class="text-xs font-black text-slate-700 uppercase tracking-tight whitespace-nowrap hidden sm:inline">
+                            KODE ITEM / BARCODE (F1) :
                         </label>
                         <div class="relative flex-1">
                             <input type="text"
@@ -357,8 +448,8 @@
                                    @keydown.arrow-up.prevent="navigateDropdown(-1)"
                                    @keydown.escape.prevent="clearSearch()"
                                    @focus="$event.target.select()"
-                                   placeholder="Scan barcode scanner atau ketik nama sembako (F1)..."
-                                   class="excel-input w-full font-mono font-bold text-sm text-slate-900 border-2 border-blue-500 rounded px-2.5 py-1 shadow-2xs focus:bg-amber-50 uppercase"
+                                   placeholder="SCAN BARCODE SCANNER ATAU KETIK NAMA SEMBAKO (F1)...."
+                                   class="w-full h-9 px-3 border border-blue-400/80 rounded-lg text-xs font-mono font-bold text-slate-900 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase transition-all"
                                    autocomplete="off">
 
                             <!-- Trigram Instant Dropdown Match dengan Stok & Harga Jual Kasir -->
@@ -403,39 +494,72 @@
                                 </template>
                             </div>
                         </div>
-                        <button type="button" @click="handleBarcodeEnter()" class="btn-win px-3 py-1 font-bold text-blue-900 bg-blue-100/90 hover:bg-blue-200 border-blue-300">
-                            + Masuk
+
+                        <!-- TOMBOL MASUK -->
+                        <button type="button"
+                                @click="handleBarcodeEnter()"
+                                class="h-9 px-5 bg-gradient-to-r from-[#1877F2] to-[#0D62D9] hover:from-[#1565C0] hover:to-[#0B52B8] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-98 shrink-0">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            <span>Masuk</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- KANAN ATAS: MODERN OLED GRAND TOTAL DISPLAY (OFFICIAL SIGMA NAVY & CYAN GLOW) -->
-            <div class="col-span-4 bg-gradient-to-br from-[#071536] via-[#0B1F4D] to-[#071536] border border-[#18BDEB]/30 rounded-xl p-3.5 flex flex-col justify-between shadow-lg shadow-[#071536]/30 text-white ring-1 ring-[#125BCE]/20">
-                <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
-                    <span class="flex items-center gap-2 text-[#18BDEB]">
-                        <span class="w-2.5 h-2.5 rounded-full bg-[#18BDEB] animate-pulse"></span>
-                        TOTAL TAGIHAN
+            <!-- KANAN ATAS: MODERN TOTAL TAGIHAN NEON DISPLAY -->
+            <div class="col-span-4 bg-gradient-to-br from-[#072152] via-[#09357a] to-[#08489b] rounded-xl shadow-md border border-cyan-400/40 p-3.5 flex flex-col justify-between text-white relative overflow-hidden">
+                
+                <!-- TOP ROW: TITLE & ITEM BADGE -->
+                <div class="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider">
+                    <span class="flex items-center gap-1.5 text-cyan-200">
+                        <svg class="w-3.5 h-3.5 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+                            <path d="M7 7h.01"/>
+                        </svg>
+                        <span>TOTAL TAGIHAN</span>
                     </span>
-                    <span class="text-xs font-mono font-bold text-[#18BDEB] bg-[#125BCE]/30 px-2.5 py-0.5 rounded-full border border-[#18BDEB]/40" x-text="cart.length + ' Item'"></span>
+                    <span class="bg-[#00529B] border border-cyan-400/50 text-cyan-200 text-[10.5px] font-bold px-2.5 py-0.5 rounded-full font-mono"
+                          x-text="cart.length + ' ITEM'"></span>
                 </div>
-                <!-- VIBRANT LUMINOUS EMERALD AMOUNT -->
-                <div class="text-right font-mono font-black text-4xl lg:text-5xl text-emerald-400 tracking-tight my-auto drop-shadow-sm">
-                    <span x-text="formatRupiah(grandTotal) + ',00'"></span>
+
+                <!-- CENTER ROW: FAST MOVING CART GRAPHIC & GLOWING CYAN AMOUNT -->
+                <div class="flex items-center justify-between my-auto py-1">
+                    <!-- GLOWING CART GRAPHIC -->
+                    <div class="flex items-center gap-2 pl-1">
+                        <div class="relative text-[#00F2FE] drop-shadow-[0_0_10px_rgba(0,242,254,0.6)]">
+                            <svg class="w-11 h-11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="8" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/>
+                                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                            </svg>
+                            <!-- Speed Lines -->
+                            <div class="absolute -left-3 top-2.5 flex flex-col gap-1 opacity-80">
+                                <div class="w-2.5 h-0.5 bg-[#00F2FE] rounded-full"></div>
+                                <div class="w-4 h-0.5 bg-[#00F2FE] rounded-full"></div>
+                                <div class="w-3 h-0.5 bg-[#00F2FE] rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HUGE GLOWING AMOUNT -->
+                    <div class="text-right font-mono font-black text-3xl sm:text-4xl lg:text-[42px] leading-none text-[#00F2FE] tracking-tight drop-shadow-[0_0_14px_rgba(0,242,254,0.45)]">
+                        <span x-text="formatRupiah(grandTotal) + ',00'"></span>
+                    </div>
                 </div>
-                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-2">
-                    <span>Subtotal: Rp <strong class="text-slate-200" x-text="formatRupiah(subtotal)"></strong></span>
+
+                <!-- BOTTOM ROW: SUBTOTAL BREAKDOWN -->
+                <div class="flex items-center justify-between text-xs font-mono text-cyan-100/90 border-t border-cyan-500/20 pt-1.5">
+                    <span>Subtotal : Rp <strong class="text-white" x-text="formatRupiah(subtotal)"></strong></span>
                     <template x-if="taxAmount > 0">
-                        <span class="text-blue-400 font-bold" x-text="(selectedTaxMode === 'PPN_INCLUDE' ? 'PPN (Inc): Rp ' : 'PPN (Exc): +Rp ') + formatRupiah(taxAmount)"></span>
+                        <span class="text-cyan-200 font-bold" x-text="(selectedTaxMode === 'PPN_INCLUDE' ? 'PPN Inc: Rp ' : 'PPN Exc: +Rp ') + formatRupiah(taxAmount)"></span>
                     </template>
                     <template x-if="voucherDiscount > 0">
-                        <span class="text-rose-400 font-bold">Voucher: -Rp <strong x-text="formatRupiah(voucherDiscount)"></strong></span>
+                        <span class="text-rose-300 font-bold">Voucher: -Rp <strong x-text="formatRupiah(voucherDiscount)"></strong></span>
                     </template>
                     <template x-if="pointsDiscount > 0">
-                        <span class="text-amber-400 font-bold">Poin: -Rp <strong x-text="formatRupiah(pointsDiscount)"></strong></span>
+                        <span class="text-amber-300 font-bold">Poin: -Rp <strong x-text="formatRupiah(pointsDiscount)"></strong></span>
                     </template>
                     <template x-if="roundingAmount !== 0">
-                        <span :class="roundingAmount > 0 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'"
+                        <span :class="roundingAmount > 0 ? 'text-amber-300 font-bold' : 'text-emerald-300 font-bold'"
                               x-text="(roundingAmount > 0 ? 'Bulat (+): Rp ' : 'Bulat (-): Rp ') + formatRupiah(Math.abs(roundingAmount))"></span>
                     </template>
                 </div>
@@ -445,14 +569,14 @@
         <!-- ============================================================== -->
         <!-- 2. MODERN TRANSACTION DATAGRID (KEYBOARD NAVIGABLE)            -->
         <!-- ============================================================== -->
-        <div class="flex-1 bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden flex flex-col min-h-0"
+        <div class="flex-1 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col min-h-0"
              @keydown.arrow-up.prevent="navigateCartRow(-1)"
              @keydown.arrow-down.prevent="navigateCartRow(1)"
              @keydown.delete.prevent="removeSelectedCartRow()">
 
             <!-- NOTIFIKASI TEBUS MURAH & REWARD PROMO ENGINE -->
             <template x-for="reward in eligibleRewards" :key="reward.promotion_id">
-                <div class="px-4 py-2 bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 text-white flex items-center justify-between border-b border-amber-300 shadow-xs">
+                <div class="px-4 py-2 bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 text-white flex items-center justify-between border-b border-amber-300 shadow-xs shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="text-lg animate-bounce">🔥</span>
                         <div>
@@ -475,29 +599,36 @@
                 </div>
             </template>
 
+            <!-- TABEL DATA PRODUK -->
             <div class="flex-1 overflow-y-auto overflow-x-auto">
                 <table class="pos-table w-full border-collapse">
                     <thead class="sticky top-0 z-10 shadow-2xs">
                         <tr>
-                            <th class="w-10 text-center">No</th>
-                            <th class="w-36 text-left">Kode / Barcode</th>
-                            <th class="text-left">Nama Produk</th>
-                            <th class="w-24 text-right">Kuantitas</th>
-                            <th class="w-28 text-center">Satuan Kemasan</th>
-                            <th class="w-32 text-right">Harga Satuan</th>
-                            <th class="w-24 text-right">Diskon</th>
-                            <th class="w-32 text-right">Subtotal</th>
-                            <th class="w-16 text-center">Aksi</th>
+                            <th class="w-12 text-center">NO</th>
+                            <th class="w-40 text-left">KODE / BARCODE</th>
+                            <th class="text-left">NAMA PRODUK</th>
+                            <th class="w-24 text-right">KUANTITAS</th>
+                            <th class="w-28 text-center">SATUAN KEMASAN</th>
+                            <th class="w-32 text-right">HARGA SATUAN</th>
+                            <th class="w-24 text-right">DISKON</th>
+                            <th class="w-32 text-right">SUBTOTAL</th>
+                            <th class="w-20 text-center">AKSI</th>
                         </tr>
                     </thead>
                     <tbody>
                         <!-- BARIS DATA KERANJANG AKTIF -->
                         <template x-for="(item, idx) in cart" :key="idx">
-                            <tr :class="selectedCartIdx === idx ? 'bg-blue-50/90 font-bold border-l-4 border-[#125BCE] shadow-xs' : (idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white')"
+                            <tr :class="selectedCartIdx === idx ? 'bg-blue-50/80 font-semibold border-l-4 border-[#1877F2]' : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white')"
                                 @click="selectedCartIdx = idx"
-                                class="cursor-pointer hover:bg-blue-50/50 transition-colors duration-100 border-b border-slate-100 text-slate-800">
-                                <td class="text-center font-mono font-bold text-xs" :class="selectedCartIdx === idx ? 'text-[#125BCE]' : 'text-slate-400'" x-text="idx + 1"></td>
-                                <td class="font-mono text-xs font-semibold text-slate-700" x-text="item.barcode || item.sku"></td>
+                                class="cursor-pointer hover:bg-blue-50/40 transition-colors duration-100 border-b border-slate-100 text-slate-800">
+                                
+                                <!-- NO -->
+                                <td class="text-center font-bold text-xs sm:text-sm text-blue-600" x-text="idx + 1"></td>
+                                
+                                <!-- KODE / BARCODE -->
+                                <td class="font-mono text-xs font-semibold text-slate-600" x-text="item.barcode || item.sku"></td>
+                                
+                                <!-- NAMA PRODUK & STOK TOKO -->
                                 <td class="font-bold text-sm text-slate-900">
                                     <div class="flex items-center gap-1.5">
                                         <template x-if="item.is_tebus_murah">
@@ -506,55 +637,54 @@
                                         <span x-text="item.product_name"></span>
                                     </div>
                                     <template x-if="item.stock_formatted">
-                                        <div class="text-[10.5px] font-mono mt-0.5 flex items-center gap-1"
-                                             :class="item.available_stock > 0 ? 'text-emerald-700 font-semibold' : 'text-rose-600 font-semibold'">
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="item.available_stock > 0 ? 'bg-emerald-500' : 'bg-rose-500'"></span>
-                                            <span>Stok Toko: <strong x-text="item.stock_formatted"></strong></span>
+                                        <div class="text-[11px] font-mono mt-0.5 flex items-center gap-1 font-semibold"
+                                             :class="item.available_stock > 0 ? 'text-slate-600' : 'text-rose-600'">
+                                            <span class="w-2 h-2 rounded-full" :class="item.available_stock > 0 ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+                                            <span>Stok Toko : <strong class="text-slate-700" x-text="item.stock_formatted"></strong></span>
                                         </div>
                                     </template>
                                 </td>
 
-                                <!-- JUMLAH (Bisa Diedit Cepat) -->
+                                <!-- KUANTITAS -->
                                 <td class="text-right font-mono font-black text-sm text-slate-900">
                                     <span x-text="formatDec(item.quantity)"></span>
                                 </td>
 
-                                <!-- SATUAN KEMASAN (DROPDOWN IN-ROW) -->
+                                <!-- SATUAN KEMASAN (DROPDOWN PILL IN-ROW) -->
                                 <td class="text-center">
                                     <select x-model="item.product_unit_id"
                                             @change="onItemUnitChange(item)"
-                                            class="text-xs border rounded-md px-2 py-1 cursor-pointer shadow-2xs bg-white text-slate-800 border-slate-300 font-semibold focus:ring-1 focus:ring-blue-500">
+                                            class="text-xs bg-slate-50 border border-slate-300 rounded px-2.5 py-1 cursor-pointer shadow-2xs text-slate-800 font-bold hover:border-slate-400 focus:ring-1 focus:ring-blue-500">
                                         <template x-for="u in item.available_units" :key="u.id">
                                             <option :value="u.id" x-text="u.code" :selected="u.id === item.product_unit_id"></option>
                                         </template>
                                     </select>
                                 </td>
 
-                                <!-- HARGA SATUAN (LOCKED / ZERO MANUAL OVERRIDE) -->
-                                <td class="text-right font-mono font-semibold text-slate-800"
+                                <!-- HARGA SATUAN -->
+                                <td class="text-right font-mono font-bold text-slate-800 text-sm"
                                     x-text="formatRupiah(item.unit_price) + ',00'"></td>
 
                                 <!-- POTONGAN DISKON BARIS -->
-                                <td class="text-right font-mono"
-                                    :class="item.discount_amount > 0 ? 'text-rose-600 font-bold' : 'text-slate-400'">
+                                <td class="text-right font-mono text-sm"
+                                    :class="item.discount_amount > 0 ? 'text-rose-600 font-bold' : 'text-blue-600 font-bold'">
                                     <span x-text="item.discount_amount > 0 ? ('-Rp ' + formatRupiah(item.discount_amount)) : '0,00'"></span>
                                 </td>
 
-                                <!-- TOTAL PER BARIS -->
-                                <td class="text-right font-mono font-black text-sm"
-                                    :class="selectedCartIdx === idx ? 'text-[#125BCE]' : 'text-slate-900'"
+                                <!-- SUBTOTAL -->
+                                <td class="text-right font-mono font-black text-sm text-blue-600"
                                     x-text="formatRupiah(item.subtotal) + ',00'"></td>
 
                                 <!-- AKSI CEPAT PER BARIS -->
                                 <td class="text-center">
-                                    <div class="flex items-center justify-center gap-1 text-slate-600">
+                                    <div class="flex items-center justify-center gap-1.5 text-slate-600">
                                         <button type="button"
                                                 @click.stop="openEditItemModal(item)"
-                                                class="px-1.5 py-0.5 rounded text-[11px] hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                                                class="p-1 rounded text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition-colors cursor-pointer"
                                                 title="Edit Qty / Diskon (F2)">✏️</button>
                                         <button type="button"
                                                 @click.stop="removeCartRow(idx)"
-                                                class="px-1.5 py-0.5 rounded text-[11px] hover:bg-rose-100 hover:text-rose-700 transition-colors"
+                                                class="p-1 rounded text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
                                                 title="Hapus Baris (Delete)">🗑️</button>
                                     </div>
                                 </td>
@@ -564,8 +694,13 @@
                         <!-- TAMPILAN KETIKA KERANJANG KOSONG -->
                         <template x-if="cart.length === 0">
                             <tr>
-                                <td colspan="9" class="py-20 text-center text-slate-400">
-                                    <span class="text-5xl block mb-3">🛒</span>
+                                <td colspan="9" class="py-16 text-center text-slate-400">
+                                    <div class="w-14 h-14 mx-auto mb-3 text-slate-300 flex items-center justify-center rounded-2xl bg-slate-100 border border-slate-200">
+                                        <svg class="w-8 h-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            <circle cx="8" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/>
+                                            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                                        </svg>
+                                    </div>
                                     <span class="font-bold text-slate-700 text-sm">Keranjang Transaksi Masih Kosong</span>
                                     <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                                         Scan barcode barang, atau tekan <kbd class="px-1.5 py-0.5 bg-slate-200 text-slate-700 font-mono rounded text-xs">[F1]</kbd> untuk pencarian cepat nama produk.
@@ -579,232 +714,229 @@
         </div>
 
         <!-- ============================================================== -->
-        <!-- 3. PANEL AKSI & TOMBOL CEPAT KASIR (PANEL KIRI & KANAN)       -->
+        <!-- 3. PANEL RINCIAN, KEUANGAN, SUB TOTAL & VOUCHER (3 KOLOM)      -->
         <!-- ============================================================== -->
-        <div class="grid grid-cols-12 gap-2 bg-white border border-slate-200/90 rounded-lg p-2.5 shadow-xs text-xs">
+        <div class="grid grid-cols-12 gap-2.5 shrink-0 text-xs">
 
-            <!-- PANEL KIRI BAWAH: TAB RINCIAN & TOMBOL TOOLBAR -->
-            <div class="col-span-6 flex flex-col justify-between gap-1.5 border-r border-slate-200 pr-2.5">
-                <!-- Tab Header Kecil -->
-                <div class="flex items-center gap-1 border-b border-slate-200 pb-1">
-                    <span class="px-3 py-1 bg-slate-100 border border-slate-300 border-b-transparent rounded-t font-bold text-[11px] text-blue-900 shadow-2xs">
-                        Rincian
-                    </span>
-                    <span class="px-3 py-1 bg-white border border-transparent rounded-t text-[11px] text-slate-500 cursor-pointer hover:bg-slate-50">
-                        Potongan
-                    </span>
+            <!-- KARTU 1 (KIRI - COL 6): TAB RINCIAN & TOMBOL TOOLBAR CEPAT -->
+            <div class="col-span-6 bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col justify-between gap-2.5">
+                
+                <!-- Tab Header Rincian / Potongan -->
+                <div class="flex items-center gap-1.5">
+                    <button type="button" class="px-3.5 py-1 bg-[#1877F2] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs">
+                        <span>📄</span>
+                        <span>Rincian</span>
+                    </button>
+                    <button type="button" class="px-3 py-1 text-slate-500 hover:text-slate-800 font-medium text-xs rounded-lg flex items-center gap-1.5 cursor-pointer">
+                        <span>✂️</span>
+                        <span>Potongan</span>
+                    </button>
                 </div>
 
-                <!-- Windows Classic Tool Buttons (Persis iPOS 5) -->
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <button type="button" @click="removeSelectedCartRow()" class="btn-win text-rose-700 hover:text-rose-800 font-semibold" title="Hapus Item Terpilih (Del)">
-                        🗑️ Hapus Detail [Del]
+                <!-- Tool Buttons Quick Action -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" @click="removeSelectedCartRow()" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Hapus Item Terpilih (Del)">
+                        <span>🗑️</span>
+                        <span>Hapus Detail [Del]</span>
                     </button>
-                    <button type="button" @click="openEditModal()" class="btn-win text-blue-700 font-bold hover:text-blue-800" title="Ubah Qty / Satuan Item">
-                        ✏️ Detail Item [F3 / F2]
+                    <button type="button" @click="openEditModal()" class="px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Ubah Qty / Satuan Item">
+                        <span>✏️</span>
+                        <span>Detail Item [F3 / F2]</span>
                     </button>
-                    <button type="button" @click="triggerCashDrawer()" class="btn-win text-amber-800 font-bold hover:bg-amber-50 hover:border-amber-400" title="Buka Laci Kasir (Cash Drawer Kick)">
-                        🔓 Buka Laci [F2]
+                    <button type="button" @click="triggerCashDrawer()" class="px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-50 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Buka Laci Kasir (Cash Drawer Kick)">
+                        <span>🔒</span>
+                        <span>Buka Laci [F2]</span>
                     </button>
                 </div>
 
                 <!-- Pajak, Keluar Dari, Keterangan -->
-                <div class="grid grid-cols-12 gap-1.5 items-center text-[11px] pt-1">
-                    <div class="col-span-4 flex items-center gap-1">
+                <div class="grid grid-cols-12 gap-2 items-center text-[11px] pt-0.5">
+                    <div class="col-span-5 flex items-center gap-1.5">
                         <label class="font-semibold text-slate-600">Pajak :</label>
                         <select x-model="selectedTaxMode"
                                 @change="onTaxModeChange()"
-                                class="excel-input flex-1 border-slate-300 bg-white font-semibold text-slate-800 cursor-pointer">
+                                class="excel-input flex-1 border-slate-300 bg-white font-semibold text-slate-800 cursor-pointer text-xs py-1 rounded-lg">
                             <option value="NON">Non-PKP (0%)</option>
                             <option value="PPN_EXCLUDE">PKP (PPN 11% Exclude)</option>
                             <option value="PPN_INCLUDE">PKP (PPN 11% Include)</option>
                         </select>
                     </div>
-                    <div class="col-span-8 flex items-center gap-1">
-                        <label class="font-semibold text-slate-600">Keluar Dari :</label>
-                        <input type="text" value="UTM - {{ $store->name }}" readonly class="excel-input flex-1 bg-slate-50 text-slate-700 border-slate-200 font-mono text-[11px]">
+                    <div class="col-span-7 flex items-center gap-1.5">
+                        <label class="font-semibold text-slate-600 whitespace-nowrap">Keluar Dari :</label>
+                        <input type="text" value="UTM - {{ $store->name }}" readonly class="excel-input flex-1 bg-slate-50 text-slate-700 border-slate-200 font-mono text-xs py-1 rounded-lg">
                     </div>
-                    <div class="col-span-12 flex items-center gap-1">
-                        <label class="w-18 font-semibold text-slate-600">Keterangan :</label>
-                        <input type="text" x-model="transactionNotes" placeholder="Catatan transaksi kasir..." class="excel-input flex-1 border-slate-200">
+                    <div class="col-span-12 flex items-center gap-1.5">
+                        <label class="font-semibold text-slate-600 whitespace-nowrap">Keterangan :</label>
+                        <input type="text" x-model="transactionNotes" placeholder="Catatan transaksi kasir..." class="excel-input flex-1 border-slate-300 text-xs py-1 rounded-lg">
                     </div>
                 </div>
             </div>
 
-            <!-- PANEL KANAN BAWAH: FORM POTONGAN, PAJAK, SUB TOTAL, & VOUCHER -->
-            <div class="col-span-6 grid grid-cols-12 gap-2">
-                <!-- Kolom Input Angka (Potongan, Pajak, Biaya Lain, Pembulatan) -->
-                <div class="col-span-6 space-y-1 text-[11px]">
-                    <div class="flex items-center justify-between">
-                        <label class="text-slate-600 font-medium">Potongan :</label>
-                        <input type="text" value="0,00" class="excel-input w-28 text-right font-mono bg-slate-50 border-slate-200" readonly>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="text-slate-600 font-medium">Pajak (PPN) :</label>
-                        <input type="text"
-                               :value="taxAmount > 0 ? formatRupiah(taxAmount) + ',00' : '0,00'"
-                               class="excel-input w-28 text-right font-mono bg-slate-50 border-slate-200 font-bold"
-                               :class="taxAmount > 0 ? 'text-blue-700' : 'text-slate-500'"
-                               readonly>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="text-slate-600 font-medium">Biaya Lain :</label>
-                        <input type="text" value="0,00" class="excel-input w-28 text-right font-mono bg-slate-50 border-slate-200" readonly>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="text-slate-600 font-medium">Alamat Kirim :</label>
-                        <input type="text" placeholder="[ Toko Langsung ]" class="excel-input w-28 text-slate-500 bg-slate-50 border-slate-200" readonly>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="text-slate-600 font-medium">Pembulatan :</label>
-                        <input type="text" value="0,00" class="excel-input w-28 text-right font-mono bg-slate-50 border-slate-200" readonly>
-                    </div>
+            <!-- KARTU 2 (TENGAH - COL 3): BREAKDOWN BIAYA & PEMBULATAN -->
+            <div class="col-span-3 bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col justify-between text-xs space-y-1 font-medium">
+                <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+                    <span class="text-slate-600">Potongan :</span>
+                    <span class="font-mono text-slate-800 font-bold">0,00</span>
+                </div>
+                <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+                    <span class="text-slate-600">Pajak (PPN) :</span>
+                    <span class="font-mono font-bold"
+                          :class="taxAmount > 0 ? 'text-blue-700' : 'text-slate-800'"
+                          x-text="taxAmount > 0 ? formatRupiah(taxAmount) + ',00' : '0,00'"></span>
+                </div>
+                <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+                    <span class="text-slate-600">Biaya Lain :</span>
+                    <span class="font-mono text-slate-800 font-bold">0,00</span>
+                </div>
+                <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+                    <span class="text-slate-600">Alamat Kirim :</span>
+                    <span class="text-slate-500 font-mono">-</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-600">Pembulatan :</span>
+                    <span class="font-mono font-bold"
+                          :class="roundingAmount !== 0 ? (roundingAmount > 0 ? 'text-amber-700' : 'text-emerald-700') : 'text-slate-800'"
+                          x-text="roundingAmount !== 0 ? formatRupiah(roundingAmount) + ',00' : '0,00'"></span>
+                </div>
+            </div>
+
+            <!-- KARTU 3 (KANAN - COL 3): SUB TOTAL, VOUCHER & TUKAR POIN MEMBER -->
+            <div class="col-span-3 bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col justify-between gap-2">
+                
+                <!-- SUB TOTAL BESAR -->
+                <div class="flex items-center justify-between">
+                    <span class="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+                        <span class="text-sm">🔄</span>
+                        <span>Sub Total :</span>
+                    </span>
+                    <span class="font-black font-mono text-xl text-slate-900 tracking-tight"
+                          x-text="formatRupiah(subtotal) + ',00'"></span>
                 </div>
 
-                <!-- Kolom Kanan: Sub Total & Voucher -->
-                <div class="col-span-6 flex flex-col justify-between gap-1">
-                    <!-- SUB TOTAL BESAR -->
-                    <div>
-                        <label class="block text-slate-600 font-bold mb-0.5">Sub Total :</label>
-                        <input type="text"
-                               :value="formatRupiah(subtotal) + ',00'"
-                               readonly
-                               class="excel-input w-full text-right font-mono font-bold text-base bg-white text-slate-900 border-2 border-slate-300">
+                <!-- KODE VOUCHER (F4) INPUT GROUP -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-slate-700 text-[11px] flex items-center gap-1">
+                            <span>🎟️</span>
+                            <span>Kode Voucher (F4) :</span>
+                        </span>
+                        <template x-if="voucherCode">
+                            <button type="button" @click="removeVoucher()" class="text-[10px] text-rose-600 hover:underline font-bold">[Hapus]</button>
+                        </template>
                     </div>
+                    <div class="flex items-center gap-1">
+                        <input type="text"
+                               x-ref="voucherInput"
+                               x-model="voucherCodeInput"
+                               @keydown.enter.prevent="applyVoucherCode()"
+                               :disabled="voucherCode !== null"
+                               placeholder="Masukkan Kode Voucher..."
+                               class="excel-input flex-1 font-mono uppercase font-bold text-amber-800 border-slate-300 disabled:bg-slate-100 rounded-lg py-1 text-xs">
+                        <button type="button"
+                                @click="voucherCode ? removeVoucher() : applyVoucherCode()"
+                                class="p-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-slate-700 cursor-pointer transition-all"
+                                :title="voucherCode ? 'Batalkan Voucher' : 'Cek & Terapkan Voucher'">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        </button>
+                    </div>
+                    <template x-if="voucherDiscount > 0">
+                        <div class="text-[10.5px] text-emerald-700 font-bold flex items-center justify-between mt-1">
+                            <span x-text="'Potongan [' + voucherCode + ']:'"></span>
+                            <span x-text="'-Rp ' + formatRupiah(voucherDiscount)"></span>
+                        </div>
+                    </template>
+                </div>
 
-                    <!-- KODE VOUCHER INPUT -->
-                    <div>
-                        <div class="flex items-center justify-between mb-0.5">
-                            <label class="block text-slate-600 font-bold">Kode Voucher (F4) :</label>
-                            <template x-if="voucherCode">
-                                <button type="button" @click="removeVoucher()" class="text-[10px] text-rose-600 hover:underline font-bold">[Hapus Voucher]</button>
-                            </template>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            <input type="text"
-                                   x-ref="voucherInput"
-                                   x-model="voucherCodeInput"
-                                   @keydown.enter.prevent="applyVoucherCode()"
-                                   :disabled="voucherCode !== null"
-                                   placeholder="HEMAT20K / DISKON10..."
-                                   class="excel-input flex-1 font-mono uppercase font-bold text-amber-800 border-slate-300 disabled:bg-slate-100">
-                            <button type="button"
-                                    @click="voucherCode ? removeVoucher() : applyVoucherCode()"
-                                    class="btn-win px-2"
-                                    :title="voucherCode ? 'Batalkan Voucher' : 'Cek & Terapkan Voucher'">
-                                <span x-text="voucherCode ? '❌' : '🔍'"></span>
-                            </button>
-                        </div>
-                        <template x-if="voucherDiscount > 0">
-                            <div class="text-[10.5px] text-emerald-700 font-bold flex items-center justify-between mt-0.5">
-                                <span x-text="'Potongan [' + voucherCode + ']:'"></span>
-                                <span x-text="'-Rp ' + formatRupiah(voucherDiscount)"></span>
-                            </div>
+                <!-- TUKAR POIN MEMBER (F6) -->
+                <div class="border-t border-slate-100 pt-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-slate-700 text-[11px] flex items-center gap-1">
+                            <span>⭐</span>
+                            <span>Tukar Poin Member (F6) :</span>
+                        </span>
+                        <template x-if="redeemPoints > 0">
+                            <button type="button" @click="resetRedeemPoints()" class="text-[10px] text-rose-600 hover:underline font-bold cursor-pointer">[Batal]</button>
                         </template>
                     </div>
 
-                    <!-- AMBIL / TUKAR POIN MEMBER (SELALU TERLIHAT) -->
-                    <div class="border-t border-slate-200/90 pt-2">
-                        <div class="flex items-center justify-between mb-0.5">
-                            <label class="block text-slate-700 font-bold text-[11px] flex items-center gap-1">
-                                <span>⭐ Tukar Poin Member (F6) :</span>
-                                <template x-if="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM'">
-                                    <span class="text-amber-700 font-extrabold" x-text="'(' + formatRupiah(selectedCustomer?.loyalty_points || 0) + ' Pts)'"></span>
-                                </template>
-                            </label>
-                            <template x-if="redeemPoints > 0">
-                                <button type="button" @click="resetRedeemPoints()" class="text-[10px] text-rose-600 hover:underline font-bold cursor-pointer">[Batal Poin]</button>
-                            </template>
-                        </div>
-
-                        <!-- Jika Pelanggan Umum / Belum Pilih Member -->
-                        <div x-show="!selectedCustomer || selectedCustomer.code === 'CUST-UMUM'" class="flex items-center justify-between gap-1 p-1.5 bg-amber-50/80 border border-amber-200 rounded">
-                            <span class="text-[10.5px] text-amber-900 font-medium">Pelanggan Umum</span>
-                            <button type="button"
-                                    @click="openTukarPoinModal()"
-                                    class="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white rounded font-bold text-[10.5px] flex items-center gap-1 shadow-2xs cursor-pointer">
-                                <span>⭐ Tukar Poin [F6]</span>
-                            </button>
-                        </div>
-
-                        <!-- Jika Member Terdaftar Terpilih -->
-                        <div x-show="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM'" class="space-y-1">
-                            <div class="flex items-center gap-1">
-                                <input type="number"
-                                       min="0"
-                                       :max="selectedCustomer?.loyalty_points || 0"
-                                       x-model.number="redeemPointsInput"
-                                       @input="onPointsInputChange()"
-                                       @keydown.enter.prevent="applyPointsRedemption()"
-                                       placeholder="Jml Poin..."
-                                       class="pos-input flex-1 font-mono font-bold text-amber-900 border-slate-300">
-                                <button type="button"
-                                        @click="redeemAllCustomerPoints()"
-                                        class="btn-pos-cmd px-2 text-[10px] font-bold"
-                                        title="Tukar Semua Poin">
-                                    Semua
-                                </button>
-                                <button type="button"
-                                        @click="applyPointsRedemption()"
-                                        class="btn-pos-cmd px-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs"
-                                        title="Gunakan Poin">
-                                    Pakai
-                                </button>
-                                <button type="button"
-                                        @click="openTukarPoinModal()"
-                                        class="btn-pos-cmd px-2 text-[10px] font-bold"
-                                        title="Buka Jendela Poin Lengkap (F6)">
-                                    🔍
-                                </button>
-                            </div>
-                            <template x-if="pointsDiscount > 0">
-                                <div class="text-[10.5px] text-emerald-700 font-bold flex items-center justify-between mt-0.5">
-                                    <span x-text="'Potongan Poin (' + redeemPoints + ' Pts):'"></span>
-                                    <span x-text="'-Rp ' + formatRupiah(pointsDiscount)"></span>
-                                </div>
-                            </template>
-                        </div>
+                    <!-- Pelanggan Umum / Member -->
+                    <div class="flex items-center justify-between gap-1">
+                        <span class="text-xs text-slate-700 font-medium truncate max-w-[120px]"
+                              x-text="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM' ? selectedCustomer.name : 'Pelanggan Umum'"></span>
+                        <button type="button"
+                                @click="openTukarPoinModal()"
+                                class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-98">
+                            <span>⭐</span>
+                            <span>Tukar Poin [F6]</span>
+                        </button>
                     </div>
+                    <template x-if="pointsDiscount > 0">
+                        <div class="text-[10.5px] text-emerald-700 font-bold flex items-center justify-between mt-1">
+                            <span x-text="'Potongan (' + redeemPoints + ' Pts):'"></span>
+                            <span x-text="'-Rp ' + formatRupiah(pointsDiscount)"></span>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
 
         <!-- ============================================================== -->
-        <!-- 4. BARISAN AKSI UTAMA PALING BAWAH (PERSIS iPOS 5 DESKTOP)     -->
+        <!-- 4. BARISAN AKSI UTAMA COMMAND BAR (MODERN ENTERPRISE)          -->
         <!-- ============================================================== -->
-        <div class="bg-white border border-slate-200/90 rounded-lg p-2 flex items-center justify-between shadow-xs">
-            <div class="flex items-center gap-1.5">
-                <!-- Tombol Tambah dipertahankan di kode untuk aksesibilitas, disembunyikan dari UI agar bilah aksi rapi -->
-                <button type="button" @click="focusQuantityInput()" class="hidden btn-win py-1.5 px-3 font-semibold" title="Tambah Baris / Fokus Input [F1]">
-                    ➕ + Tambah
+        <div class="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-xs shrink-0">
+            
+            <!-- LEFT COMMAND BUTTONS -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="button"
+                        @click="openLookupModal()"
+                        class="px-4 py-2 bg-[#1877F2] hover:bg-[#1565C0] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        title="Cek Harga & Ketersediaan Stok Real-Time [F9]">
+                    <span>🔍</span>
+                    <span>Cek Harga [F9]</span>
                 </button>
-                <button type="button" @click="openLookupModal()" class="btn-win py-1.5 px-3 font-bold text-white bg-[#125BCE] hover:bg-[#0E4DB3] border-[#18BDEB]/30 flex items-center gap-1.5 shadow-2xs cursor-pointer" title="Cek Harga & Ketersediaan Stok Real-Time [F9]">
-                    <span>🔍 Cek Harga [F9]</span>
+                <button type="button"
+                        @click="openCheckoutModal()"
+                        class="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer">
+                    <span>💾</span>
+                    <span>Simpan</span>
                 </button>
-                <button type="button" @click="openCheckoutModal()" class="btn-win py-1.5 px-3 font-semibold">
-                    💾 Simpan
+                <button type="button"
+                        @click="resetCart()"
+                        class="px-3.5 py-2 bg-white hover:bg-rose-50 border border-rose-300 text-rose-600 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer">
+                    <span>🗑️</span>
+                    <span>Batal [ESC]</span>
                 </button>
-                <button type="button" @click="resetCart()" class="btn-win py-1.5 px-3 text-rose-700 hover:text-rose-800 font-semibold">
-                    🔄 Batal [ESC]
+                <button type="button"
+                        @click="openReprintModal()"
+                        class="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer">
+                    <span>🖨️</span>
+                    <span>Cetak</span>
                 </button>
-                <button type="button" @click="openReprintModal()" class="btn-win py-1.5 px-3 font-semibold">
-                    🖨️ Cetak
+                <button type="button"
+                        @click="holdCurrentCart()"
+                        class="px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                        title="Tahan / Pending Transaksi (Ctrl+1)">
+                    <span>⏱️</span>
+                    <span>Pending [CTRL+1]</span>
                 </button>
-                <button type="button" @click="holdCurrentCart()" class="btn-win py-1.5 px-2.5 font-semibold" title="Tahan / Pending Transaksi (Ctrl+1)">
-                    Pending [CTR+1]
-                </button>
-                <button type="button" @click="openPendingModal()" class="btn-win py-1.5 px-2.5 font-semibold" title="Daftar Transaksi Pending (Ctrl+2 / F7)">
-                    DR.Pending [CTR+2]
+                <button type="button"
+                        @click="openPendingModal()"
+                        class="px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                        title="Daftar Transaksi Pending (Ctrl+2 / F7)">
+                    <span>📁</span>
+                    <span>DR.Pending [CTRL+2]</span>
                 </button>
             </div>
 
-            <!-- TOMBOL BAYAR [F12] RAKSASA PERSIS iPOS 5 -->
+            <!-- RIGHT GIANT BAYAR BUTTON -->
             <div class="flex items-center gap-2">
                 <button type="button"
                         @click="openCheckoutModal()"
                         :disabled="cart.length === 0"
-                        class="btn-action-primary text-sm font-black py-2.5 px-10 rounded-md flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
-                    <span>💳 BAYAR [F12]</span>
+                        class="bg-gradient-to-r from-[#059669] to-[#10B981] hover:from-[#047857] hover:to-[#059669] text-white font-black text-sm px-8 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                    <span>BAYAR [F12 / F8]</span>
+                    <svg class="w-4 h-4 text-emerald-200 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </button>
             </div>
         </div>
@@ -812,24 +944,33 @@
     </div>
 
     <!-- ============================================================== -->
-    <!-- 5. STATUS BAR BIRU PALING BAWAH (PERSIS iPOS 5 DESKTOP)        -->
+    <!-- 5. STATUS BAR PALING BAWAH (MODERN ENTERPRISE DARK NAVY)       -->
     <!-- ============================================================== -->
-    <footer class="bg-slate-900 text-slate-300 text-[11px] px-3.5 py-1.5 flex items-center justify-between font-medium tracking-tight shadow-md border-t border-slate-800">
-        <div class="flex items-center gap-4">
-            <span><strong class="text-amber-300 font-mono">[F1]</strong>=Scan/Jumlah</span>
-            <span><strong class="text-amber-300 font-mono">[F2]</strong>=Buka Laci / Qty</span>
-            <span><strong class="text-amber-300 font-mono">[F3]</strong>=Detail Item / Tier</span>
-            <span><strong class="text-amber-300 font-mono">[F4]</strong>=Voucher</span>
-            <span><strong class="text-amber-300 font-mono">[F6]</strong>=Tukar Poin</span>
-            <span><strong class="text-emerald-400 font-mono">[F8]</strong>=Tukar/Retur</span>
-            <span><strong class="text-emerald-400 font-mono">[F9]</strong>=Cek Harga</span>
-            <span><strong class="text-amber-300 font-mono">[F10]</strong>=Cetak Ulang</span>
-            <span><strong class="text-amber-300 font-mono">[F12]</strong>=Bayar</span>
-            <span><strong class="text-amber-300 font-mono">[Del]</strong>=Hapus Baris</span>
-            <span><strong class="text-amber-300 font-mono">[ESC]</strong>=Batal/Tutup</span>
+    <footer class="bg-[#03153b] text-slate-300 text-[11px] px-4 py-2 flex items-center justify-between font-medium tracking-tight shadow-md border-t border-blue-900/60 shrink-0">
+        <div class="flex items-center gap-3.5 flex-wrap">
+            <span><strong class="text-amber-300 font-mono">[F1]</strong> Scan/Jumlah</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[F2]</strong> Buka Laci</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[F3]</strong> Detail Item</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[F4]</strong> Voucher</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[F6]</strong> Tukar Poin</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-emerald-400 font-mono">[F9]</strong> Cek Harga</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[F10]</strong> Cetak Ulang</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[Del]</strong> Hapus Baris</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-amber-300 font-mono">[ESC]</strong> Batal/Tutup</span>
         </div>
-        <div class="font-mono text-blue-200 text-[10px]">
-            SIGMA ERP Engine v1.0 | PostgreSQL 16+
+        <div class="flex items-center gap-3 font-mono text-slate-400 text-[10px]">
+            <span>SIGMA ERP Engine v1.0 | PostgreSQL 16+</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Sistem Aktif"></span>
+            <span title="Jaringan Stabil">📶</span>
+            <span title="Audio Aktif">🔊</span>
         </div>
     </footer>
 
@@ -841,51 +982,53 @@
     <div x-show="checkoutModal"
          x-cloak
          @keydown.escape.window="if(checkoutModal) { checkoutModal = false; focusQuantityInput(); }"
-         class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-white border-2 border-slate-700 rounded-xl max-w-xl w-full shadow-2xl flex flex-col overflow-hidden text-slate-800 text-xs">
+         class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl max-w-xl w-full shadow-2xl flex flex-col overflow-hidden text-slate-800 text-xs animate-in fade-in zoom-in duration-150">
             
             <!-- HEADER MODAL -->
-            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white px-4 py-3 flex items-center justify-between border-b border-slate-700">
-                <div class="flex items-center gap-2">
-                    <span class="text-xl">💳</span>
+            <div class="bg-gradient-to-r from-[#03153b] via-[#082b6b] to-[#041945] text-white px-5 py-3.5 flex items-center justify-between border-b border-blue-900/60">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-base">
+                        💳
+                    </div>
                     <div>
-                        <h3 class="font-bold text-sm tracking-wide">
+                        <h3 class="font-extrabold text-sm tracking-wide">
                             Pembayaran Kasir [F12 / F8]
                         </h3>
-                        <p class="text-[10px] text-slate-400">Pilih metode pembayaran & input nominal pelunasan</p>
+                        <p class="text-[10.5px] text-slate-300">Pilih metode pembayaran & input nominal pelunasan</p>
                     </div>
                 </div>
                 <button type="button"
                         @click="checkoutModal = false; focusQuantityInput()"
-                        class="text-slate-400 hover:text-white hover:bg-white/10 rounded px-2 py-0.5 font-bold text-lg transition-colors cursor-pointer"
+                        class="text-slate-300 hover:text-white hover:bg-white/10 rounded-lg px-2 py-1 font-bold text-lg transition-colors cursor-pointer"
                         title="Tutup (ESC)">
                     &times;
                 </button>
             </div>
 
-            <div class="p-4 space-y-3.5">
-                <!-- TOTAL TAGIHAN GAYA POS BESAR -->
-                <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 text-right shadow-inner">
-                    <div class="text-[11px] text-amber-400 font-bold uppercase tracking-wider flex items-center justify-between">
+            <div class="p-4 space-y-3.5 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <!-- TOTAL TAGIHAN GAYA POS MODERN -->
+                <div class="bg-gradient-to-br from-[#072152] via-[#09357a] to-[#08489b] border border-cyan-400/40 rounded-xl p-3.5 text-right shadow-md text-white">
+                    <div class="text-[11px] text-cyan-200 font-extrabold uppercase tracking-wider flex items-center justify-between">
                         <span>Total Tagihan Belanja</span>
                         <div class="flex items-center gap-2">
                             <template x-if="selectedTaxMode !== 'NON' && selectedTaxMode !== 'NON_TAX'">
-                                <span class="text-[10px] font-mono text-blue-300 font-normal" x-text="'Pajak: ' + (selectedTaxMode === 'PPN_INCLUDE' || selectedTaxMode === 'INCLUSIVE' ? 'PPN Inc' : 'PPN Exc') + ' (Rp ' + formatRupiah(taxAmount) + ')'"></span>
+                                <span class="text-[10px] font-mono text-cyan-200 font-normal" x-text="'Pajak: ' + (selectedTaxMode === 'PPN_INCLUDE' || selectedTaxMode === 'INCLUSIVE' ? 'PPN Inc' : 'PPN Exc') + ' (Rp ' + formatRupiah(taxAmount) + ')'"></span>
                             </template>
                             <template x-if="roundingAmount !== 0">
-                                <span :class="roundingAmount > 0 ? 'text-amber-400' : 'text-emerald-400'"
+                                <span :class="roundingAmount > 0 ? 'text-amber-300' : 'text-emerald-300'"
                                       class="text-[10px] font-mono font-bold"
                                       x-text="(roundingAmount > 0 ? 'Pembulatan: +Rp ' : 'Pembulatan: -Rp ') + formatRupiah(Math.abs(roundingAmount))"></span>
                             </template>
                         </div>
                     </div>
-                    <div class="text-3xl font-black text-emerald-400 font-mono tracking-tight mt-0.5"
+                    <div class="text-3xl font-black text-[#00F2FE] font-mono tracking-tight mt-1 drop-shadow-[0_0_12px_rgba(0,242,254,0.4)]"
                          x-text="'Rp ' + formatRupiah(grandTotal) + ',00'"></div>
                 </div>
 
                 <!-- PILIH METODE BAYAR (TABS) -->
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1.5 text-xs">Pilih Metode Pembayaran:</label>
+                    <label class="block font-extrabold text-slate-800 mb-1.5 text-xs">Pilih Metode Pembayaran:</label>
                     <div class="grid grid-cols-6 gap-1.5">
                         <template x-for="m in ['CASH', 'TRANSFER', 'QRIS', 'SPLIT', 'TEMPO', 'VOUCHER']" :key="m">
                             <button type="button"
@@ -1389,28 +1532,31 @@
             </div>
 
             <!-- FOOTER TOMBOL AKSI MODAL -->
-            <div class="bg-slate-100 px-4 py-3 border-t border-slate-300 flex items-center justify-between gap-3">
+            <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between gap-3">
                 <button type="button"
                         @click="checkoutModal = false; focusQuantityInput()"
-                        class="btn-win px-5 py-2.5 font-bold text-slate-700 hover:bg-slate-200">
+                        class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 font-bold text-slate-700 transition-colors cursor-pointer">
                     Batal (ESC)
                 </button>
                 <button type="button"
                         @click="submitCheckout()"
                         :disabled="!canSubmitCheckout"
-                        class="btn-action-primary flex-1 py-2.5 font-black text-sm text-center justify-center shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
-                    PROSES SELESAI & CETAK STRUK [Enter]
+                        class="bg-gradient-to-r from-[#059669] to-[#10B981] hover:from-[#047857] hover:to-[#059669] text-white flex-1 py-2.5 rounded-xl font-black text-sm text-center justify-center shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+                    PROSES SELESAI &amp; CETAK STRUK [Enter]
                 </button>
             </div>
         </div>
     </div>
 
     <!-- B. MODAL BUKA SHIFT -->
-    <div x-show="openShiftModal || !activeShiftId" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-slate-600 rounded p-4 max-w-sm w-full shadow-2xl text-xs space-y-3">
-            <h3 class="font-bold text-sm text-slate-900 border-b border-slate-300 pb-1.5 flex items-center gap-2">
-                💼 Buka Shift Kasir Baru
-            </h3>
+    <div x-show="openShiftModal || !activeShiftId" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">💼</span>
+                    <h3 class="font-extrabold text-sm text-slate-900">Buka Shift Kasir Baru</h3>
+                </div>
+            </div>
             <p class="text-slate-600">Masukkan modal awal kasir sebelum transaksi:</p>
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Modal Awal Kasir (Rp):</label>
@@ -1418,10 +1564,10 @@
                        x-ref="startingCashInput"
                        x-model.number="startingCash"
                        @keydown.enter.prevent="submitOpenShift()"
-                       class="excel-input w-full text-lg font-bold font-mono text-emerald-800 p-2">
+                       class="pos-input w-full text-lg font-bold font-mono text-emerald-800 p-2.5 border-emerald-500 focus:ring-emerald-200">
             </div>
-            <div class="pt-2">
-                <button type="button" @click="submitOpenShift()" class="btn-action-primary w-full py-2 font-bold justify-center">
+            <div class="pt-1">
+                <button type="button" @click="submitOpenShift()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold justify-center shadow-md cursor-pointer transition-all">
                     Buka Shift Kasir (Enter)
                 </button>
             </div>
@@ -1429,15 +1575,16 @@
     </div>
 
     <!-- C. MODAL TUTUP SHIFT (BLIND CLOSING RULE) -->
-    <div x-show="blindCloseModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-red-600 rounded p-4 max-w-md w-full shadow-2xl text-xs space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-300 pb-1.5">
-                <h3 class="font-bold text-sm text-red-900 flex items-center gap-1.5">
-                    🔒 Tutup Shift (Blind Closing)
+    <div x-show="blindCloseModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-md w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-rose-900 flex items-center gap-1.5">
+                    <span>🔒</span>
+                    <span>Tutup Shift (Blind Closing)</span>
                 </h3>
-                <button type="button" @click="blindCloseModal = false" class="text-slate-500 hover:text-black font-bold text-base">&times;</button>
+                <button type="button" @click="blindCloseModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
-            <div class="p-2 bg-amber-100 border border-amber-300 rounded text-amber-900">
+            <div class="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-900">
                 <strong>Aturan Blind Closing:</strong> Masukkan uang fisik aktual hasil hitungan di laci kasir tanpa melihat estimasi sistem.
             </div>
             <div>
@@ -1445,15 +1592,15 @@
                 <input type="number"
                        x-model.number="actualCashCounted"
                        @keydown.enter.prevent="submitBlindClose()"
-                       class="excel-input w-full text-xl font-bold font-mono text-slate-900 p-2 border-2 border-red-500">
+                       class="pos-input w-full text-xl font-bold font-mono text-slate-900 p-2.5 border-rose-500 focus:ring-rose-200">
             </div>
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Catatan Shift:</label>
-                <textarea x-model="closingNotes" class="excel-input w-full p-1.5" rows="2" placeholder="Catatan shift jika ada..."></textarea>
+                <textarea x-model="closingNotes" class="pos-input w-full p-2" rows="2" placeholder="Catatan shift jika ada..."></textarea>
             </div>
-            <div class="flex gap-2 pt-2 border-t border-slate-300">
-                <button type="button" @click="blindCloseModal = false" class="btn-win px-3 py-1.5">Batal</button>
-                <button type="button" @click="submitBlindClose()" class="btn-win bg-red-600 text-white hover:bg-red-700 flex-1 py-1.5 justify-center font-bold">
+            <div class="flex gap-2 pt-2 border-t border-slate-200">
+                <button type="button" @click="blindCloseModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">Batal</button>
+                <button type="button" @click="submitBlindClose()" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl justify-center shadow-md cursor-pointer transition-all">
                     Konfirmasi Tutup Shift (Enter)
                 </button>
             </div>
@@ -1461,22 +1608,26 @@
     </div>
 
     <!-- D. MODAL CASH DROP -->
-    <div x-show="cashDropModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-slate-600 rounded p-4 max-w-sm w-full shadow-2xl text-xs space-y-3">
-            <h3 class="font-bold text-sm text-slate-900 border-b border-slate-300 pb-1.5">
-                💼 Setor Kas ke Brankas (Cash Drop)
-            </h3>
+    <div x-show="cashDropModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                    <span>💼</span>
+                    <span>Setor Kas ke Brankas (Cash Drop)</span>
+                </h3>
+                <button type="button" @click="cashDropModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
+            </div>
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Jumlah Setor (Rp):</label>
-                <input type="number" x-model.number="cashDropAmount" class="excel-input w-full font-mono text-base font-bold p-1.5">
+                <input type="number" x-model.number="cashDropAmount" class="pos-input w-full font-mono text-base font-bold p-2">
             </div>
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Alasan / Catatan:</label>
-                <input type="text" x-model="cashDropReason" class="excel-input w-full p-1.5" placeholder="Setoran brankas berkala">
+                <input type="text" x-model="cashDropReason" class="pos-input w-full p-2" placeholder="Setoran brankas berkala">
             </div>
-            <div class="flex gap-2 pt-2 border-t border-slate-300">
-                <button type="button" @click="cashDropModal = false" class="btn-win px-3 py-1.5">Batal</button>
-                <button type="button" @click="submitCashDrop()" class="btn-win bg-blue-600 text-white hover:bg-blue-700 flex-1 py-1.5 justify-center font-bold">
+            <div class="flex gap-2 pt-2 border-t border-slate-200">
+                <button type="button" @click="cashDropModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">Batal</button>
+                <button type="button" @click="submitCashDrop()" class="flex-1 py-2 bg-[#1877F2] hover:bg-[#1565C0] text-white font-bold rounded-xl justify-center shadow-md cursor-pointer transition-all">
                     Simpan Setoran
                 </button>
             </div>
@@ -1484,22 +1635,26 @@
     </div>
 
     <!-- E. MODAL DETAIL ITEM / UBAH SATUAN & QTY [F2] -->
-    <div x-show="editItemModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-slate-600 rounded p-4 max-w-sm w-full shadow-2xl text-xs space-y-3">
-            <h3 class="font-bold text-sm text-slate-900 border-b border-slate-300 pb-1.5">
-                📦 Detail Item & Satuan Kemasan [F2]
-            </h3>
+    <div x-show="editItemModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                    <span>📦</span>
+                    <span>Detail Item &amp; Satuan Kemasan [F2]</span>
+                </h3>
+                <button type="button" @click="editItemModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
+            </div>
             <template x-if="selectedItemForEdit">
-                <div class="space-y-2">
+                <div class="space-y-3">
                     <div>
-                        <span class="text-slate-600">Nama Barang:</span>
-                        <div class="font-bold text-slate-900" x-text="selectedItemForEdit.product_name"></div>
+                        <span class="text-slate-500 font-semibold">Nama Barang:</span>
+                        <div class="font-black text-slate-900 text-sm mt-0.5" x-text="selectedItemForEdit.product_name"></div>
                     </div>
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Pilih Satuan Kemasan:</label>
                         <select x-model="selectedItemForEdit.product_unit_id"
                                 @change="onItemUnitChange(selectedItemForEdit)"
-                                class="excel-input w-full font-bold">
+                                class="pos-input w-full font-bold">
                             <template x-for="u in selectedItemForEdit.available_units" :key="u.id">
                                 <option :value="u.id" x-text="u.name + ' (' + u.code + ')'"></option>
                             </template>
@@ -1512,10 +1667,10 @@
                                @change="onItemQtyChange(selectedItemForEdit)"
                                @keydown.enter.prevent="editItemModal = false"
                                min="1"
-                               class="excel-input w-full text-base font-bold font-mono p-1">
+                               class="pos-input w-full text-base font-bold font-mono p-2">
                     </div>
                     <div class="pt-2">
-                        <button type="button" @click="editItemModal = false" class="btn-win bg-blue-600 text-white hover:bg-blue-700 w-full py-1.5 justify-center font-bold">
+                        <button type="button" @click="editItemModal = false" class="w-full py-2.5 bg-[#1877F2] hover:bg-[#1565C0] text-white rounded-xl font-bold justify-center shadow-md cursor-pointer transition-all">
                             Selesai (Enter)
                         </button>
                     </div>
@@ -1525,35 +1680,38 @@
     </div>
 
     <!-- F. MODAL CETAK ULANG STRUK [F10] -->
-    <div x-show="reprintModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-slate-600 rounded p-4 max-w-lg w-full shadow-2xl text-xs space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-300 pb-1.5">
-                <h3 class="font-bold text-sm text-slate-900">🖨️ Cetak Ulang Struk (Reprint) [F10]</h3>
-                <button type="button" @click="reprintModal = false" class="text-slate-500 font-bold text-base">&times;</button>
+    <div x-show="reprintModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-lg w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                    <span>🖨️</span>
+                    <span>Cetak Ulang Struk (Reprint) [F10]</span>
+                </h3>
+                <button type="button" @click="reprintModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
-            <div class="max-h-56 overflow-y-auto divide-y divide-slate-200 bg-white border border-slate-300 rounded">
+            <div class="max-h-56 overflow-y-auto divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-xl">
                 <template x-for="t in recentTransactions" :key="t.id">
-                    <div class="p-2 hover:bg-blue-50 flex justify-between items-center cursor-pointer"
-                         :class="selectedReprintTx?.id === t.id ? 'bg-blue-100 font-bold' : ''"
+                    <div class="p-2.5 hover:bg-blue-50/80 flex justify-between items-center cursor-pointer transition-colors"
+                         :class="selectedReprintTx?.id === t.id ? 'bg-blue-100/80 font-bold' : ''"
                          @click="selectTransactionForReprint(t)">
                         <div>
-                            <div class="font-mono text-slate-900" x-text="t.invoice_number"></div>
-                            <div class="text-[10px] text-slate-500" x-text="t.created_at"></div>
+                            <div class="font-mono text-slate-900 font-bold" x-text="t.invoice_number"></div>
+                            <div class="text-[10px] text-slate-500 font-mono" x-text="t.created_at"></div>
                         </div>
                         <div class="text-right">
-                            <div class="font-mono font-bold" x-text="'Rp ' + formatRupiah(t.grand_total)"></div>
-                            <span class="text-[10px] bg-slate-100 border px-1 rounded" x-text="t.payment_method"></span>
+                            <div class="font-mono font-bold text-blue-700" x-text="'Rp ' + formatRupiah(t.grand_total)"></div>
+                            <span class="text-[10px] bg-white border border-slate-200 px-1.5 py-0.2 rounded font-semibold text-slate-600" x-text="t.payment_method"></span>
                         </div>
                     </div>
                 </template>
             </div>
-            <div x-show="isPastShiftReprint" class="p-2 bg-amber-100 border border-amber-300 rounded space-y-1">
+            <div x-show="isPastShiftReprint" class="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-1.5">
                 <label class="block font-bold text-amber-900">Shift Lampau Memerlukan PIN Manajer:</label>
-                <input type="password" x-model="managerPin" placeholder="Default: 1234" class="excel-input w-full font-mono">
+                <input type="password" x-model="managerPin" placeholder="Default: 1234" class="pos-input w-full font-mono">
             </div>
-            <div class="flex gap-2 pt-2 border-t border-slate-300">
-                <button type="button" @click="reprintModal = false" class="btn-win px-3 py-1.5">Tutup</button>
-                <button type="button" @click="executeReprint()" class="btn-win bg-blue-600 text-white hover:bg-blue-700 flex-1 py-1.5 justify-center font-bold">
+            <div class="flex gap-2 pt-2 border-t border-slate-200">
+                <button type="button" @click="reprintModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">Tutup</button>
+                <button type="button" @click="executeReprint()" class="flex-1 py-2 bg-[#1877F2] hover:bg-[#1565C0] text-white rounded-xl font-bold justify-center shadow-md cursor-pointer transition-all">
                     Cetak Ulang Struk
                 </button>
             </div>
@@ -1561,27 +1719,28 @@
     </div>
 
     <!-- G. MODAL SIMULASI BUKA LACI KASIR (CASH DRAWER KICK) [F2] -->
-    <div x-show="cashDrawerModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-amber-600 rounded p-4 max-w-sm w-full shadow-2xl text-xs space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-300 pb-1.5">
-                <h3 class="font-bold text-sm text-amber-900 flex items-center gap-1.5">
-                    🔓 Buka Laci Kasir [Cash Drawer]
+    <div x-show="cashDrawerModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-amber-900 flex items-center gap-1.5">
+                    <span>🔓</span>
+                    <span>Buka Laci Kasir [Cash Drawer]</span>
                 </h3>
-                <button type="button" @click="cashDrawerModal = false" class="text-slate-500 hover:text-black font-bold text-base">&times;</button>
+                <button type="button" @click="cashDrawerModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
-            <div class="p-3 bg-amber-50 border border-amber-300 rounded text-amber-950 space-y-2">
+            <div class="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-950 space-y-2">
                 <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
                     <span class="text-xl">⚡</span> Perintah ESC/POS Terkirim!
                 </div>
                 <p class="text-[11px] text-slate-700 leading-relaxed">
                     Sinyal pin laci kasir (Pin 2 / Pin 5: <code class="bg-amber-100 px-1 py-0.5 rounded font-mono text-rose-800 font-bold">ESC p 0 25 250</code>) berhasil dieksekusi ke printer kasir thermal.
                 </p>
-                <div class="p-2 bg-emerald-100 border border-emerald-300 rounded text-emerald-900 font-semibold text-center">
+                <div class="p-2 bg-emerald-100 border border-emerald-300 rounded-lg text-emerald-900 font-semibold text-center">
                     🔔 Status Laci: Terbuka
                 </div>
             </div>
             <div class="pt-1">
-                <button type="button" @click="cashDrawerModal = false" class="btn-action-primary w-full py-2 font-bold justify-center">
+                <button type="button" @click="cashDrawerModal = false" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold justify-center shadow-md cursor-pointer transition-all">
                     Tutup Notifikasi [ESC / Enter]
                 </button>
             </div>
@@ -1589,30 +1748,30 @@
     </div>
 
     <!-- G2. MODAL DAFTAR TRANSAKSI DITAHAN (PENDING / RECALL CARTS) [Ctrl+2 / F7] -->
-    <div x-show="pendingModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-slate-700 rounded-xl p-4 max-w-xl w-full shadow-2xl text-xs space-y-3"
+    <div x-show="pendingModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-xl w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150"
              @click.away="pendingModal = false">
-            <div class="flex items-center justify-between border-b border-slate-300 pb-2">
-                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
                     <span>📋 Daftar Transaksi Ditahan (Pending / Recall) [Ctrl+2]</span>
                     <span class="px-2 py-0.5 rounded-full bg-blue-700 text-white text-[11px]" x-text="heldCarts.length + ' Transaksi'"></span>
                 </h3>
-                <button type="button" @click="pendingModal = false" class="text-slate-500 hover:text-black font-bold text-base">&times;</button>
+                <button type="button" @click="pendingModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
 
             <div x-show="heldCarts.length === 0" class="py-12 text-center text-slate-400 space-y-2">
                 <div class="text-3xl">📭</div>
                 <div class="font-semibold text-slate-600">Tidak ada transaksi yang sedang ditahan.</div>
-                <div class="text-[11px]">Tekan <strong>[Ctrl+1 / F6]</strong> atau tombol <strong>Pending</strong> saat ada transaksi di keranjang untuk menahannya sementara.</div>
+                <div class="text-[11px]">Tekan <strong>[Ctrl+1]</strong> atau tombol <strong>Pending</strong> saat ada transaksi di keranjang untuk menahannya sementara.</div>
             </div>
 
             <div x-show="heldCarts.length > 0" class="overflow-y-auto max-h-[350px] space-y-2 pr-1">
                 <template x-for="(held, idx) in heldCarts" :key="held.id">
-                    <div class="p-3 bg-white border border-slate-300 rounded-lg shadow-2xs hover:border-blue-400 transition-all flex items-center justify-between gap-3">
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl shadow-2xs hover:border-blue-400 transition-all flex items-center justify-between gap-3">
                         <div class="min-w-0 flex-1 space-y-1">
                             <div class="flex items-center gap-2">
                                 <span class="font-bold text-slate-900 text-sm truncate" x-text="held.customer_name"></span>
-                                <span class="px-1.5 py-0.2 bg-slate-100 rounded text-[10px] font-mono text-slate-500" x-text="held.timestamp"></span>
+                                <span class="px-1.5 py-0.2 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-500" x-text="held.timestamp"></span>
                             </div>
                             <div class="flex items-center gap-2 text-[11px] text-slate-600 font-mono">
                                 <span class="font-bold text-blue-700" x-text="held.total_items + ' Item'"></span>
@@ -1625,13 +1784,13 @@
                         <div class="flex items-center gap-1.5">
                             <button type="button"
                                     @click="recallTransaction(idx)"
-                                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow-2xs text-xs flex items-center gap-1 cursor-pointer">
+                                    class="px-3 py-1.5 bg-[#1877F2] hover:bg-[#1565C0] text-white font-bold rounded-lg shadow-2xs text-xs flex items-center gap-1 cursor-pointer transition-all">
                                 <span>⚡</span>
                                 <span>Buka (Recall)</span>
                             </button>
                             <button type="button"
                                     @click="deleteHeldTransaction(idx)"
-                                    class="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded text-xs cursor-pointer"
+                                    class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg text-xs cursor-pointer transition-all"
                                     title="Hapus transaksi pending">
                                 🗑️
                             </button>
@@ -1640,9 +1799,9 @@
                 </template>
             </div>
 
-            <div class="pt-2 border-t border-slate-300 flex items-center justify-between">
+            <div class="pt-2 border-t border-slate-200 flex items-center justify-between">
                 <span class="text-[10px] text-slate-500">Tersimpan otomatis di penyimpanan lokal kasir.</span>
-                <button type="button" @click="pendingModal = false" class="btn-pos-cmd px-4 py-1.5 font-bold">
+                <button type="button" @click="pendingModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">
                     Tutup [ESC]
                 </button>
             </div>
@@ -2497,18 +2656,18 @@
     </div>
 
     <!-- M. MODAL TUKAR POIN LOYALITAS PELANGGAN [F6] -->
-    <div x-show="tukarPoinModal" x-cloak class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div class="bg-[#edf0f4] border-2 border-slate-600 rounded p-4 max-w-md w-full shadow-2xl text-xs space-y-3 animate-in fade-in zoom-in duration-150">
-            <div class="flex items-center justify-between border-b border-slate-300 pb-1.5">
-                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+    <div x-show="tukarPoinModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-md w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
                     <span>⭐</span>
                     <span>Penukaran Poin Loyalitas Pelanggan [F6]</span>
                 </h3>
-                <button type="button" @click="tukarPoinModal = false; focusQuantityInput()" class="text-slate-500 font-bold text-base cursor-pointer">&times;</button>
+                <button type="button" @click="tukarPoinModal = false; focusQuantityInput()" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
 
             <template x-if="!selectedCustomer || selectedCustomer.code === 'CUST-UMUM'">
-                <div class="p-3 bg-amber-50 border border-amber-300 rounded space-y-2">
+                <div class="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-1.5">
                     <div class="font-bold text-amber-900">Pelanggan Umum (Non-Member) Terpilih</div>
                     <p class="text-[11px] text-amber-800">
                         Penukaran poin loyalitas hanya dapat digunakan untuk pelanggan/member terdaftar yang memiliki saldo poin. Silakan pilih member pada data Pelanggan terlebih dahulu.
@@ -2517,15 +2676,15 @@
             </template>
 
             <template x-if="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM'">
-                <div class="space-y-2.5">
-                    <div class="p-2.5 bg-white border border-slate-300 rounded space-y-1">
+                <div class="space-y-3">
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
                         <div class="flex justify-between items-center">
-                            <span class="text-slate-600">Pelanggan:</span>
+                            <span class="text-slate-500 font-semibold">Pelanggan:</span>
                             <span class="font-bold text-slate-900" x-text="selectedCustomer.name"></span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-slate-600">Saldo Poin Tersedia:</span>
-                            <span class="font-bold text-amber-800 font-mono text-sm" x-text="(selectedCustomer.loyalty_points || 0) + ' Poin'"></span>
+                            <span class="text-slate-500 font-semibold">Saldo Poin Tersedia:</span>
+                            <span class="font-bold text-amber-700 font-mono text-sm" x-text="(selectedCustomer.loyalty_points || 0) + ' Poin'"></span>
                         </div>
                         <div class="flex justify-between items-center text-[11px] text-slate-500">
                             <span>Nilai Konversi:</span>
@@ -2543,37 +2702,37 @@
                                    @input="onPointsInputChange()"
                                    @keydown.enter.prevent="applyPointsRedemption(); tukarPoinModal = false; focusQuantityInput();"
                                    placeholder="Masukkan kuota poin..."
-                                   class="excel-input flex-1 font-mono text-base font-bold p-1.5">
+                                   class="pos-input flex-1 font-mono text-base font-bold p-2">
                             <button type="button"
                                     @click="redeemAllCustomerPoints()"
-                                    class="btn-win px-3 py-2 font-bold text-[11px] cursor-pointer">
+                                    class="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg font-bold text-xs cursor-pointer">
                                 Tukar Semua
                             </button>
                         </div>
                     </div>
 
-                    <div class="p-2 bg-emerald-50 border border-emerald-300 rounded flex justify-between items-center font-bold text-emerald-900">
+                    <div class="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex justify-between items-center font-bold text-emerald-900">
                         <span>Potongan Diskon Belanja:</span>
-                        <span class="font-mono text-sm" x-text="'Rp ' + formatRupiah(Math.min(Math.max(0, subtotal - voucherDiscount), (parseInt(redeemPointsInput) || 0) * pointRate))"></span>
+                        <span class="font-mono text-sm font-black" x-text="'Rp ' + formatRupiah(Math.min(Math.max(0, subtotal - voucherDiscount), (parseInt(redeemPointsInput) || 0) * pointRate))"></span>
                     </div>
                 </div>
             </template>
 
-            <div class="flex gap-2 pt-2 border-t border-slate-300">
+            <div class="flex gap-2 pt-2 border-t border-slate-200">
                 <template x-if="redeemPoints > 0">
                     <button type="button"
                             @click="resetRedeemPoints(); tukarPoinModal = false; focusQuantityInput();"
-                            class="btn-win text-rose-700 font-bold px-3 py-1.5 cursor-pointer">
+                            class="px-3 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold rounded-xl cursor-pointer">
                         Batalkan Poin
                     </button>
                 </template>
-                <button type="button" @click="tukarPoinModal = false; focusQuantityInput()" class="btn-win px-3 py-1.5 cursor-pointer">
+                <button type="button" @click="tukarPoinModal = false; focusQuantityInput()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">
                     Tutup (ESC)
                 </button>
                 <template x-if="selectedCustomer && selectedCustomer.code !== 'CUST-UMUM'">
                     <button type="button"
                             @click="applyPointsRedemption(); tukarPoinModal = false; focusQuantityInput();"
-                            class="btn-win bg-blue-600 text-white hover:bg-blue-700 flex-1 py-1.5 justify-center font-bold cursor-pointer">
+                            class="flex-1 py-2 bg-[#1877F2] hover:bg-[#1565C0] text-white font-bold rounded-xl justify-center shadow-md cursor-pointer transition-all">
                         Terapkan Diskon Poin
                     </button>
                 </template>
