@@ -10,27 +10,31 @@ echo.
 
 cd /d "%~dp0"
 
-:: 1. Buat Folder Backups jika belum ada
-if not exist "backups" (
-    mkdir backups
+:: 1. Lokasi Folder Backup Terpadu (sama dengan UI MaintenanceController)
+set "BACKUP_DIR=storage\app\backups"
+if not exist "%BACKUP_DIR%" (
+    mkdir "%BACKUP_DIR%"
 )
 
-:: 2. Format Timestamp YYYYMMDD_HHMMSS
-for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value') do set "dt=%%a"
-set "YYYY=!dt:~0,4!"
-set "MM=!dt:~4,2!"
-set "DD=!dt:~6,2!"
-set "HH=!dt:~8,2!"
-set "Min=!dt:~10,2!"
-set "Sec=!dt:~12,2!"
-set "BACKUP_FILE=backups\sigma_erp_backup_!YYYY!!MM!!DD!_!HH!!Min!!Sec!.sql"
+:: 2. Format Timestamp YYYYMMDD_HHMMSS via PowerShell Get-Date
+set "TIMESTAMP="
+for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd_HHmmss'"`) do set "TIMESTAMP=%%a"
+if not defined TIMESTAMP (
+    color 0C
+    echo [ERROR] Gagal mendapatkan timestamp dari PowerShell Get-Date!
+    pause
+    exit /b 1
+)
+set "BACKUP_FILE=%BACKUP_DIR%\sigma_erp_backup_!TIMESTAMP!.sql"
 
 :: 3. Deteksi Binary pg_dump
 set PG_DUMP=pg_dump
 where pg_dump >nul 2>nul
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     if exist "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" (
         set PG_DUMP="C:\Program Files\PostgreSQL\18\bin\pg_dump.exe"
+    ) else if exist "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" (
+        set PG_DUMP="C:\Program Files\PostgreSQL\17\bin\pg_dump.exe"
     ) else if exist "C:\Program Files\PostgreSQL\16\bin\pg_dump.exe" (
         set PG_DUMP="C:\Program Files\PostgreSQL\16\bin\pg_dump.exe"
     ) else if exist "C:\Program Files\PostgreSQL\15\bin\pg_dump.exe" (
@@ -50,12 +54,14 @@ set DB_DATABASE=sigma_erp
 set DB_USERNAME=postgres
 set DB_PASSWORD=885588
 
-for /f "tokens=1,2 delims==" %%a in (.env) do (
-    if "%%a"=="DB_HOST" set DB_HOST=%%b
-    if "%%a"=="DB_PORT" set DB_PORT=%%b
-    if "%%a"=="DB_DATABASE" set DB_DATABASE=%%b
-    if "%%a"=="DB_USERNAME" set DB_USERNAME=%%b
-    if "%%a"=="DB_PASSWORD" set DB_PASSWORD=%%b
+if exist ".env" (
+    for /f "tokens=1,2 delims==" %%a in (.env) do (
+        if "%%a"=="DB_HOST" set DB_HOST=%%b
+        if "%%a"=="DB_PORT" set DB_PORT=%%b
+        if "%%a"=="DB_DATABASE" set DB_DATABASE=%%b
+        if "%%a"=="DB_USERNAME" set DB_USERNAME=%%b
+        if "%%a"=="DB_PASSWORD" set DB_PASSWORD=%%b
+    )
 )
 
 set PGPASSWORD=%DB_PASSWORD%
@@ -65,19 +71,35 @@ echo [*] Host: %DB_HOST%:%DB_PORT% (User: %DB_USERNAME%)
 echo [*] Menyimpan ke: %BACKUP_FILE%
 echo.
 
-%PG_DUMP% -h %DB_HOST% -p %DB_PORT% -U %DB_USERNAME% -d %DB_DATABASE% -F p -b -v -f "%BACKUP_FILE%" >nul 2>&1
+%PG_DUMP% --clean --if-exists --no-owner -h %DB_HOST% -p %DB_PORT% -U %DB_USERNAME% -d %DB_DATABASE% -f "%BACKUP_FILE%"
+set "DUMP_EXIT=!errorlevel!"
 
-if %errorlevel% equ 0 (
-    color 0A
-    echo [SUKSES] Backup Database Berhasil Dibuat!
-    echo File: %BACKUP_FILE%
-    echo.
-    echo Anda dapat memindahkan file backup ini ke komputer lain untuk restore.
-) else (
+if !DUMP_EXIT! neq 0 (
+    if exist "%BACKUP_FILE%" del /f /q "%BACKUP_FILE%"
     color 0C
-    echo [ERROR] Gagal melakukan backup database.
+    echo.
+    echo [ERROR] Gagal melakukan backup database (Exit Code: !DUMP_EXIT!).
     echo Periksa apakah database %DB_DATABASE% ada dan password di file .env sesuai.
+    pause
+    exit /b !DUMP_EXIT!
 )
 
+set "FILE_SIZE=0"
+for %%F in ("%BACKUP_FILE%") do set "FILE_SIZE=%%~zF"
+if "!FILE_SIZE!"=="0" (
+    if exist "%BACKUP_FILE%" del /f /q "%BACKUP_FILE%"
+    color 0C
+    echo.
+    echo [ERROR] File backup kosong (0 byte).
+    pause
+    exit /b 1
+)
+
+color 0A
+echo.
+echo [SUKSES] Backup Database Berhasil Dibuat!
+echo File: %BACKUP_FILE%
+echo.
+echo Anda dapat mengunduh atau memindahkan file backup ini ke komputer lain untuk restore.
 echo.
 pause

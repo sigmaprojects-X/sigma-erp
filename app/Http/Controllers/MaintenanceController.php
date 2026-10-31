@@ -15,9 +15,52 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\Process\Process;
 
 class MaintenanceController extends Controller
 {
+    /**
+     * Lokasi folder arsip backup terpadu (sama dengan BACKUP-DATABASE.bat & RESTORE-DATABASE.bat).
+     */
+    protected function getBackupDirectory(): string
+    {
+        return storage_path('app'.DIRECTORY_SEPARATOR.'backups');
+    }
+
+    /**
+     * Deteksi binary pg_dump pada sistem.
+     */
+    protected function resolvePgDumpBinary(): string
+    {
+        $candidates = [
+            'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe',
+            'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe',
+            'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
+            'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
+        ];
+
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return 'pg_dump';
+    }
+
+    /**
+     * Buat instance Symfony Process untuk eksekusi pg_dump.
+     *
+     * @param  array<int, string>  $command
+     * @param  array<string, string>  $env
+     */
+    protected function buildPgDumpProcess(array $command, array $env): Process
+    {
+        $process = new Process($command, base_path(), $env);
+        $process->setTimeout(300);
+
+        return $process;
+    }
     /**
      * Tampilkan halaman Pemeliharaan Sistem, Status Database & Backup.
      */
@@ -57,7 +100,7 @@ class MaintenanceController extends Controller
         ];
 
         // 3. Daftar File Backup Lokal di storage/app/backups
-        $backupDir = storage_path('app'.DIRECTORY_SEPARATOR.'backups');
+        $backupDir = $this->getBackupDirectory();
         if (! File::isDirectory($backupDir)) {
             File::makeDirectory($backupDir, 0755, true, true);
         }
@@ -82,92 +125,76 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Jalankan Pemicu Pencadangan Database (Instant Backup).
+     * Jalankan Pemicu Pencadangan Database (Instant Backup) via pg_dump.
      */
     public function createBackup(Request $request): RedirectResponse
     {
-        $backupDir = storage_path('app'.DIRECTORY_SEPARATOR.'backups');
+        $backupDir = $this->getBackupDirectory();
         if (! File::isDirectory($backupDir)) {
             File::makeDirectory($backupDir, 0755, true, true);
         }
 
-        $timestamp = date('Y-m-d_H-i-s');
-        $filename = "sigma_backup_{$timestamp}.sql";
+        $timestamp = date('Ymd_His');
+        $filename = "sigma_erp_backup_{$timestamp}.sql";
         $filepath = $backupDir.DIRECTORY_SEPARATOR.$filename;
 
         try {
-            // Hasilkan dump SQL sederhana dengan metadata struktur & data SIGMA ERP
-            $tables = [
-                'companies',
-                'stores',
-                'user_groups',
-                'users',
-                'customer_tiers',
-                'customers',
-                'suppliers',
-                'products',
-                'product_units',
-                'product_barcodes',
-                'product_prices',
-                'product_stocks',
-                'stock_mutations',
-                'transaction_number_patterns',
-                'pos_shifts',
-                'sales',
-                'sale_items',
-                'sale_payments',
-                'chart_of_accounts',
-                'general_ledger_entries',
+            $connection = config('database.default', 'pgsql');
+            $dbConfig = config("database.connections.{$connection}", config('database.connections.pgsql', []));
+
+            $host = (string) ($dbConfig['host'] ?? '127.0.0.1');
+            $port = (string) ($dbConfig['port'] ?? '5432');
+            $database = (string) ($dbConfig['database'] ?? 'sigma_erp');
+            $username = (string) ($dbConfig['username'] ?? 'postgres');
+            $password = (string) ($dbConfig['password'] ?? '');
+
+            $command = [
+                $this->resolvePgDumpBinary(),
+                '--clean',
+                '--if-exists',
+                '--no-owner',
+                '-h', $host,
+                '-p', $port,
+                '-U', $username,
+                '-d', $database,
+                '-f', $filepath,
             ];
 
-            $handle = fopen($filepath, 'w+');
-            fwrite($handle, "-- =========================================================\n");
-            fwrite($handle, "-- SIGMA ERP & POS DATABASE BACKUP\n");
-            fwrite($handle, "-- Tanggal Pembuatan : ".date('Y-m-d H:i:s')."\n");
-            fwrite($handle, "-- Sistem           : Laravel ".app()->version()." / PHP ".PHP_VERSION."\n");
-            fwrite($handle, "-- =========================================================\n\n");
-            fwrite($handle, "SET client_encoding = 'UTF8';\n");
-            fwrite($handle, "SET standard_conforming_strings = on;\n\n");
+            $process = $this->buildPgDumpProcess($command, [
+                'PGPASSWORD' => $password,
+            ]);
+            $process->run();
 
-            foreach ($tables as $table) {
-                if (! DB::getSchemaBuilder()->hasTable($table)) {
-                    continue;
+            if (! $process->isSuccessful() || $process->getExitCode() !== 0) {
+                if (File::exists($filepath)) {
+                    File::delete($filepath);
                 }
 
-                $rows = DB::table($table)->get();
-                fwrite($handle, "-- Data untuk tabel: {$table} (Total: {$rows->count()} baris)\n");
+                $errorMsg = trim($process->getErrorOutput() ?: $process->getOutput());
 
-                foreach ($rows as $row) {
-                    $rowArray = (array) $row;
-                    $cols = array_keys($rowArray);
-                    $values = array_map(function ($val) {
-                        if ($val === null) {
-                            return 'NULL';
-                        }
-                        if (is_bool($val)) {
-                            return $val ? 'TRUE' : 'FALSE';
-                        }
-                        if (is_numeric($val)) {
-                            return $val;
-                        }
-                        return "'" . addslashes((string) $val) . "'";
-                    }, array_values($rowArray));
-
-                    $colsStr = implode(', ', $cols);
-                    $valsStr = implode(', ', $values);
-                    fwrite($handle, "INSERT INTO {$table} ({$colsStr}) VALUES ({$valsStr}) ON CONFLICT DO NOTHING;\n");
-                }
-                fwrite($handle, "\n");
+                return redirect()->route('settings.maintenance.index')
+                    ->with('error', 'Gagal membuat file cadangan (exit code ' . $process->getExitCode() . '): ' . ($errorMsg ?: 'Eksekusi pg_dump gagal.'));
             }
 
-            fclose($handle);
+            clearstatcache(true, $filepath);
+            if (! File::exists($filepath) || File::size($filepath) === 0) {
+                if (File::exists($filepath)) {
+                    File::delete($filepath);
+                }
 
-            return redirect()->route('settings.maintenance.index')->with('success', "Alhamdulillah, file pencadangan [{$filename}] berhasil dibuat!");
+                return redirect()->route('settings.maintenance.index')
+                    ->with('error', 'Gagal membuat file cadangan: File hasil pg_dump kosong (0 byte).');
+            }
+
+            return redirect()->route('settings.maintenance.index')
+                ->with('success', "Alhamdulillah, file pencadangan [{$filename}] berhasil dibuat!");
         } catch (\Throwable $e) {
             if (File::exists($filepath)) {
                 File::delete($filepath);
             }
-            return redirect()->route('settings.maintenance.index')->with('error', 'Gagal membuat file cadangan: ' . $e->getMessage());
+
+            return redirect()->route('settings.maintenance.index')
+                ->with('error', 'Gagal membuat file cadangan: ' . $e->getMessage());
         }
     }
 
@@ -178,7 +205,7 @@ class MaintenanceController extends Controller
     {
         // Sanitasi nama file untuk mencegah path traversal
         $cleanFilename = basename($filename);
-        $filepath = storage_path('app'.DIRECTORY_SEPARATOR.'backups'.DIRECTORY_SEPARATOR.$cleanFilename);
+        $filepath = $this->getBackupDirectory().DIRECTORY_SEPARATOR.$cleanFilename;
 
         if (! File::exists($filepath)) {
             return redirect()->route('settings.maintenance.index')->with('error', 'File cadangan tidak ditemukan.');
@@ -195,7 +222,7 @@ class MaintenanceController extends Controller
     public function deleteBackup(string $filename): RedirectResponse
     {
         $cleanFilename = basename($filename);
-        $filepath = storage_path('app'.DIRECTORY_SEPARATOR.'backups'.DIRECTORY_SEPARATOR.$cleanFilename);
+        $filepath = $this->getBackupDirectory().DIRECTORY_SEPARATOR.$cleanFilename;
 
         if (File::exists($filepath)) {
             File::delete($filepath);
