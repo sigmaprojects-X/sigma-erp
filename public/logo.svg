@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="sigmaBg" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="sigmaTop" x1="50" y1="25" x2="150" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="sigmaLeft" x1="45" y1="70" x2="100" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="sigmaRight" x1="100" y1="70" x2="155" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#3730a3"/>
+    </linearGradient>
+    <linearGradient id="sigmaRibbon" x1="75" y1="65" x2="125" y2="135" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#f0f9ff"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#2563eb" flood-opacity="0.45"/>
+    </filter>
+    <filter id="whiteGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0284c7" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded squircle -->
+  <rect x="12" y="12" width="176" height="176" rx="46" fill="url(#sigmaBg)" filter="url(#glow)"/>
+  <rect x="12" y="12" width="176" height="176" rx="46" stroke="#38bdf8" stroke-opacity="0.35" stroke-width="1.5" fill="none"/>
+
+  <!-- Isometric Warehouse Smart Logistics Cube -->
+  <g transform="translate(0, 3)">
+    <!-- Top Face -->
+    <path d="M100 38 L152 68 L100 98 L48 68 Z" fill="url(#sigmaTop)"/>
+    <path d="M74 53 L126 83 M126 53 L74 83" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1.5"/>
+
+    <!-- Left Face (Shelving / Inbound) -->
+    <path d="M48 68 L100 98 L100 156 L48 126 Z" fill="url(#sigmaLeft)"/>
+    <path d="M58 84 L90 102 M58 104 L90 122" stroke="#93c5fd" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Right Face (Distribution / Outbound) -->
+    <path d="M100 98 L152 68 L152 126 L100 156 Z" fill="url(#sigmaRight)"/>
+    <circle cx="126" cy="112" r="3.5" fill="#38bdf8"/>
+    <path d="M110 103 L126 112 L142 103" stroke="#a5b4fc" stroke-opacity="0.6" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Floating Futuristic Sigma (Σ) Emblem -->
+    <path d="M76 66 H124 L98 98 L124 130 H76 L84 120 H107 L88 98 L107 76 H84 Z" 
+          fill="url(#sigmaRibbon)" 
+          filter="url(#whiteGlow)"/>
+  </g>
+</svg>

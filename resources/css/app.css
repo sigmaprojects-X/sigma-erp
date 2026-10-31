@@ -1,0 +1,74 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* SIGMA ERP OFFICIAL DESIGN SYSTEM TOKENS */
+    --color-sigma-navy: #0B1F4D;
+    --color-sigma-navy-dark: #071536;
+    --color-sigma-navy-light: #132D6B;
+    --color-sigma-blue: #125BCE;
+    --color-sigma-blue-hover: #0E4DB3;
+    --color-sigma-cyan: #18BDEB;
+    --color-sigma-gold: #FFB800;
+    --color-sigma-orange: #F36B16;
+    --color-sigma-bg: #F4F7FC;
+    --color-sigma-surface: #FFFFFF;
+    --color-sigma-text: #172033;
+    --color-sigma-muted: #64748B;
+    --color-sigma-border: #E2E8F0;
+    --color-sigma-success: #15803D;
+    --color-sigma-warning: #D97706;
+    --color-sigma-danger: #DC2626;
+    --color-sigma-info: #0284C7;
+}
+
+:root {
+    --sigma-navy: #0B1F4D;
+    --sigma-navy-dark: #071536;
+    --sigma-navy-light: #132D6B;
+    --sigma-blue: #125BCE;
+    --sigma-cyan: #18BDEB;
+    --sigma-gold: #FFB800;
+    --sigma-orange: #F36B16;
+    --sigma-bg: #F4F7FC;
+    --sigma-surface: #FFFFFF;
+    --sigma-text-primary: #172033;
+    --sigma-text-secondary: #64748B;
+    --sigma-border: #E2E8F0;
+    --sigma-success: #15803D;
+    --sigma-warning: #D97706;
+    --sigma-danger: #DC2626;
+    --sigma-info: #0284C7;
+}
+
+/* Custom utility classes for official SIGMA branding */
+.bg-sigma-navy { background-color: var(--sigma-navy); }
+.bg-sigma-navy-dark { background-color: var(--sigma-navy-dark); }
+.bg-sigma-navy-light { background-color: var(--sigma-navy-light); }
+.bg-sigma-blue { background-color: var(--sigma-blue); }
+.bg-sigma-cyan { background-color: var(--sigma-cyan); }
+.bg-sigma-gold { background-color: var(--sigma-gold); }
+.bg-sigma-orange { background-color: var(--sigma-orange); }
+.bg-sigma-bg { background-color: var(--sigma-bg); }
+.bg-sigma-surface { background-color: var(--sigma-surface); }
+
+.text-sigma-navy { color: var(--sigma-navy); }
+.text-sigma-blue { color: var(--sigma-blue); }
+.text-sigma-cyan { color: var(--sigma-cyan); }
+.text-sigma-gold { color: var(--sigma-gold); }
+.text-sigma-orange { color: var(--sigma-orange); }
+.text-sigma-primary { color: var(--sigma-text-primary); }
+.text-sigma-secondary { color: var(--sigma-text-secondary); }
+
+.border-sigma-border { border-color: var(--sigma-border); }
+.border-sigma-blue { border-color: var(--sigma-blue); }
+.border-sigma-cyan { border-color: var(--sigma-cyan); }
+.border-sigma-gold { border-color: var(--sigma-gold); }
+.border-sigma-orange { border-color: var(--sigma-orange); }
