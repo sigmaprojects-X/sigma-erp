@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\PublicProductResource;
 use App\Models\BankAccount;
 use App\Models\Company;
 use App\Models\Customer;
@@ -16,6 +17,7 @@ use App\Models\SalesOrderItem;
 use App\Models\Store;
 use App\Services\InventoryService;
 use App\Services\PricingEngineService;
+use App\Services\PromoEngineService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,8 +28,11 @@ class PwaStorefrontController extends Controller
 {
     public function __construct(
         protected InventoryService $inventoryService,
-        protected PricingEngineService $pricingEngine
-    ) {}
+        protected PricingEngineService $pricingEngine,
+        protected ?PromoEngineService $promoEngine = null
+    ) {
+        $this->promoEngine = $promoEngine ?? app(PromoEngineService::class);
+    }
 
     /**
      * Tampilan Beranda Marketplace / Katalog PWA Pelanggan via HP.
@@ -150,7 +155,12 @@ class PwaStorefrontController extends Controller
      */
     public function productDetail(string $id): JsonResponse
     {
-        $product = Product::with(['units', 'prices.customerTier', 'category'])->findOrFail($id);
+        $product = Product::with(['units', 'prices.customerTier', 'category'])
+            ->where('is_active', true)
+            ->where('type', '!=', Product::TYPE_BIAYA)
+            ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
+            ->findOrFail($id);
+
         $store = Store::where('is_active', true)->first();
 
         $stock = ProductStock::where('product_id', $product->id)
@@ -161,10 +171,11 @@ class PwaStorefrontController extends Controller
         $reserved = $stock ? (float) $stock->reserved_quantity : 0.0;
         $quarantined = $stock ? (float) $stock->quarantined_quantity : 0.0;
         $available = max(0, $physical - $reserved - $quarantined);
+        $product->available_stock = $available;
 
         return response()->json([
             'success' => true,
-            'product' => $product,
+            'product' => (new PublicProductResource($product))->resolve(),
             'available_stock' => $available,
         ]);
     }
@@ -186,20 +197,17 @@ class PwaStorefrontController extends Controller
             'items.*.product_id' => 'required|uuid|exists:products,id',
             'items.*.product_unit_id' => 'required|uuid|exists:product_units,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.discount_amount' => 'nullable|numeric|min:0',
-            'items.*.is_tebus_murah' => 'nullable|boolean',
-            'items.*.promotion_id' => 'nullable|uuid',
         ]);
 
         try {
-            $order = DB::transaction(function () use ($validated, $request) {
+            $order = DB::transaction(function () use ($validated) {
                 $store = Store::with('company')->findOrFail($validated['store_id']);
                 $company = $store->company;
 
                 // 1. Cari atau buat akun pelanggan berdasarkan nomor HP
                 $phoneClean = preg_replace('/[^0-9]/', '', $validated['customer_phone']);
                 $defaultTier = CustomerTier::where('company_id', $company->id)->where('is_default', true)->first()
-                    ?? CustomerTier::where('company_id', $company->id)->first();
+                    ?? CustomerTier::where('company_id', $company->id)->firstOrFail();
 
                 $customer = Customer::firstOrCreate(
                     [
@@ -209,70 +217,142 @@ class PwaStorefrontController extends Controller
                     [
                         'code' => 'CUST-PWA-'.strtoupper(Str::random(4)),
                         'name' => $validated['customer_name'],
-                        'customer_tier_id' => $defaultTier?->id,
+                        'customer_tier_id' => $defaultTier->id,
                         'address' => $validated['delivery_address'] ?? 'PWA Online Customer',
                         'is_active' => true,
                     ]
                 );
 
+                $tier = $customer->customerTier ?? $defaultTier;
                 $orderNumber = 'ORD-PWA-'.date('Ymd').'-'.strtoupper(Str::random(4));
-                $subtotal = 0.0;
                 $preparedItems = [];
 
-                // 2. Validasi stok dan lakukan Atomic Reservation dengan TTL 30 Menit (AGENTS.md Section 2 & 4D)
+                // 2. Hitung harga satuan resmi di server (Zero Manual Price Override)
                 foreach ($validated['items'] as $itemData) {
-                    $product = Product::findOrFail($itemData['product_id']);
+                    $product = Product::where('id', $itemData['product_id'])
+                        ->where('is_active', true)
+                        ->where('type', '!=', Product::TYPE_BIAYA)
+                        ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
+                        ->firstOrFail();
+
                     $unit = ProductUnit::where('id', $itemData['product_unit_id'])
                         ->where('product_id', $product->id)
+                        ->where('is_active', true)
                         ->firstOrFail();
 
                     $qty = (float) $itemData['quantity'];
                     $baseQty = $qty * (float) $unit->conversion_factor;
 
-                    // Ambil harga
-                    $unitPrice = (float) ($product->prices->firstWhere('product_unit_id', $unit->id)?->price ?? $product->cost_price);
-                    $discountAmount = (float) ($itemData['discount_amount'] ?? 0.00);
-
-                    // Validasi Promo Tebus Murah dari Mesin Promo (AGENTS.md Section 3)
-                    if (! empty($itemData['is_tebus_murah']) || ! empty($itemData['promotion_id'])) {
-                        $promoId = $itemData['promotion_id'] ?? null;
-                        $promo = $promoId ? Promotion::find($promoId) : null;
-                        if ($promo && $promo->type === 'TEBUS_MURAH' && $promo->is_active) {
-                            $targetSpecialTotal = (float) $promo->special_price * $qty;
-                            $discountAmount = max(0.0, ($qty * $unitPrice) - $targetSpecialTotal);
-                        }
-                    }
-
-                    $lineTotal = max(0.0, ($qty * $unitPrice) - $discountAmount);
-                    $subtotal += $lineTotal;
-
-                    // Reservasi stok di database (khusus item yang melacak stok fisik)
-                    if ($product->tracksInventory()) {
-                        $this->inventoryService->reserveStock(
-                            product: $product,
-                            store: $store,
-                            quantity: $baseQty,
-                            referenceNumber: $orderNumber,
-                            notes: "Reservasi Pesanan Online HP (PWA) [{$orderNumber}] - Pelanggan: {$validated['customer_name']}"
-                        );
-                    }
+                    $unitPrice = $this->pricingEngine->calculatePrice(
+                        product: $product,
+                        unit: $unit,
+                        tier: $tier,
+                        quantity: $qty,
+                        store: $store
+                    );
 
                     $preparedItems[] = [
+                        'product' => $product,
                         'product_id' => $product->id,
                         'product_unit_id' => $unit->id,
                         'unit_code' => $unit->unit_code,
                         'conversion_factor' => $unit->conversion_factor,
                         'quantity' => $qty,
+                        'base_quantity' => $baseQty,
                         'unit_price' => $unitPrice,
-                        'discount_amount' => $discountAmount,
-                        'subtotal' => $lineTotal,
+                        'discount_amount' => 0.00,
+                        'subtotal' => round($qty * $unitPrice, 2),
                     ];
                 }
+
+                // 3. Evaluasi promosi aktif secara server-side (Tebus Murah, Buy X Get Y, Diskon)
+                $activePromos = $this->promoEngine->getActivePromotions($company, $store);
+                $rawSubtotal = (float) collect($preparedItems)->sum('subtotal');
+
+                // Terapkan promo Tebus Murah & Buy X Get Y pada baris item yang berhak
+                foreach ($activePromos as $promo) {
+                    if ($promo->type === 'TEBUS_MURAH' && $promo->reward_product_id) {
+                        $nonRewardSubtotal = (float) collect($preparedItems)
+                            ->where('product_id', '!=', $promo->reward_product_id)
+                            ->sum('subtotal');
+
+                        if ($nonRewardSubtotal >= (float) $promo->min_spend) {
+                            $remainingRewardQuota = (float) ($promo->reward_quantity ?: 1.0);
+                            foreach ($preparedItems as &$pItem) {
+                                if ($pItem['product_id'] === $promo->reward_product_id && $remainingRewardQuota > 0) {
+                                    $eligibleQty = min($pItem['quantity'], $remainingRewardQuota);
+                                    $specialPrice = (float) $promo->special_price;
+                                    if ($pItem['unit_price'] > $specialPrice) {
+                                        $itemDisc = round($eligibleQty * ($pItem['unit_price'] - $specialPrice), 2);
+                                        $pItem['discount_amount'] = round($pItem['discount_amount'] + $itemDisc, 2);
+                                        $pItem['subtotal'] = max(0.0, round(($pItem['quantity'] * $pItem['unit_price']) - $pItem['discount_amount'], 2));
+                                    }
+                                    $remainingRewardQuota -= $eligibleQty;
+                                }
+                            }
+                            unset($pItem);
+                        }
+                    } elseif ($promo->type === 'BUY_X_GET_Y' && $promo->buy_product_id && $promo->reward_product_id) {
+                        if ($promo->min_spend > 0 && $rawSubtotal < (float) $promo->min_spend) {
+                            continue;
+                        }
+                        $buyQty = (float) $promo->buy_quantity;
+                        $ownedQty = (float) collect($preparedItems)->where('product_id', $promo->buy_product_id)->sum('quantity');
+                        if ($buyQty > 0 && $ownedQty >= $buyQty) {
+                            $freeQuota = floor($ownedQty / $buyQty) * (float) $promo->reward_quantity;
+                            foreach ($preparedItems as &$pItem) {
+                                if ($pItem['product_id'] === $promo->reward_product_id && $freeQuota > 0) {
+                                    $eligibleQty = min($pItem['quantity'], $freeQuota);
+                                    $itemDisc = round($eligibleQty * $pItem['unit_price'], 2);
+                                    $pItem['discount_amount'] = round($pItem['discount_amount'] + $itemDisc, 2);
+                                    $pItem['subtotal'] = max(0.0, round(($pItem['quantity'] * $pItem['unit_price']) - $pItem['discount_amount'], 2));
+                                    $freeQuota -= $eligibleQty;
+                                }
+                            }
+                            unset($pItem);
+                        }
+                    }
+                }
+
+                $subtotal = 0.0;
+                foreach ($preparedItems as &$pItem) {
+                    $subtotal += $pItem['subtotal'];
+
+                    // Reservasi stok di database (khusus item yang melacak stok fisik)
+                    /** @var Product $productModel */
+                    $productModel = $pItem['product'];
+                    if ($productModel->tracksInventory()) {
+                        $this->inventoryService->reserveStock(
+                            product: $productModel,
+                            store: $store,
+                            quantity: $pItem['base_quantity'],
+                            referenceNumber: $orderNumber,
+                            notes: "Reservasi Pesanan Online HP (PWA) [{$orderNumber}] - Pelanggan: {$validated['customer_name']}"
+                        );
+                    }
+                    unset($pItem['product'], $pItem['base_quantity']);
+                }
+                unset($pItem);
+
+                // Evaluasi diskon keranjang (DISCOUNT_PERCENT / DISCOUNT_NOMINAL) dari promosi aktif
+                $orderDiscount = 0.0;
+                foreach ($activePromos as $promo) {
+                    if ($promo->min_spend > 0 && $subtotal < (float) $promo->min_spend) {
+                        continue;
+                    }
+                    if ($promo->type === 'DISCOUNT_PERCENT' && $promo->discount_percent > 0) {
+                        $orderDiscount += round(($subtotal * (float) $promo->discount_percent) / 100, 2);
+                    } elseif ($promo->type === 'DISCOUNT_NOMINAL' && $promo->discount_nominal > 0) {
+                        $orderDiscount += min($subtotal, (float) $promo->discount_nominal);
+                    }
+                }
+                $orderDiscount = min($subtotal, round($orderDiscount, 2));
+                $grandTotal = max(0.0, round($subtotal - $orderDiscount, 2));
 
                 $deliveryAddress = $validated['delivery_address'] ?? null;
                 $orderNotes = $validated['notes'] ?? null;
 
-                // 3. Simpan Pesanan Penjualan (Sales Order)
+                // 4. Simpan Pesanan Penjualan (Sales Order)
                 $salesOrder = SalesOrder::create([
                     'company_id' => $company->id,
                     'store_id' => $store->id,
@@ -282,13 +362,13 @@ class PwaStorefrontController extends Controller
                     'expected_delivery_date' => now()->toDateString(),
                     'status' => 'PENDING',
                     'subtotal' => $subtotal,
-                    'discount_amount' => 0.00,
+                    'discount_amount' => $orderDiscount,
                     'tax_amount' => 0.00,
-                    'grand_total' => $subtotal,
+                    'grand_total' => $grandTotal,
                     'notes' => "[PWA ONLINE] Tipe: {$validated['delivery_type']} | Bayar: {$validated['payment_method']} | Alamat: ".($deliveryAddress ?: '-').' | Catatan: '.($orderNotes ?: '-'),
                 ]);
 
-                // 4. Simpan baris item
+                // 5. Simpan baris item
                 foreach ($preparedItems as $prep) {
                     $prep['sales_order_id'] = $salesOrder->id;
                     SalesOrderItem::create($prep);

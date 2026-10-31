@@ -51,7 +51,7 @@ Route::prefix('store')->name('pwa.')->group(function () {
     Route::get('/', [PwaStorefrontController::class, 'index'])->name('index');
     Route::get('/manifest.json', [PwaStorefrontController::class, 'manifest'])->name('manifest');
     Route::get('/products/{id}', [PwaStorefrontController::class, 'productDetail'])->name('product');
-    Route::post('/checkout', [PwaStorefrontController::class, 'checkout'])->name('checkout');
+    Route::post('/checkout', [PwaStorefrontController::class, 'checkout'])->middleware('throttle:10,1')->name('checkout');
     Route::get('/orders/{orderNumber}', [PwaStorefrontController::class, 'orderStatus'])->name('order-status');
 });
 Route::get('/katalog', fn () => redirect()->route('pwa.index'));
