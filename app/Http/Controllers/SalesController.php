@@ -372,6 +372,8 @@ class SalesController extends Controller
 
         $products = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->where('type', '!=', Product::TYPE_BIAYA)
+            ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
             ->where(function ($q) use ($likeTerm, $likeOp) {
                 $q->where('name', $likeOp, $likeTerm)
                     ->orWhere('sku', $likeOp, $likeTerm)
@@ -448,6 +450,8 @@ class SalesController extends Controller
         $tiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();
         $products = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->where('type', '!=', Product::TYPE_BIAYA)
+            ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
             ->with(['units', 'prices'])
             ->orderBy('name')
             ->get();

@@ -76,6 +76,8 @@ class SalesOrderController extends Controller
         $customers = Customer::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $products = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->where('type', '!=', Product::TYPE_BIAYA)
+            ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
             ->with(['units', 'prices'])
             ->orderBy('name')
             ->get();
@@ -226,6 +228,9 @@ class SalesOrderController extends Controller
             // Lepas reservasi stok jika status masih PENDING atau APPROVED (AGENTS.md Section 2 & 4D)
             if (in_array($order->status, ['PENDING', 'APPROVED'], true)) {
                 foreach ($order->items as $item) {
+                    if (! $item->product || ! $item->product->tracksInventory()) {
+                        continue;
+                    }
                     $baseQty = (float) $item->quantity * (float) ($item->conversion_factor ?? 1);
                     $this->inventoryService->releaseReservedStock(
                         product: $item->product,
@@ -343,6 +348,9 @@ class SalesOrderController extends Controller
 
             // Lepas reservasi stok PWA SEBELUM checkout agar available stock tidak terblokir saat checkout
             foreach ($order->items as $item) {
+                if (! $item->product || ! $item->product->tracksInventory()) {
+                    continue;
+                }
                 $baseQty = (float) $item->quantity * (float) ($item->conversion_factor ?? 1);
                 $this->inventoryService->releaseReservedStock(
                     product: $item->product,

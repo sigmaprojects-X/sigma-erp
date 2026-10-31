@@ -93,7 +93,40 @@ class SalesOrder extends Model
                 $store = $this->store;
                 $baseQty = (float) $item->quantity * (float) ($item->conversion_factor ?? 1.0);
 
-                if ($baseQty <= 0) {
+                if ($baseQty <= 0 || ! $product) {
+                    continue;
+                }
+
+                if ($product->type === Product::TYPE_RAKITAN_NON_PROSES) {
+                    $bomRows = ProductBom::where('parent_product_id', $product->id)
+                        ->with(['componentProduct', 'componentUnit'])
+                        ->get();
+
+                    foreach ($bomRows as $bom) {
+                        $compProduct = $bom->componentProduct;
+                        $compUnit = $bom->componentUnit;
+                        if (! $compProduct || ! $compUnit || ! $compProduct->tracksInventory()) {
+                            continue;
+                        }
+
+                        $compBaseQty = round($baseQty * (float) $bom->quantity * (float) $compUnit->conversion_factor, 4);
+                        if ($compBaseQty > 0) {
+                            $inventoryService->deductStock(
+                                product: $compProduct,
+                                store: $store,
+                                quantity: $compBaseQty,
+                                mutationType: 'SALE',
+                                referenceNumber: $this->order_number,
+                                notes: "Penyelesaian pesanan paket [{$product->name}] [{$this->order_number}]",
+                                userId: $userId
+                            );
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (! $product->tracksInventory()) {
                     continue;
                 }
 

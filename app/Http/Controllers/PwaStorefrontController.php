@@ -51,6 +51,8 @@ class PwaStorefrontController extends Controller
 
         $query = Product::where('company_id', $company->id)
             ->where('is_active', true)
+            ->where('type', '!=', Product::TYPE_BIAYA)
+            ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
             ->with(['units', 'prices', 'category', 'stocks' => function ($q) use ($store) {
                 if ($store) {
                     $q->where('store_id', $store->id);
@@ -244,14 +246,16 @@ class PwaStorefrontController extends Controller
                     $lineTotal = max(0.0, ($qty * $unitPrice) - $discountAmount);
                     $subtotal += $lineTotal;
 
-                    // Reservasi stok di database
-                    $this->inventoryService->reserveStock(
-                        product: $product,
-                        store: $store,
-                        quantity: $baseQty,
-                        referenceNumber: $orderNumber,
-                        notes: "Reservasi Pesanan Online HP (PWA) [{$orderNumber}] - Pelanggan: {$validated['customer_name']}"
-                    );
+                    // Reservasi stok di database (khusus item yang melacak stok fisik)
+                    if ($product->tracksInventory()) {
+                        $this->inventoryService->reserveStock(
+                            product: $product,
+                            store: $store,
+                            quantity: $baseQty,
+                            referenceNumber: $orderNumber,
+                            notes: "Reservasi Pesanan Online HP (PWA) [{$orderNumber}] - Pelanggan: {$validated['customer_name']}"
+                        );
+                    }
 
                     $preparedItems[] = [
                         'product_id' => $product->id,

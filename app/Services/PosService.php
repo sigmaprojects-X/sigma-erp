@@ -862,17 +862,46 @@ class PosService
 
                 $subtotalReturned += $lineSubtotal;
 
-                // 1. Pulihkan Stok ke Toko melalui InventoryService (pisahkan barang rusak ke karantina)
-                $this->inventoryService->recordSalesReturn(
-                    product: $txItem->product,
-                    store: $lockedTx->store,
-                    quantity: $baseQty,
-                    unitCost: $unitCost,
-                    referenceNumber: $returnNumber,
-                    notes: "Retur dari Faktur POS {$lockedTx->invoice_number} ({$reason})",
-                    userId: $processedBy,
-                    isDamaged: $isDamaged
-                );
+                // 1. Pulihkan Stok ke Toko melalui InventoryService sesuai klasifikasi tipe produk
+                $returnedProduct = $txItem->product;
+                if ($returnedProduct->type === Product::TYPE_RAKITAN_NON_PROSES) {
+                    $bomRows = ProductBom::where('parent_product_id', $returnedProduct->id)
+                        ->with(['componentProduct', 'componentUnit'])
+                        ->get();
+
+                    foreach ($bomRows as $bom) {
+                        $compProduct = $bom->componentProduct;
+                        $compUnit = $bom->componentUnit;
+                        if (! $compProduct || ! $compUnit || ! $compProduct->tracksInventory()) {
+                            continue;
+                        }
+
+                        $compBaseQty = round($baseQty * (float) $bom->quantity * (float) $compUnit->conversion_factor, 4);
+                        if ($compBaseQty > 0) {
+                            $this->inventoryService->recordSalesReturn(
+                                product: $compProduct,
+                                store: $lockedTx->store,
+                                quantity: $compBaseQty,
+                                unitCost: (float) $compProduct->cost_price,
+                                referenceNumber: $returnNumber,
+                                notes: "Retur Komponen Paket [{$returnedProduct->name}] dari Faktur POS {$lockedTx->invoice_number} ({$reason})",
+                                userId: $processedBy,
+                                isDamaged: $isDamaged
+                            );
+                        }
+                    }
+                } elseif ($returnedProduct->tracksInventory()) {
+                    $this->inventoryService->recordSalesReturn(
+                        product: $returnedProduct,
+                        store: $lockedTx->store,
+                        quantity: $baseQty,
+                        unitCost: $unitCost,
+                        referenceNumber: $returnNumber,
+                        notes: "Retur dari Faktur POS {$lockedTx->invoice_number} ({$reason})",
+                        userId: $processedBy,
+                        isDamaged: $isDamaged
+                    );
+                }
 
                 $preparedReturnItems[] = [
                     'pos_transaction_item_id' => $txItem->id,
