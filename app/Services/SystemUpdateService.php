@@ -6,9 +6,62 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 
 class SystemUpdateService
 {
+    /**
+     * Lokasi folder arsip backup terpadu (sama dengan MaintenanceController & skrip .bat).
+     */
+    protected function getBackupDirectory(): string
+    {
+        return storage_path('app' . DIRECTORY_SEPARATOR . 'backups');
+    }
+
+    /**
+     * Deteksi binary pg_dump pada sistem.
+     */
+    protected function resolvePgDumpBinary(): string
+    {
+        $candidates = [
+            'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe',
+            'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe',
+            'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
+            'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
+        ];
+
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return 'pg_dump';
+    }
+
+    /**
+     * Buat instance Symfony Process untuk eksekusi pg_dump.
+     *
+     * @param  array<int, string>  $command
+     * @param  array<string, string>  $env
+     */
+    protected function buildPgDumpProcess(array $command, array $env): Process
+    {
+        $process = new Process($command, base_path(), $env);
+        $process->setTimeout(300);
+
+        return $process;
+    }
+
+    /**
+     * Jalankan migrasi database lokal.
+     */
+    protected function runDatabaseMigrations(): string
+    {
+        Artisan::call('migrate', ['--force' => true]);
+
+        return trim(Artisan::output());
+    }
     /**
      * Dapatkan versi sistem SIGMA ERP saat ini.
      */
@@ -95,7 +148,7 @@ class SystemUpdateService
     }
 
     /**
-     * Jalankan proses 1-Click Update secara atomik dan terproteksi.
+     * Jalankan proses sinkronisasi pembaruan lokal (Pre-Update Backup, Migrate, Cache Clear).
      */
     public function performUpdate(): array
     {
@@ -103,26 +156,115 @@ class SystemUpdateService
         $startTime = microtime(true);
 
         try {
-            // Langkah 1: Buat Backup Pengaman Database
-            $backupDir = base_path('backups');
-            if (!File::exists($backupDir)) {
-                File::makeDirectory($backupDir, 0755, true);
+            // Langkah 1: Buat Backup Pengaman Database via pg_dump (sama dengan MaintenanceController)
+            $backupDir = $this->getBackupDirectory();
+            if (! File::isDirectory($backupDir)) {
+                File::makeDirectory($backupDir, 0755, true, true);
             }
 
             $backupFilename = 'sigma_erp_backup_PRE_UPDATE_' . now()->format('Ymd_His') . '.sql';
             $backupPath = $backupDir . DIRECTORY_SEPARATOR . $backupFilename;
 
-            // Jika ada pg_dump, jalankan backup otomatis
+            try {
+                $connection = config('database.default', 'pgsql');
+                $dbConfig = config("database.connections.{$connection}", config('database.connections.pgsql', []));
+
+                $host = (string) ($dbConfig['host'] ?? '127.0.0.1');
+                $port = (string) ($dbConfig['port'] ?? '5432');
+                $database = (string) ($dbConfig['database'] ?? 'sigma_erp');
+                $username = (string) ($dbConfig['username'] ?? 'postgres');
+                $password = (string) ($dbConfig['password'] ?? '');
+
+                $command = [
+                    $this->resolvePgDumpBinary(),
+                    '--clean',
+                    '--if-exists',
+                    '--no-owner',
+                    '-h', $host,
+                    '-p', $port,
+                    '-U', $username,
+                    '-d', $database,
+                    '-f', $backupPath,
+                ];
+
+                $process = $this->buildPgDumpProcess($command, [
+                    'PGPASSWORD' => $password,
+                ]);
+                $process->run();
+
+                if (! $process->isSuccessful() || $process->getExitCode() !== 0) {
+                    if (File::exists($backupPath)) {
+                        File::delete($backupPath);
+                    }
+
+                    $errorMsg = trim($process->getErrorOutput() ?: $process->getOutput());
+                    $detail = 'Gagal membuat file cadangan (exit code ' . $process->getExitCode() . '): ' . ($errorMsg ?: 'Eksekusi pg_dump gagal.');
+
+                    $steps[] = [
+                        'step' => 1,
+                        'name' => 'Auto-Backup Database Pre-Update',
+                        'status' => 'FAILED',
+                        'detail' => $detail,
+                    ];
+
+                    return [
+                        'success' => false,
+                        'message' => 'Pembaruan dihentikan karena Auto-Backup gagal. Migrasi database tidak dijalankan. (' . $detail . ')',
+                        'steps' => $steps,
+                    ];
+                }
+
+                clearstatcache(true, $backupPath);
+                if (! File::exists($backupPath) || File::size($backupPath) === 0) {
+                    if (File::exists($backupPath)) {
+                        File::delete($backupPath);
+                    }
+
+                    $detail = 'Gagal membuat file cadangan: File hasil pg_dump kosong (0 byte).';
+
+                    $steps[] = [
+                        'step' => 1,
+                        'name' => 'Auto-Backup Database Pre-Update',
+                        'status' => 'FAILED',
+                        'detail' => $detail,
+                    ];
+
+                    return [
+                        'success' => false,
+                        'message' => 'Pembaruan dihentikan karena Auto-Backup menghasilkan file kosong. Migrasi database tidak dijalankan.',
+                        'steps' => $steps,
+                    ];
+                }
+            } catch (\Throwable $backupException) {
+                if (File::exists($backupPath)) {
+                    File::delete($backupPath);
+                }
+
+                $detail = 'Gagal membuat file cadangan: ' . $backupException->getMessage();
+
+                $steps[] = [
+                    'step' => 1,
+                    'name' => 'Auto-Backup Database Pre-Update',
+                    'status' => 'FAILED',
+                    'detail' => $detail,
+                ];
+
+                return [
+                    'success' => false,
+                    'message' => 'Pembaruan dihentikan karena Auto-Backup gagal: ' . $backupException->getMessage(),
+                    'steps' => $steps,
+                ];
+            }
+
             $steps[] = [
                 'step' => 1,
                 'name' => 'Auto-Backup Database Pre-Update',
                 'status' => 'SUCCESS',
-                'detail' => 'Database cadangan dibuat di backups/' . $backupFilename,
+                'detail' => 'Database cadangan dibuat di storage/app/backups/' . $backupFilename,
             ];
 
             // Langkah 2: Jalankan Migrasi Database untuk tabel/kolom baru
-            Artisan::call('migrate', ['--force' => true]);
-            $migrateOutput = trim(Artisan::output());
+            $migrateOutput = $this->runDatabaseMigrations();
 
             $steps[] = [
                 'step' => 2,
@@ -154,14 +296,14 @@ class SystemUpdateService
                 'step' => 4,
                 'name' => 'Aktivasi Versi Resmi',
                 'status' => 'SUCCESS',
-                'detail' => "Sistem berhasil diperbarui ke SIGMA ERP v{$latestVer}.",
+                'detail' => "Sistem berhasil disinkronkan ke SIGMA ERP v{$latestVer}.",
             ];
 
             $duration = round(microtime(true) - $startTime, 2);
 
             return [
                 'success' => true,
-                'message' => "Pembaruan sistem ke v{$latestVer} berhasil diselesaikan dalam {$duration} detik!",
+                'message' => "Sinkronisasi pembaruan lokal ke v{$latestVer} berhasil diselesaikan dalam {$duration} detik!",
                 'new_version' => $latestVer,
                 'steps' => $steps,
                 'duration' => $duration . ' detik',

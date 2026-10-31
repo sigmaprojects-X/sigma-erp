@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Pembaruan Sistem & Informasi Database - SIGMA ERP')
-@section('page_title', 'Pusat Pembaruan Sistem (Auto-Updater)')
+@section('title', 'Sinkronisasi Versi & Informasi Database - SIGMA ERP')
+@section('page_title', 'Sinkronisasi Versi & Migrasi Lokal')
 
 @section('content')
 <div class="space-y-6 max-w-7xl mx-auto w-full animate-in fade-in duration-200" x-data="systemUpdateManager()">
@@ -12,13 +12,13 @@
             <div class="flex items-center gap-2 text-xs text-[#64748B] mb-1">
                 <span>Pengaturan Sistem</span>
                 <span>/</span>
-                <span class="text-[#0B1F4D] dark:text-white font-bold">Pembaruan &amp; Status Database</span>
+                <span class="text-[#0B1F4D] dark:text-white font-bold">Sinkronisasi Versi &amp; Status Database</span>
             </div>
             <h1 class="text-2xl font-black text-[#0B1F4D] dark:text-white tracking-tight flex items-center gap-2.5">
-                <span>🔄 Pusat Pembaruan Aplikasi (Auto-Updater)</span>
+                <span>🔄 Sinkronisasi Versi &amp; Migrasi Database Lokal</span>
             </h1>
             <p class="text-xs text-[#64748B] dark:text-slate-400 mt-1">
-                Kelola versi resmi SIGMA ERP, pembaruan 1-klik, dan pantau lokasi penyimpanan database komersial.
+                Jalankan pencadangan database otomatis (pg_dump), migrasi skema lokal, dan pembersihan cache setelah memperbarui file aplikasi secara manual/offline.
             </p>
         </div>
 
@@ -30,7 +30,7 @@
                 <svg class="w-4 h-4 text-[#125BCE]" :class="{ 'animate-spin': isChecking }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span x-text="isChecking ? 'Memeriksa...' : 'Periksa Update Sekarang'">Periksa Update Sekarang</span>
+                <span x-text="isChecking ? 'Memeriksa Konfigurasi...' : 'Cek Status Versi Lokal'">Cek Status Versi Lokal</span>
             </button>
         </div>
     </div>
@@ -47,15 +47,15 @@
                     <div>
                         <div class="flex items-center gap-2 mb-1.5">
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#FFB800] text-[#071536]">
-                                Versi Baru Tersedia!
+                                Sinkronisasi Lokal Diperlukan
                             </span>
                             <span class="text-xs text-blue-100 font-mono">v{{ $info['latest_version'] }}</span>
                         </div>
                         <h2 class="text-xl md:text-2xl font-black tracking-tight leading-snug">
-                            SIGMA ERP Versi {{ $info['latest_version'] }} Siap Diinstal
+                            Sinkronisasi Skema &amp; Versi Lokal v{{ $info['latest_version'] }}
                         </h2>
                         <p class="text-xs text-blue-100/90 mt-1 max-w-xl">
-                            Pembaruan resmi mencakup Design System 3D terbaru, auto-accordion menu, locked tax mode POS, dan launcher cabang. Data transaksi Anda dijamin 100% aman dan tidak akan terhapus.
+                            File konfigurasi lokal mendeteksi target versi v{{ $info['latest_version'] }}. Halaman ini tidak melakukan pengecekan atau pengunduhan online, melainkan menjalankan Auto-Backup database (pg_dump), migrasi tabel lokal, dan pembersihan cache.
                         </p>
                     </div>
                 </div>
@@ -66,10 +66,10 @@
                         <button type="submit"
                                 :disabled="isUpdating"
                                 class="w-full sm:w-auto px-6 py-3 bg-[#15803D] hover:bg-[#166534] active:bg-[#14532D] text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all hover:scale-102 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50">
-                            <span x-show="!isUpdating">✨ Update Otomatis Sekarang (1-Klik)</span>
+                            <span x-show="!isUpdating">⚡ Jalankan Backup &amp; Migrasi Lokal</span>
                             <span x-show="isUpdating" class="flex items-center gap-2">
                                 <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                                Memproses Pembaruan &amp; Auto-Backup...
+                                Memproses Auto-Backup &amp; Migrasi Lokal...
                             </span>
                         </button>
                     </form>
@@ -84,19 +84,19 @@
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <span class="text-base font-bold text-[#0B1F4D] dark:text-white">SIGMA ERP Sudah Menggunakan Versi Terbaru</span>
+                        <span class="text-base font-bold text-[#0B1F4D] dark:text-white">Versi Konfigurasi Lokal Sudah Sinkron</span>
                         <span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                            v{{ $info['current_version'] }} (Terkini)
+                            v{{ $info['current_version'] }} (Sinkron)
                         </span>
                     </div>
                     <p class="text-xs text-[#64748B] dark:text-slate-400 mt-0.5">
-                        Seluruh sistem dan database sudah mutakhir. Tidak ada tindakan pembaruan yang diperlukan saat ini.
+                        Penanda versi aktif dan konfigurasi lokal sudah selaras (fitur ini tidak melakukan pengecekan atau pengunduhan online).
                     </p>
                 </div>
             </div>
             <div class="hidden sm:block text-right">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Saluran Update</div>
-                <div class="text-xs font-bold text-[#125BCE]">Stable Enterprise Channel</div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Mode Pembaruan</div>
+                <div class="text-xs font-bold text-[#125BCE]">Sinkronisasi Paket Lokal / Offline</div>
             </div>
         </div>
     @endif
@@ -296,13 +296,13 @@ function systemUpdateManager() {
                 const res = await fetch('{{ route("settings.update.check") }}');
                 const data = await res.json();
                 if (data.update_available) {
-                    alert('Pembaruan Ditemukan! Versi ' + data.latest_version + ' siap diinstal.');
+                    alert('Konfigurasi lokal mendeteksi versi target v' + data.latest_version + ' (versi aktif saat ini v' + data.current_version + '). Silakan jalankan backup & migrasi lokal.');
                     window.location.reload();
                 } else {
-                    alert('Sistem SIGMA ERP Anda sudah menggunakan versi terbaru (v' + data.current_version + ').');
+                    alert('Versi konfigurasi lokal sudah sinkron (v' + data.current_version + '). Tidak ada pengecekan atau pengunduhan online yang dilakukan.');
                 }
             } catch (e) {
-                alert('Gagal memeriksa pembaruan: ' + e.message);
+                alert('Gagal membaca status versi lokal: ' + e.message);
             } finally {
                 this.isChecking = false;
             }
