@@ -94,37 +94,20 @@ class User extends Authenticatable
         }
 
         // Fallback default permissions based on role if no group assigned yet
-        return match ($this->role) {
-            'manager' => true,
-            'cashier' => in_array($permission, [
-                'pos_terminal.buka',
-                'pos_terminal.baru',
-                'pos_shift_management.buka',
-                'pos_shift_management.baru',
-                'pos_credit_payment.buka',
-                'view_selling_price.buka',
-                'menu_direct_pos.buka',
-                'menu_view_sales.buka',
-                'master_item.buka',
-                'master_customer.buka',
-            ], true),
-            'warehouse' => in_array($permission, [
-                'stock_in.buka',
-                'stock_in.baru',
-                'stock_out.buka',
-                'stock_out.baru',
-                'stock_opname.buka',
-                'stock_opname.baru',
-                'stock_transfer.buka',
-                'stock_transfer.baru',
-                'purchase_receipt.buka',
-                'purchase_receipt.baru',
-                'master_item.buka',
-            ], true),
-            'purchasing' => str_starts_with($permission, 'pembelian_') || in_array($permission, ['master_item.buka', 'master_supplier.buka'], true),
-            'finance' => str_starts_with($permission, 'akuntansi_') || str_starts_with($permission, 'laporan_') || $permission === 'special_view_hpp',
-            default => false,
-        };
+        $defaults = UserGroup::getDefaultPermissionsForRole($this->role);
+
+        if (in_array('*', $defaults, true) || in_array($permission, $defaults, true)) {
+            return true;
+        }
+
+        if (str_contains($permission, '.')) {
+            [$module] = explode('.', $permission, 2);
+            if (in_array("{$module}.*", $defaults, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -138,7 +121,9 @@ class User extends Authenticatable
         }
 
         if ($this->userGroup) {
-            return $this->userGroup->hasPermission('special_view_hpp');
+            return $this->userGroup->hasPermission('view_cost_price.buka')
+                || $this->userGroup->hasPermission('view_avg_cost.buka')
+                || $this->userGroup->hasPermission('special_view_hpp');
         }
 
         return in_array($this->role, ['owner', 'manager', 'purchasing', 'finance'], true);

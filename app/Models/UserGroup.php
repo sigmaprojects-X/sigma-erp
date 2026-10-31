@@ -42,12 +42,46 @@ class UserGroup extends Model
      */
     public function hasPermission(string $permission): bool
     {
-        if ($this->code === 'ADMINISTRATOR' || ($this->permissions && in_array('*', $this->permissions, true))) {
+        $perms = $this->permissions ?? [];
+
+        if ($this->code === 'ADMINISTRATOR' || in_array('*', $perms, true)) {
             return true;
         }
 
-        $perms = $this->permissions ?? [];
-        return in_array($permission, $perms, true);
+        if (in_array($permission, $perms, true)) {
+            return true;
+        }
+
+        if (str_contains($permission, '.')) {
+            [$module] = explode('.', $permission, 2);
+            if (in_array("{$module}.*", $perms, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Daftar izin default berdasarkan role jika pengguna belum dikaitkan ke UserGroup tertentu.
+     *
+     * @return list<string>
+     */
+    public static function getDefaultPermissionsForRole(string $role): array
+    {
+        $presets = self::getPresets();
+
+        return match ($role) {
+            'owner' => ['*'],
+            'manager' => $presets['MANAGER']['permissions'],
+            'store_head' => $presets['SUPERVISOR']['permissions'],
+            'cashier' => $presets['KASIR']['permissions'],
+            'warehouse' => $presets['GUDANG']['permissions'],
+            'purchasing' => $presets['PURCHASING']['permissions'],
+            'finance' => $presets['KEUANGAN']['permissions'],
+            'sales' => $presets['SALES']['permissions'],
+            default => [],
+        };
     }
 
     /**
@@ -488,47 +522,74 @@ class UserGroup extends Model
                 'description' => 'Otorisasi Penuh Operasional Toko, Pembelian, Penjualan, Gudang, dan Laporan',
                 'permissions' => [
                     'master_item.buka', 'master_item.baru', 'master_item.ubah', 'master_item.hapus',
-                    'master_supplier.buka', 'master_supplier.baru', 'master_supplier.ubah',
-                    'master_customer.buka', 'master_customer.baru', 'master_customer.ubah',
-                    'master_sales.buka', 'master_sales.baru', 'master_sales.ubah',
+                    'master_supplier.buka', 'master_supplier.baru', 'master_supplier.ubah', 'master_supplier.hapus',
+                    'master_customer.buka', 'master_customer.baru', 'master_customer.ubah', 'master_customer.hapus',
+                    'master_sales.buka', 'master_sales.baru', 'master_sales.ubah', 'master_sales.hapus',
+                    'master_warehouse.buka', 'master_warehouse.baru', 'master_warehouse.ubah', 'master_warehouse.hapus',
+                    'master_satuan_kategori.buka', 'master_satuan_kategori.baru', 'master_satuan_kategori.ubah', 'master_satuan_kategori.hapus',
                     'kartu_stok.buka', 'view_cost_price.buka', 'view_avg_cost.buka', 'view_selling_price.buka',
-                    'purchase_order.buka', 'purchase_order.baru', 'purchase_order.ubah', 'purchase_order.hapus',
-                    'purchase_receipt.buka', 'purchase_receipt.baru', 'purchase_receipt.ubah',
-                    'purchase_invoice.buka', 'purchase_invoice.baru', 'purchase_invoice.ubah',
-                    'purchase_payment.buka', 'purchase_payment.baru',
-                    'purchase_return.buka', 'purchase_return.baru', 'purchase_return.ubah',
+                    'purchase_order.buka', 'purchase_order.baru', 'purchase_order.ubah', 'purchase_order.hapus', 'purchase_order.kunci',
+                    'purchase_receipt.buka', 'purchase_receipt.baru', 'purchase_receipt.ubah', 'purchase_receipt.hapus',
+                    'purchase_invoice.buka', 'purchase_invoice.baru', 'purchase_invoice.ubah', 'purchase_invoice.hapus',
+                    'purchase_payment.buka', 'purchase_payment.baru', 'purchase_payment.ubah', 'purchase_payment.hapus',
+                    'purchase_return.buka', 'purchase_return.baru', 'purchase_return.ubah', 'purchase_return.hapus',
+                    'purchase_price_history.buka', 'purchase_show_cost.buka',
                     'pos_terminal.buka', 'pos_terminal.baru',
                     'sales_order.buka', 'sales_order.baru', 'sales_order.ubah', 'sales_order.hapus',
-                    'sales_invoice.buka', 'sales_invoice.baru', 'sales_invoice.ubah',
-                    'sales_receivable_payment.buka', 'sales_receivable_payment.baru',
+                    'sales_invoice.buka', 'sales_invoice.baru', 'sales_invoice.ubah', 'sales_invoice.hapus',
+                    'sales_receivable_payment.buka', 'sales_receivable_payment.baru', 'sales_receivable_payment.ubah',
                     'pos_return.buka', 'pos_return.baru', 'pos_return.hapus',
                     'pos_shift_management.buka', 'pos_shift_management.baru',
                     'pos_shift_discrepancy_resolve.buka', 'pos_shift_discrepancy_resolve.baru',
                     'pos_cash_drawer.buka', 'pos_reprint_past_shift.buka', 'pos_credit_payment.buka',
                     'pos_sell_below_min_margin.buka', 'pos_void_cancel_item.buka', 'pos_void_cancel_item.hapus',
-                    'stock_in.buka', 'stock_in.baru', 'stock_in.ubah',
-                    'stock_out.buka', 'stock_out.baru', 'stock_out.ubah',
-                    'stock_transfer.buka', 'stock_transfer.baru', 'stock_transfer.ubah',
-                    'stock_opname.buka', 'stock_opname.baru', 'stock_opname_approve.buka',
-                    'batch_expiry_fefo.buka', 'consignment_management.buka',
-                    'cash_in.buka', 'cash_in.baru', 'cash_out.buka', 'cash_out.baru',
-                    'report_sales.buka', 'report_purchases.buka', 'report_profit_loss.buka', 'report_aging.buka', 'report_stock_valuation.buka',
+                    'stock_in.buka', 'stock_in.baru', 'stock_in.ubah', 'stock_in.hapus',
+                    'stock_out.buka', 'stock_out.baru', 'stock_out.ubah', 'stock_out.hapus',
+                    'stock_transfer.buka', 'stock_transfer.baru', 'stock_transfer.ubah', 'stock_transfer.hapus',
+                    'stock_opname.buka', 'stock_opname.baru', 'stock_opname.ubah', 'stock_opname.hapus',
+                    'stock_opname_approve.buka', 'stock_opname_approve.baru',
+                    'batch_expiry_fefo.buka', 'batch_expiry_fefo.baru', 'batch_expiry_fefo.ubah',
+                    'consignment_management.buka', 'consignment_management.baru', 'consignment_management.ubah', 'consignment_management.hapus',
+                    'assembly_bom.buka', 'assembly_bom.baru', 'assembly_bom.ubah', 'assembly_bom.hapus',
+                    'assembly_process.buka', 'assembly_process.baru', 'assembly_process.ubah', 'assembly_process.hapus',
+                    'assembly_disassemble.buka', 'assembly_disassemble.baru',
+                    'accounting_coa.buka', 'accounting_coa.baru', 'accounting_coa.ubah',
+                    'cash_in.buka', 'cash_in.baru', 'cash_in.ubah', 'cash_in.hapus',
+                    'cash_out.buka', 'cash_out.baru', 'cash_out.ubah', 'cash_out.hapus',
+                    'cash_transfer.buka', 'cash_transfer.baru', 'cash_transfer.ubah', 'cash_transfer.hapus',
+                    'accounting_journals.buka', 'accounting_journals.baru', 'accounting_journals.ubah', 'accounting_journals.hapus',
+                    'accounting_ledger.buka', 'accounting_settings_map.buka', 'accounting_settings_map.ubah',
+                    'fixed_assets.buka', 'fixed_assets.baru', 'fixed_assets.ubah', 'fixed_assets.hapus',
+                    'report_sales.buka', 'report_purchases.buka', 'report_profit_loss.buka', 'report_balance_sheet.buka', 'report_aging.buka', 'report_cash_flow.buka', 'report_stock_valuation.buka',
                     'menu_dashboard_charts.buka', 'menu_view_master.buka', 'menu_view_purchasing.buka', 'menu_view_sales.buka', 'menu_view_inventory.buka', 'menu_view_accounting.buka', 'menu_view_reports.buka',
+                    'settings_general.buka', 'settings_general.ubah',
+                    'settings_users_rbac.buka', 'settings_users_rbac.baru', 'settings_users_rbac.ubah', 'settings_users_rbac.hapus',
+                    'settings_backup_db.buka', 'settings_backup_db.baru', 'settings_backup_db.hapus',
+                    'settings_numbering.buka', 'settings_numbering.ubah',
                 ],
             ],
             'SUPERVISOR' => [
                 'name' => 'Kepala Toko / Supervisor',
                 'description' => 'Supervisi Kasir, Otorisasi Diskon/Void, Cetak Ulang Shift Lampau, dan Opname',
                 'permissions' => [
-                    'master_item.buka', 'master_customer.buka', 'kartu_stok.buka', 'view_selling_price.buka',
+                    'master_item.buka', 'master_customer.buka', 'master_supplier.buka', 'master_warehouse.buka', 'master_satuan_kategori.buka', 'kartu_stok.buka', 'view_selling_price.buka',
                     'pos_terminal.buka', 'pos_terminal.baru',
+                    'sales_order.buka', 'sales_order.baru', 'sales_order.ubah', 'sales_order.hapus',
+                    'sales_invoice.buka', 'sales_invoice.baru', 'sales_invoice.ubah',
+                    'sales_receivable_payment.buka', 'sales_receivable_payment.baru',
                     'pos_return.buka', 'pos_return.baru',
                     'pos_shift_management.buka', 'pos_shift_management.baru',
-                    'pos_shift_discrepancy_resolve.buka', 'pos_cash_drawer.buka',
+                    'pos_shift_discrepancy_resolve.buka', 'pos_shift_discrepancy_resolve.baru', 'pos_cash_drawer.buka',
                     'pos_reprint_past_shift.buka', 'pos_credit_payment.buka',
                     'pos_void_cancel_item.buka', 'pos_void_cancel_item.hapus',
                     'purchase_receipt.buka', 'purchase_receipt.baru',
-                    'stock_in.buka', 'stock_out.buka', 'stock_transfer.buka', 'stock_opname.buka', 'stock_opname.baru',
+                    'stock_in.buka', 'stock_in.baru', 'stock_out.buka', 'stock_out.baru',
+                    'stock_transfer.buka', 'stock_transfer.baru', 'stock_transfer.ubah',
+                    'stock_opname.buka', 'stock_opname.baru', 'stock_opname_approve.buka', 'stock_opname_approve.baru',
+                    'batch_expiry_fefo.buka', 'batch_expiry_fefo.baru',
+                    'consignment_management.buka', 'consignment_management.baru', 'consignment_management.ubah',
+                    'assembly_bom.buka', 'assembly_bom.baru', 'assembly_process.buka', 'assembly_process.baru', 'assembly_disassemble.buka', 'assembly_disassemble.baru',
+                    'cash_in.buka', 'cash_in.baru', 'cash_out.buka', 'cash_out.baru', 'cash_transfer.buka', 'cash_transfer.baru',
                     'report_sales.buka', 'menu_dashboard_charts.buka', 'menu_view_sales.buka', 'menu_view_inventory.buka', 'menu_view_reports.buka',
                 ],
             ],
@@ -538,7 +599,12 @@ class UserGroup extends Model
                 'permissions' => [
                     'pos_terminal.buka', 'pos_terminal.baru',
                     'pos_shift_management.buka', 'pos_shift_management.baru',
+                    'pos_return.buka', 'pos_return.baru',
                     'pos_credit_payment.buka',
+                    'sales_receivable_payment.buka', 'sales_receivable_payment.baru',
+                    'cash_in.buka', 'cash_in.baru', 'cash_out.buka', 'cash_out.baru', 'cash_transfer.buka', 'cash_transfer.baru',
+                    'stock_opname.buka', 'stock_opname.baru',
+                    'master_item.buka', 'master_customer.buka',
                     'view_selling_price.buka',
                     'menu_direct_pos.buka', // Otomatis langsung masuk layar kasir saat login
                     'menu_view_sales.buka',
@@ -548,13 +614,15 @@ class UserGroup extends Model
                 'name' => 'Staf Logistik & Gudang',
                 'description' => 'Penerimaan LPB Supplier, Mutasi Stok, Transfer Cabang, dan Stock Opname Buta.',
                 'permissions' => [
-                    'master_item.buka', 'kartu_stok.buka',
+                    'master_item.buka', 'master_supplier.buka', 'master_customer.buka', 'master_warehouse.buka', 'master_satuan_kategori.buka', 'kartu_stok.buka',
                     'purchase_receipt.buka', 'purchase_receipt.baru',
-                    'stock_in.buka', 'stock_in.baru',
-                    'stock_out.buka', 'stock_out.baru',
+                    'stock_in.buka', 'stock_in.baru', 'stock_in.ubah',
+                    'stock_out.buka', 'stock_out.baru', 'stock_out.ubah',
                     'stock_transfer.buka', 'stock_transfer.baru', 'stock_transfer.ubah',
-                    'stock_opname.buka', 'stock_opname.baru',
-                    'batch_expiry_fefo.buka', 'batch_expiry_fefo.baru',
+                    'stock_opname.buka', 'stock_opname.baru', 'stock_opname.ubah',
+                    'batch_expiry_fefo.buka', 'batch_expiry_fefo.baru', 'batch_expiry_fefo.ubah',
+                    'consignment_management.buka', 'consignment_management.baru', 'consignment_management.ubah',
+                    'assembly_bom.buka', 'assembly_bom.baru', 'assembly_process.buka', 'assembly_process.baru', 'assembly_disassemble.buka', 'assembly_disassemble.baru',
                     'menu_view_inventory.buka',
                 ],
             ],
@@ -563,10 +631,14 @@ class UserGroup extends Model
                 'description' => 'Kelola Master Supplier, Draft Purchase Order, dan Riwayat Harga Beli.',
                 'permissions' => [
                     'master_item.buka', 'master_supplier.buka', 'master_supplier.baru', 'master_supplier.ubah',
-                    'purchase_order.buka', 'purchase_order.baru', 'purchase_order.ubah',
-                    'purchase_receipt.buka',
-                    'purchase_return.buka', 'purchase_return.baru',
-                    'purchase_price_history.buka',
+                    'master_customer.buka', 'master_warehouse.buka', 'master_satuan_kategori.buka', 'kartu_stok.buka',
+                    'purchase_order.buka', 'purchase_order.baru', 'purchase_order.ubah', 'purchase_order.hapus',
+                    'purchase_receipt.buka', 'purchase_receipt.baru',
+                    'purchase_invoice.buka', 'purchase_invoice.baru', 'purchase_invoice.ubah',
+                    'purchase_payment.buka',
+                    'purchase_return.buka', 'purchase_return.baru', 'purchase_return.ubah', 'purchase_return.hapus',
+                    'purchase_price_history.buka', 'purchase_show_cost.buka',
+                    'view_cost_price.buka', 'view_avg_cost.buka',
                     'menu_view_purchasing.buka', 'report_purchases.buka',
                 ],
             ],
@@ -574,16 +646,40 @@ class UserGroup extends Model
                 'name' => 'Staf Keuangan & Akuntansi',
                 'description' => 'Kas Masuk, Kas Keluar, Buku Kasir, Pelunasan Hutang/Piutang, Jurnal, dan Laporan.',
                 'permissions' => [
-                    'master_supplier.buka', 'master_customer.buka',
-                    'purchase_invoice.buka', 'purchase_payment.buka', 'purchase_payment.baru',
-                    'sales_invoice.buka', 'sales_receivable_payment.buka', 'sales_receivable_payment.baru',
+                    'master_item.buka', 'master_supplier.buka', 'master_customer.buka', 'master_warehouse.buka', 'master_satuan_kategori.buka', 'kartu_stok.buka',
+                    'purchase_order.buka', 'purchase_receipt.buka',
+                    'purchase_invoice.buka', 'purchase_invoice.baru', 'purchase_invoice.ubah',
+                    'purchase_payment.buka', 'purchase_payment.baru',
+                    'purchase_return.buka',
+                    'sales_order.buka', 'sales_order.baru', 'sales_order.ubah',
+                    'sales_invoice.buka', 'sales_invoice.baru', 'sales_invoice.ubah',
+                    'sales_receivable_payment.buka', 'sales_receivable_payment.baru',
+                    'pos_return.buka', 'pos_return.baru',
                     'cash_in.buka', 'cash_in.baru', 'cash_in.ubah',
                     'cash_out.buka', 'cash_out.baru', 'cash_out.ubah',
                     'cash_transfer.buka', 'cash_transfer.baru',
-                    'accounting_coa.buka', 'accounting_journals.buka', 'accounting_journals.baru',
-                    'accounting_ledger.buka',
-                    'report_sales.buka', 'report_profit_loss.buka', 'report_balance_sheet.buka', 'report_aging.buka', 'report_cash_flow.buka',
+                    'accounting_coa.buka', 'accounting_coa.baru', 'accounting_coa.ubah',
+                    'accounting_journals.buka', 'accounting_journals.baru',
+                    'accounting_ledger.buka', 'accounting_settings_map.buka', 'accounting_settings_map.ubah',
+                    'fixed_assets.buka', 'fixed_assets.baru', 'fixed_assets.ubah',
+                    'view_cost_price.buka', 'view_avg_cost.buka',
+                    'report_sales.buka', 'report_purchases.buka', 'report_profit_loss.buka', 'report_balance_sheet.buka', 'report_aging.buka', 'report_cash_flow.buka', 'report_stock_valuation.buka',
                     'menu_view_accounting.buka', 'menu_view_reports.buka',
+                ],
+            ],
+            'SALES' => [
+                'name' => 'Salesman / Counter Sales',
+                'description' => 'Pesanan Penjualan (Sales Order), Kasir POS, dan Piutang Pelanggan.',
+                'permissions' => [
+                    'master_item.buka', 'master_customer.buka', 'view_selling_price.buka',
+                    'pos_terminal.buka', 'pos_terminal.baru',
+                    'pos_shift_management.buka', 'pos_shift_management.baru',
+                    'pos_return.buka', 'pos_return.baru',
+                    'pos_credit_payment.buka',
+                    'sales_order.buka', 'sales_order.baru', 'sales_order.ubah',
+                    'sales_invoice.buka', 'sales_invoice.baru',
+                    'sales_receivable_payment.buka', 'sales_receivable_payment.baru',
+                    'menu_view_sales.buka',
                 ],
             ],
         ];

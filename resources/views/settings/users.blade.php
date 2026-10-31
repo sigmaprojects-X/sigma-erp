@@ -205,6 +205,14 @@
                             <p class="mt-0.5 text-amber-700 dark:text-amber-400">Kelompok ini memiliki hak akses penuh tanpa batasan untuk seluruh modul dan menu sistem SIGMA ERP secara otomatis.</p>
                         </div>
                     </div>
+                @else
+                    <div class="bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-xs text-blue-900 dark:text-blue-200 flex items-center gap-2.5 mb-2">
+                        <span class="text-lg">🛡️</span>
+                        <div>
+                            <span class="font-bold">Penegakan Izin Aktif (Middleware <code class="font-mono">permission:modul.aksi</code>):</span>
+                            Setiap ceklist izin di bawah ini langsung membatasi akses halaman &amp; aksi pada rute modul terkait bagi pengguna yang tergabung dalam kelompok ini. Pengguna yang belum dikaitkan ke kelompok akan otomatis menggunakan izin bawaan (preset default) sesuai Role-nya.
+                        </div>
+                    </div>
                 @endif
 
                 <!-- CATEGORY NAVIGATION PILLS & GLOBAL TOGGLES -->
