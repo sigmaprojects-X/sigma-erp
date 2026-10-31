@@ -2549,7 +2549,23 @@
 
                 // Keranjang & Baris Aktif
                 cart: [],
+                cartIdempotencyKey: (window.crypto && window.crypto.randomUUID)
+                    ? window.crypto.randomUUID()
+                    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    }),
                 selectedCartIdx: 0,
+
+                generateUuid() {
+                    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                        return window.crypto.randomUUID();
+                    }
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                },
 
                 // Fitur Krusial: Opsi Jumlah Sebelum Scan
                 inputScanQty: 1,
@@ -3124,6 +3140,7 @@
                         tier_id: this.selectedTierId,
                         sales_id: this.selectedSalesId,
                         tax_mode: this.erpTaxMode,
+                        idempotency_key: this.cartIdempotencyKey || this.generateUuid(),
                         cart: JSON.parse(JSON.stringify(this.cart)),
                         total_items: this.cart.reduce((a, c) => a + (parseFloat(c.quantity) || 0), 0),
                         subtotal: this.subtotal,
@@ -3135,6 +3152,7 @@
 
                     // Reset keranjang aktif
                     this.cart = [];
+                    this.cartIdempotencyKey = this.generateUuid();
                     this.voucherCode = null;
                     this.voucherDiscount = 0;
                     this.voucherCodeInput = '';
@@ -3160,6 +3178,7 @@
                     if (!item) return;
 
                     this.cart = item.cart;
+                    this.cartIdempotencyKey = item.idempotency_key || this.generateUuid();
                     this.selectedCustomerId = item.customer_id;
                     this.selectedTierId = item.tier_id;
                     this.selectedSalesId = item.sales_id;
@@ -3355,6 +3374,7 @@
                 resetCart() {
                     if (this.cart.length > 0 && confirm('Kosongkan keranjang belanja kasir?')) {
                         this.cart = [];
+                        this.cartIdempotencyKey = this.generateUuid();
                         this.voucherCode = null;
                         this.voucherDiscount = 0;
                         this.voucherCodeInput = '';
@@ -3832,8 +3852,13 @@
                             ? 'PPN_INCLUDE'
                             : ((this.selectedTaxMode === 'EXCLUSIVE' || this.selectedTaxMode === 'PPN_EXCLUDE') ? 'PPN_EXCLUDE' : 'NON');
 
+                        if (!this.cartIdempotencyKey) {
+                            this.cartIdempotencyKey = this.generateUuid();
+                        }
+
                         const payload = {
                             shift_id: this.activeShiftId || null,
+                            idempotency_key: this.cartIdempotencyKey,
                             customer_tier_id: this.selectedTierId || null,
                             customer_id: this.selectedCustomerId || null,
                             sales_person_id: this.selectedSalesId || null,
@@ -4002,6 +4027,7 @@
                     }
 
                     this.cart = [];
+                    this.cartIdempotencyKey = this.generateUuid();
                     this.voucherCode = null;
                     this.voucherDiscount = 0;
                     this.voucherCodeInput = '';

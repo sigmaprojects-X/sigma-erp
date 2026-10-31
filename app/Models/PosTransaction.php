@@ -33,6 +33,7 @@ class PosTransaction extends Model
         'cashier_id',
         'sales_person_id',
         'invoice_number',
+        'idempotency_key',
         'total_item_count',
         'subtotal',
         'discount_amount',

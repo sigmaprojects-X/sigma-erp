@@ -743,6 +743,7 @@ class PosController extends Controller
     {
         $request->validate([
             'shift_id' => 'required|uuid',
+            'idempotency_key' => 'nullable|uuid',
             'customer_tier_id' => 'nullable|uuid',
             'customer_id' => 'nullable|uuid',
             'sales_person_id' => 'nullable|uuid',
@@ -824,7 +825,8 @@ class PosController extends Controller
                 splitCashAmount: $request->split_cash_amount !== null ? (float) $request->split_cash_amount : null,
                 splitNonCashAmount: $request->split_non_cash_amount !== null ? (float) $request->split_non_cash_amount : null,
                 splitNonCashMethod: $request->split_non_cash_method,
-                managerPin: $request->input('manager_pin')
+                managerPin: $request->input('manager_pin'),
+                idempotencyKey: $request->input('idempotency_key')
             );
 
             return response()->json([

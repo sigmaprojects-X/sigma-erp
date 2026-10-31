@@ -212,8 +212,19 @@ class PosService
         ?float $splitCashAmount = null,
         ?float $splitNonCashAmount = null,
         ?string $splitNonCashMethod = null,
-        ?string $managerPin = null
+        ?string $managerPin = null,
+        ?string $idempotencyKey = null
     ): PosTransaction {
+        if ($idempotencyKey) {
+            $existingTx = PosTransaction::where('idempotency_key', $idempotencyKey)
+                ->with(['items.product', 'items.unit', 'voucher', 'customerTier', 'customer', 'salesPerson'])
+                ->first();
+
+            if ($existingTx) {
+                return $existingTx;
+            }
+        }
+
         if ($shift->status !== 'OPEN') {
             throw new \RuntimeException('Tidak dapat memproses checkout: Shift kasir belum dibuka atau sudah ditutup.');
         }
@@ -267,8 +278,19 @@ class PosService
             $splitCashAmount,
             $splitNonCashAmount,
             $splitNonCashMethod,
-            $authorizedManager
+            $authorizedManager,
+            $idempotencyKey
         ) {
+            if ($idempotencyKey) {
+                $existingTx = PosTransaction::where('idempotency_key', $idempotencyKey)
+                    ->lockForUpdate()
+                    ->with(['items.product', 'items.unit', 'voucher', 'customerTier', 'customer', 'salesPerson'])
+                    ->first();
+
+                if ($existingTx) {
+                    return $existingTx;
+                }
+            }
             $company = $shift->company ?? Company::findOrFail($shift->company_id);
 
             // Resolusi customer_tier_id di server: pakai tier milik customer jika customer_id ada, atau tier default company
@@ -814,6 +836,7 @@ class PosService
                 'cashier_id' => $shift->cashier_id,
                 'sales_person_id' => $salesPersonId ?: $shift->cashier_id,
                 'invoice_number' => $invoiceNumber,
+                'idempotency_key' => $idempotencyKey,
                 'total_item_count' => $totalItemsCount,
                 'subtotal' => $subtotal,
                 'discount_amount' => 0.00,

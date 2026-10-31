@@ -1,0 +1,33 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        if (! Schema::hasColumn('pos_transactions', 'idempotency_key')) {
+            Schema::table('pos_transactions', function (Blueprint $table) {
+                $table->uuid('idempotency_key')->nullable()->unique()->after('invoice_number');
+            });
+        }
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        if (Schema::hasColumn('pos_transactions', 'idempotency_key')) {
+            Schema::table('pos_transactions', function (Blueprint $table) {
+                $table->dropUnique(['idempotency_key']);
+                $table->dropColumn('idempotency_key');
+            });
+        }
+    }
+};
