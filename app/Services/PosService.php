@@ -710,6 +710,13 @@ class PosService
                         if (! $customer) {
                             throw new \InvalidArgumentException('Pelanggan harus dipilih untuk alokasi pembayaran sebagian ke Piutang / Tempo.');
                         }
+                        $customer = Customer::where('company_id', $company->id)
+                            ->where('id', $customer->id)
+                            ->lockForUpdate()
+                            ->first();
+                        if (! $customer) {
+                            throw new \InvalidArgumentException('Pelanggan harus dipilih untuk alokasi pembayaran sebagian ke Piutang / Tempo.');
+                        }
                         if ((float) $customer->credit_limit <= 0) {
                             throw new \InvalidArgumentException("Pelanggan [{$customer->name}] tidak memiliki fasilitas plafon kredit untuk Tempo.");
                         }
@@ -729,23 +736,38 @@ class PosService
                 $credit = $grandTotal;
                 $paidAmount = 0.0;
                 $changeAmount = 0.0;
-                if ($customer) {
-                    if ((float) $customer->credit_limit <= 0) {
-                        throw new \InvalidArgumentException("Pelanggan [{$customer->name}] tidak memiliki fasilitas plafon kredit untuk pembayaran Tempo.");
-                    }
-
-                    $availableCredit = (float) $customer->credit_limit - (float) $customer->current_credit_balance;
-                    if ($grandTotal > $availableCredit) {
-                        throw new \InvalidArgumentException('Total transaksi tempo (Rp '.number_format($grandTotal).') melebihi sisa plafon kredit pelanggan ['.$customer->name.'] (Rp '.number_format($availableCredit).').');
-                    }
-
-                    $customer->increment('current_credit_balance', $grandTotal);
+                if (! $customer) {
+                    throw new \InvalidArgumentException('Pelanggan harus dipilih untuk transaksi pembayaran Tempo / Piutang.');
                 }
+                $customer = Customer::where('company_id', $company->id)
+                    ->where('id', $customer->id)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $customer) {
+                    throw new \InvalidArgumentException('Pelanggan harus dipilih untuk transaksi pembayaran Tempo / Piutang.');
+                }
+                if ((float) $customer->credit_limit <= 0) {
+                    throw new \InvalidArgumentException("Pelanggan [{$customer->name}] tidak memiliki fasilitas plafon kredit untuk pembayaran Tempo.");
+                }
+
+                $availableCredit = (float) $customer->credit_limit - (float) $customer->current_credit_balance;
+                if ($grandTotal > $availableCredit) {
+                    throw new \InvalidArgumentException('Total transaksi tempo (Rp '.number_format($grandTotal).') melebihi sisa plafon kredit pelanggan ['.$customer->name.'] (Rp '.number_format($availableCredit).').');
+                }
+
+                $customer->increment('current_credit_balance', $grandTotal);
             } elseif ($paymentMethod === 'CASH') {
                 if ($credit > 0) {
                     $paymentMethod = 'SPLIT';
                     $splitPaymentMethod = 'CASH';
                     $finalSplitCash = $paidAmount;
+                    if (! $customer) {
+                        throw new \InvalidArgumentException('Pelanggan harus dipilih untuk alokasi sisa pembayaran ke Piutang / Tempo.');
+                    }
+                    $customer = Customer::where('company_id', $company->id)
+                        ->where('id', $customer->id)
+                        ->lockForUpdate()
+                        ->first();
                     if (! $customer) {
                         throw new \InvalidArgumentException('Pelanggan harus dipilih untuk alokasi sisa pembayaran ke Piutang / Tempo.');
                     }
