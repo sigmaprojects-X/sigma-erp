@@ -379,4 +379,55 @@ class PosCheckoutSecurityTest extends TestCase
         $this->assertSame($wholesaleTier->id, $txMember->customer_tier_id);
         $this->assertEquals(11000.0, (float) $txMember->grand_total);
     }
+
+    public function test_pos_controller_always_determines_enforced_tax_mode_from_back_office_and_ignores_request_tax_mode(): void
+    {
+        TaxConfiguration::create([
+            'company_id' => $this->company->id,
+            'is_tax_enabled' => true,
+            'tax_name' => 'PPN',
+            'tax_rate_percent' => 11.00,
+            'is_tax_inclusive' => true,
+            'effective_from' => now()->subDays(2)->toDateString(),
+            'effective_to' => now()->addDays(2)->toDateString(),
+        ]);
+
+        $capturedTaxMode = null;
+        $realPosService = app(\App\Services\PosService::class);
+        $mock = \Mockery::mock($realPosService)->makePartial();
+        $mock->shouldReceive('checkout')
+            ->once()
+            ->withArgs(function (...$args) use (&$capturedTaxMode) {
+                // Argumen ke-10 (index 9) pada PosService::checkout adalah $taxMode
+                $capturedTaxMode = $args[9] ?? null;
+
+                return true;
+            })
+            ->andReturnUsing(function (...$args) use ($realPosService) {
+                return $realPosService->checkout(...$args);
+            });
+
+        $this->app->instance(\App\Services\PosService::class, $mock);
+
+        // Request mengirim tax_mode = 'NON' (atau array/string tidak valid), PosController wajib mengabaikannya dan meneruskan PPN_INCLUDE dari TaxConfiguration
+        $response = $this->actingAs($this->cashier)->postJson('/pos/checkout', [
+            'shift_id' => $this->shift->id,
+            'customer_tier_id' => $this->defaultTier->id,
+            'payment_method' => 'CASH',
+            'paid_amount' => 20000,
+            'tax_mode' => 'NON',
+            'items' => [
+                [
+                    'product_id' => $this->product->id,
+                    'product_unit_id' => $this->unit->id,
+                    'quantity' => 1,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('PPN_INCLUDE', $capturedTaxMode);
+    }
 }

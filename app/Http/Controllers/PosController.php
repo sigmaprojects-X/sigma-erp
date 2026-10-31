@@ -738,6 +738,26 @@ class PosController extends Controller
 
         $tier = ($customer && $customer->customerTier) ? $customer->customerTier : $defaultTier;
 
+        // Aturan Pajak Ditetapkan Terpusat oleh Pengaturan Pajak ERP (AGENTS.md Section 5 - Zero Kasir Override)
+        $taxConfig = TaxConfiguration::where('company_id', $company->id)
+            ->where('is_tax_enabled', true)
+            ->where(function ($q) {
+                $q->whereNull('effective_from')->orWhere('effective_from', '<=', now()->toDateString());
+            })
+            ->where(function ($q) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()->toDateString());
+            })
+            ->latest('effective_from')
+            ->first();
+
+        if ($taxConfig && $taxConfig->is_tax_enabled) {
+            $enforcedTaxMode = $taxConfig->is_tax_inclusive ? 'PPN_INCLUDE' : 'PPN_EXCLUDE';
+        } elseif (($company->is_tax_registered ?? false) && ! in_array($company->tax_mode, ['NON', 'NON_TAX'], true)) {
+            $enforcedTaxMode = in_array($company->tax_mode, ['INCLUSIVE', 'PPN_INCLUDE'], true) ? 'PPN_INCLUDE' : 'PPN_EXCLUDE';
+        } else {
+            $enforcedTaxMode = 'NON';
+        }
+
         try {
             $transaction = $this->posService->checkout(
                 shift: $shift,
@@ -749,7 +769,7 @@ class PosController extends Controller
                 notes: $request->notes,
                 customerId: $customer?->id,
                 taxAmount: null,
-                taxMode: null,
+                taxMode: $enforcedTaxMode,
                 salesPersonId: $request->sales_person_id,
                 bankName: $request->bank_name,
                 bankAccountNumber: $request->bank_account_number,
