@@ -51,8 +51,8 @@
 
     <!-- FILTER & SEARCH BAR -->
     <div class="bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-xs">
-        <form method="GET" action="{{ route('master.products') }}" class="flex items-center gap-3 text-xs">
-            <div class="relative flex-1">
+        <form method="GET" action="{{ route('master.products') }}" class="flex flex-wrap items-center gap-3 text-xs">
+            <div class="relative flex-1 min-w-[220px]">
                 <span class="absolute left-3 top-2 text-slate-400">🔍</span>
                 <input type="text"
                        name="search"
@@ -60,11 +60,23 @@
                        placeholder="Cari berdasarkan SKU, Nama Barang, Kategori, atau Barcode..."
                        class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-blue-200 focus:border-blue-600 focus:outline-hidden">
             </div>
+            <div>
+                <select name="type"
+                        class="py-1.5 px-3 border border-slate-300 rounded-lg font-semibold text-xs bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-600 focus:outline-hidden">
+                    <option value="">-- Semua Tipe Produk --</option>
+                    <option value="BARANG" {{ request('type') === 'BARANG' ? 'selected' : '' }}>📦 Barang Fisik</option>
+                    <option value="JASA" {{ request('type') === 'JASA' ? 'selected' : '' }}>🔧 Jasa / Service</option>
+                    <option value="RAKITAN_PROSES" {{ request('type') === 'RAKITAN_PROSES' ? 'selected' : '' }}>⚙️ Rakitan Produksi</option>
+                    <option value="RAKITAN_NON_PROSES" {{ request('type') === 'RAKITAN_NON_PROSES' ? 'selected' : '' }}>🎁 Paket Bundling</option>
+                    <option value="NON_INVENTORY" {{ request('type') === 'NON_INVENTORY' ? 'selected' : '' }}>📝 Non Inventory</option>
+                    <option value="BIAYA" {{ request('type') === 'BIAYA' ? 'selected' : '' }}>💸 Biaya / Beban</option>
+                </select>
+            </div>
             <button type="submit"
                     class="py-1.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors cursor-pointer">
                 Cari Produk
             </button>
-            @if(request('search'))
+            @if(request('search') || request('type'))
                 <a href="{{ route('master.products') }}"
                    class="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors">
                     Reset
@@ -107,13 +119,16 @@
                             </td>
                             <td class="px-3 py-2.5 font-sans">
                                 <div class="font-bold text-slate-900">{{ $prod->name }}</div>
-                                <div class="flex items-center gap-1.5 mt-0.5">
+                                <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                    <span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold">{{ $prod->type_label }}</span>
                                     <span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold">{{ $prod->category }}</span>
-                                    <a href="{{ route('master.stock-card', ['product_id' => $prod->id]) }}"
-                                       class="px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-[10px] font-bold inline-flex items-center gap-0.5 transition-colors"
-                                       title="Lihat Riwayat & Kartu Stok Produk Ini">
-                                        <span>📦</span> <span>Kartu Stok</span>
-                                    </a>
+                                    @if($prod->tracksInventory())
+                                        <a href="{{ route('master.stock-card', ['product_id' => $prod->id]) }}"
+                                           class="px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-[10px] font-bold inline-flex items-center gap-0.5 transition-colors"
+                                           title="Lihat Riwayat & Kartu Stok Produk Ini">
+                                            <span>📦</span> <span>Kartu Stok</span>
+                                        </a>
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-3 py-2.5 font-sans">
@@ -145,7 +160,9 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-center font-bold">
-                                @if($stock)
+                                @if(! $prod->tracksInventory())
+                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-sans font-semibold text-[10px]">Tanpa Stok</span>
+                                @elseif($stock)
                                     <span class="{{ (float)$stock->available_quantity <= (float)$prod->min_stock_alert ? 'text-amber-600 font-black' : 'text-slate-800' }}">
                                         {{ number_format((float)$stock->available_quantity, 1) }}
                                     </span>

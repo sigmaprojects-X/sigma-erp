@@ -46,6 +46,10 @@ class MasterDataController extends Controller
             });
         }
 
+        if ($type = $request->input('type')) {
+            $query->where('type', $type);
+        }
+
         $products = $query->orderBy('name')->paginate(20)->withQueryString();
         $customerTiers = CustomerTier::where('is_active', true)->get();
         $categories = ProductCategory::where('is_active', true)->orderBy('name')->get();
@@ -106,11 +110,13 @@ class MasterDataController extends Controller
     public function storeProduct(Request $request): RedirectResponse
     {
         $isMultiUnit = $request->has('units') && is_array($request->input('units'));
+        $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
         if ($isMultiUnit) {
             $request->validate([
                 'name' => 'required|string|max:255',
                 'sku' => 'required|string|max:100|unique:products,sku',
+                'type' => "nullable|string|in:{$allowedTypes}",
                 'cost_price' => 'required|numeric|min:0',
                 'units' => 'required|array|min:1',
                 'units.0.unit_code' => 'required|string|max:30',
@@ -121,6 +127,7 @@ class MasterDataController extends Controller
             $request->validate([
                 'name' => 'required|string|max:255',
                 'sku' => 'required|string|max:100|unique:products,sku',
+                'type' => "nullable|string|in:{$allowedTypes}",
                 'category' => 'nullable|string|max:100',
                 'cost_price' => 'required|numeric|min:0',
                 'unit_code' => 'required|string|max:30',
@@ -177,29 +184,37 @@ class MasterDataController extends Controller
             }
 
             // 4. Buat Master Produk
+            $productType = $request->input('type', Product::TYPE_BARANG);
+            $tracksInventory = in_array($productType, [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES], true);
+            $saleStatus = $productType === Product::TYPE_BIAYA
+                ? 'BUY_ONLY'
+                : $request->input('sale_status', 'ACTIVE');
+            $isPointOfSale = ! in_array($saleStatus, ['DISCONTINUED', 'BUY_ONLY'], true)
+                && $productType !== Product::TYPE_BIAYA;
+
             $product = Product::create([
                 'company_id' => $company->id,
                 'store_id' => $store->id,
                 'category_id' => $categoryId,
                 'supplier_id' => $request->supplier_id,
                 'sku' => strtoupper(trim($request->sku)),
-                'type' => $request->input('type', 'BARANG'),
+                'type' => $productType,
                 'name' => trim($request->name),
                 'slug' => Str::slug($request->name.'-'.$request->sku),
                 'category' => $categoryName ?: 'Umum',
                 'sub_category' => $request->sub_category,
                 'brand' => $request->brand,
-                'rack_location' => $request->rack_location,
-                'sale_status' => $request->input('sale_status', 'ACTIVE'),
+                'rack_location' => $tracksInventory ? $request->rack_location : null,
+                'sale_status' => $saleStatus,
                 'cost_price' => (float) $request->cost_price,
                 'last_purchase_price' => (float) $request->cost_price,
                 'total_stock_value' => 0.00,
                 'total_quantity' => 0.00,
-                'min_stock_alert' => (float) ($request->min_stock_alert ?? 5.00),
-                'max_stock' => $request->filled('max_stock') ? (float) $request->max_stock : null,
-                'has_serial_number' => $request->boolean('has_serial_number'),
-                'has_batch_expiry' => $request->boolean('has_batch_expiry'),
-                'is_point_of_sale' => $request->input('sale_status', 'ACTIVE') === 'DISCONTINUED' ? false : true,
+                'min_stock_alert' => $tracksInventory ? (float) ($request->min_stock_alert ?? 5.00) : 0.00,
+                'max_stock' => ($tracksInventory && $request->filled('max_stock')) ? (float) $request->max_stock : null,
+                'has_serial_number' => $tracksInventory ? $request->boolean('has_serial_number') : false,
+                'has_batch_expiry' => $tracksInventory ? $request->boolean('has_batch_expiry') : false,
+                'is_point_of_sale' => $isPointOfSale,
                 'is_active' => $request->boolean('is_active', true),
                 'notes' => $request->notes,
                 'tax_type' => $request->input('tax_type', 'NON'),
@@ -396,17 +411,24 @@ class MasterDataController extends Controller
     public function updateProduct(Request $request, string $id): RedirectResponse
     {
         $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->findOrFail($id);
+        $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
         $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'required|string|max:100|unique:products,sku,'.$product->id,
+            'type' => "nullable|string|in:{$allowedTypes}",
             'cost_price' => 'required|numeric|min:0',
             'image' => 'nullable|image|max:2048',
             'additional_images.*' => 'nullable|image|max:2048',
         ]);
 
+        $productType = $request->input('type', $product->type ?: Product::TYPE_BARANG);
+        $tracksInventory = in_array($productType, [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES], true);
+
         // Aturan Discontinue: Stok fisik harus kosong (0) sebelum dapat di-discontinue
-        $newSaleStatus = $request->input('sale_status', $product->sale_status);
+        $newSaleStatus = $productType === Product::TYPE_BIAYA
+            ? 'BUY_ONLY'
+            : $request->input('sale_status', $product->sale_status);
         if ($newSaleStatus === 'DISCONTINUED') {
             $totalQty = (float) $product->total_quantity;
             $physicalStock = (float) ProductStock::where('product_id', $product->id)->sum('physical_quantity');
@@ -438,7 +460,7 @@ class MasterDataController extends Controller
         $tierRetail = CustomerTier::where('code', 'RETAIL')->first();
         $tierGrosir = CustomerTier::where('code', 'GROSIR')->first();
 
-        DB::transaction(function () use ($request, $product, $company, $store, $tierRetail, $tierGrosir, $newSaleStatus) {
+        DB::transaction(function () use ($request, $product, $company, $store, $tierRetail, $tierGrosir, $newSaleStatus, $productType, $tracksInventory) {
             $categoryId = $request->category_id;
             $categoryName = $request->category;
             if ($categoryId && ! $categoryName) {
@@ -448,23 +470,27 @@ class MasterDataController extends Controller
                 $categoryId = $matchedCat?->id;
             }
 
+            $isPointOfSale = ($newSaleStatus === 'DISCONTINUED' || $newSaleStatus === 'BUY_ONLY' || $productType === Product::TYPE_BIAYA)
+                ? false
+                : $request->boolean('is_point_of_sale', $product->is_point_of_sale);
+
             $updateData = [
                 'sku' => strtoupper(trim($request->sku)),
-                'type' => $request->input('type', $product->type),
+                'type' => $productType,
                 'name' => trim($request->name),
                 'category_id' => $categoryId,
                 'supplier_id' => $request->supplier_id,
                 'category' => $categoryName ?: $product->category,
                 'sub_category' => $request->sub_category,
                 'brand' => $request->brand,
-                'rack_location' => $request->rack_location,
+                'rack_location' => $tracksInventory ? $request->rack_location : null,
                 'sale_status' => $newSaleStatus,
                 'cost_price' => (float) $request->cost_price,
-                'min_stock_alert' => (float) ($request->min_stock_alert ?? $product->min_stock_alert),
-                'max_stock' => $request->filled('max_stock') ? (float) $request->max_stock : null,
-                'has_serial_number' => $request->boolean('has_serial_number'),
-                'has_batch_expiry' => $request->boolean('has_batch_expiry'),
-                'is_point_of_sale' => $newSaleStatus === 'DISCONTINUED' ? false : $request->boolean('is_point_of_sale', $product->is_point_of_sale),
+                'min_stock_alert' => $tracksInventory ? (float) ($request->min_stock_alert ?? $product->min_stock_alert) : 0.00,
+                'max_stock' => ($tracksInventory && $request->filled('max_stock')) ? (float) $request->max_stock : null,
+                'has_serial_number' => $tracksInventory ? $request->boolean('has_serial_number') : false,
+                'has_batch_expiry' => $tracksInventory ? $request->boolean('has_batch_expiry') : false,
+                'is_point_of_sale' => $isPointOfSale,
                 'is_active' => $request->boolean('is_active', true),
                 'notes' => $request->notes,
                 'tax_type' => $request->input('tax_type', $product->tax_type),

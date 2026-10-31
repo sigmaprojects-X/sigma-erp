@@ -219,6 +219,7 @@
             </button>
 
             <button type="button"
+                    x-show="tracksInventory()"
                     @click="activeTab = 'dimensions'"
                     :class="activeTab === 'dimensions' ? 'bg-gradient-to-r from-blue-700 to-indigo-700 text-white shadow-md font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
                     class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer">
@@ -272,7 +273,7 @@
                         <span class="text-[11px] text-slate-400 font-medium">Menentukan apakah item melacak stok fisik atau jasa</span>
                     </div>
 
-                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 text-xs">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-xs">
                         @php
                             $types = [
                                 'BARANG' => ['label' => 'Barang Fisik', 'desc' => 'Melacak Stok', 'icon' => '📦', 'color' => 'blue'],
@@ -281,7 +282,6 @@
                                 'RAKITAN_NON_PROSES' => ['label' => 'Paket Bundling', 'desc' => 'Langsung Jual', 'icon' => '🎁', 'color' => 'purple'],
                                 'NON_INVENTORY' => ['label' => 'Non Inventory', 'desc' => 'Habis Pakai', 'icon' => '📝', 'color' => 'amber'],
                                 'BIAYA' => ['label' => 'Biaya / Beban', 'desc' => 'Operasional', 'icon' => '💸', 'color' => 'rose'],
-                                'VARIAN' => ['label' => 'Item Varian', 'desc' => 'Warna & Ukuran', 'icon' => '🎨', 'color' => 'cyan'],
                             ];
                         @endphp
                         @foreach($types as $tKey => $tVal)
@@ -291,12 +291,39 @@
                                        name="type"
                                        value="{{ $tKey }}"
                                        x-model="selectedType"
+                                       @change="onTypeChange()"
                                        class="sr-only">
                                 <span class="text-2xl mb-1">{{ $tVal['icon'] }}</span>
                                 <span class="font-extrabold text-slate-900 leading-tight text-[11.5px]">{{ $tVal['label'] }}</span>
                                 <span class="text-[10px] text-slate-500 mt-0.5">{{ $tVal['desc'] }}</span>
                             </label>
                         @endforeach
+                    </div>
+
+                    <!-- INFO BANNER PERILAKU TIPE PRODUK -->
+                    <div class="mt-3 p-3 rounded-xl border text-xs flex items-start gap-2.5"
+                         :class="selectedType === 'BIAYA' ? 'bg-rose-50 border-rose-200 text-rose-900' : (tracksInventory() ? 'bg-blue-50/70 border-blue-200 text-blue-900' : 'bg-teal-50/80 border-teal-200 text-teal-900')">
+                        <span class="text-base" x-text="selectedType === 'BIAYA' ? '💸' : (tracksInventory() ? '📦' : 'ℹ️')"></span>
+                        <div>
+                            <template x-if="selectedType === 'BARANG'">
+                                <span><strong>Barang Fisik:</strong> Melacak kartu stok fisik, HPP Moving Average, batas minimum restock, lokasi rak, serta opsi nomor seri / batch kadaluarsa.</span>
+                            </template>
+                            <template x-if="selectedType === 'JASA'">
+                                <span><strong>Jasa / Service:</strong> Tidak melacak stok fisik gudang. Dapat langsung ditransaksikan di Kasir POS maupun Faktur Penjualan meskipun stok 0.</span>
+                            </template>
+                            <template x-if="selectedType === 'RAKITAN_PROSES'">
+                                <span><strong>Rakitan Produksi (BOM Assembly):</strong> Barang jadi yang stok fisiknya bertambah melalui proses perakitan komponen di menu <a href="{{ route('warehouse.assemblies.boms') }}" target="_blank" class="underline font-bold">Gudang &rarr; Resep BOM &amp; Perakitan</a>.</span>
+                            </template>
+                            <template x-if="selectedType === 'RAKITAN_NON_PROSES'">
+                                <span><strong>Paket Bundling (Langsung Jual):</strong> Paket jual langsung tanpa stok fisik tersendiri; komponen penyusunnya diatur pada menu <a href="{{ route('warehouse.assemblies.boms') }}" target="_blank" class="underline font-bold">Gudang &rarr; Resep BOM</a>.</span>
+                            </template>
+                            <template x-if="selectedType === 'NON_INVENTORY'">
+                                <span><strong>Non Inventory (Habis Pakai):</strong> Item perlengkapan/pendukung yang tidak melacak saldo stok fisik gudang.</span>
+                            </template>
+                            <template x-if="selectedType === 'BIAYA'">
+                                <span><strong>Biaya / Beban Operasional:</strong> Khusus pencatatan pembelian/pengeluaran operasional. Otomatis diset <em>Bisa Beli Tapi Tidak Dijual</em> dan disembunyikan dari layar Kasir POS.</span>
+                            </template>
+                        </div>
                     </div>
                 </div>
 
@@ -429,7 +456,7 @@
                 <!-- 1.4 LOKASI RAK & STATUS JUAL -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-slate-100">
                     <!-- RAK / LOKASI GUDANG -->
-                    <div class="space-y-1.5">
+                    <div class="space-y-1.5" x-show="tracksInventory()">
                         <label class="block text-xs font-extrabold text-slate-800">Rak / Bin Lokasi Penyimpanan</label>
                         <div class="relative">
                             <span class="absolute left-3 top-2.5 text-slate-400 text-xs">📍</span>
@@ -449,18 +476,19 @@
                         @endphp
                         <select name="sale_status"
                                 id="sale_status_select"
+                                x-model="saleStatus"
                                 class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-xs font-extrabold focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 focus:outline-hidden bg-white">
-                            <option value="ACTIVE" {{ $currentSaleStatus === 'ACTIVE' ? 'selected' : '' }}>🟢 Masih Dijual (Aktif di Kasir POS)</option>
+                            <option value="ACTIVE" x-bind:disabled="selectedType === 'BIAYA'" {{ $currentSaleStatus === 'ACTIVE' ? 'selected' : '' }}>🟢 Masih Dijual (Aktif di Kasir POS)</option>
                             <option value="DISCONTINUED" {{ $currentSaleStatus === 'DISCONTINUED' ? 'selected' : '' }}>🔴 Tidak Dijual (Discontinue)</option>
                             <option value="BUY_ONLY" {{ $currentSaleStatus === 'BUY_ONLY' ? 'selected' : '' }}>🟡 Bisa Beli Tapi Tidak Dijual</option>
                         </select>
-                        <p class="text-[11px] text-slate-500 font-medium">
+                        <p class="text-[11px] text-slate-500 font-medium" x-show="tracksInventory()">
                             <span class="text-rose-600 font-bold">* Catatan:</span> Status <strong>Discontinue</strong> hanya dapat dipilih jika sisa stok fisik barang sudah <strong>0 (kosong)</strong>.
                         </p>
                     </div>
 
                     <!-- RESTOCK THRESHOLD ALERTS -->
-                    <div class="grid grid-cols-2 gap-2 space-y-0">
+                    <div class="grid grid-cols-2 gap-2 space-y-0" x-show="tracksInventory()">
                         <div class="space-y-1.5">
                             <label class="block text-xs font-extrabold text-slate-800">Stok Min (Alert)</label>
                             <input type="number"
@@ -483,7 +511,7 @@
 
                 <!-- 1.5 TOGGLE SERIAL / BATCH EXPIRY & CATATAN -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-5 pt-4 border-t border-slate-100">
-                    <div class="md:col-span-5 space-y-2.5">
+                    <div class="md:col-span-5 space-y-2.5" x-show="tracksInventory()">
                         <label class="flex items-center gap-3 p-3 rounded-2xl border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer">
                             <input type="checkbox"
                                    name="has_serial_number"
@@ -509,7 +537,7 @@
                         </label>
                     </div>
 
-                    <div class="md:col-span-7 space-y-1.5">
+                    <div :class="tracksInventory() ? 'md:col-span-7' : 'md:col-span-12'" class="space-y-1.5">
                         <label class="block text-xs font-extrabold text-slate-800">Catatan / Deskripsi Spesifikasi</label>
                         <textarea name="notes"
                                   rows="3"
@@ -1250,6 +1278,7 @@ function itemForm(config) {
     return {
         activeTab: 'general', // Default mulai dari Tab 1: Data Umum
         selectedType: '{{ old('type', $isEdit ? $product->type : 'BARANG') }}',
+        saleStatus: '{{ old('sale_status', $isEdit ? $product->sale_status : 'ACTIVE') }}',
         currentStock: config.currentStock || 0,
         costPrice: config.costPrice || 0,
         currentSku: config.currentSku || '',
@@ -1258,6 +1287,19 @@ function itemForm(config) {
         masterUnits: config.masterUnits || [],
         units: config.units || [],
         mainImagePreview: null,
+
+        tracksInventory() {
+            return ['BARANG', 'RAKITAN_PROSES'].includes(this.selectedType);
+        },
+
+        onTypeChange() {
+            if (this.selectedType === 'BIAYA') {
+                this.saleStatus = 'BUY_ONLY';
+            }
+            if (!this.tracksInventory() && this.activeTab === 'dimensions') {
+                this.activeTab = 'general';
+            }
+        },
 
         init() {
             // Hotkeys Alt+1 to Alt+6 for switching tabs

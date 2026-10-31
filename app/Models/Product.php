@@ -13,6 +13,27 @@ class Product extends Model
 {
     use HasFactory, HasUuids;
 
+    public const TYPE_BARANG = 'BARANG';
+
+    public const TYPE_JASA = 'JASA';
+
+    public const TYPE_RAKITAN_PROSES = 'RAKITAN_PROSES';
+
+    public const TYPE_RAKITAN_NON_PROSES = 'RAKITAN_NON_PROSES';
+
+    public const TYPE_NON_INVENTORY = 'NON_INVENTORY';
+
+    public const TYPE_BIAYA = 'BIAYA';
+
+    public const SUPPORTED_TYPES = [
+        self::TYPE_BARANG,
+        self::TYPE_JASA,
+        self::TYPE_RAKITAN_PROSES,
+        self::TYPE_RAKITAN_NON_PROSES,
+        self::TYPE_NON_INVENTORY,
+        self::TYPE_BIAYA,
+    ];
+
     /**
      * The table associated with the model.
      *
@@ -194,5 +215,32 @@ class Product extends Model
     public function consignmentSupplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class, 'consignment_supplier_id');
+    }
+
+    /**
+     * Apakah tipe produk ini melacak stok fisik gudang/toko secara langsung.
+     */
+    public function tracksInventory(): bool
+    {
+        return in_array($this->type ?: self::TYPE_BARANG, [
+            self::TYPE_BARANG,
+            self::TYPE_RAKITAN_PROSES,
+        ], true);
+    }
+
+    /**
+     * Label tipe produk yang mudah dibaca.
+     */
+    public function getTypeLabelAttribute(): string
+    {
+        return match ($this->type ?: self::TYPE_BARANG) {
+            self::TYPE_BARANG => 'Barang Fisik',
+            self::TYPE_JASA => 'Jasa / Service',
+            self::TYPE_RAKITAN_PROSES => 'Rakitan Produksi',
+            self::TYPE_RAKITAN_NON_PROSES => 'Paket Bundling',
+            self::TYPE_NON_INVENTORY => 'Non Inventory',
+            self::TYPE_BIAYA => 'Biaya / Beban',
+            default => $this->type ?: 'Barang Fisik',
+        };
     }
 }
