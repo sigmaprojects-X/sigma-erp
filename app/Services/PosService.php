@@ -13,6 +13,7 @@ use App\Models\PosTransaction;
 use App\Models\PosTransactionItem;
 use App\Models\Product;
 use App\Models\ProductBatch;
+use App\Models\ProductBom;
 use App\Models\ProductUnit;
 use App\Models\Promotion;
 use App\Models\Store;
@@ -255,6 +256,15 @@ class PosService
                 /** @var Product $product */
                 $product = Product::findOrFail($item['product_id']);
 
+                if (
+                    ! $product->is_active
+                    || ! $product->is_point_of_sale
+                    || in_array($product->sale_status, ['DISCONTINUED', 'BUY_ONLY'], true)
+                    || $product->type === Product::TYPE_BIAYA
+                ) {
+                    throw new \InvalidArgumentException("Produk [{$product->name}] tidak dapat dijual di Kasir POS.");
+                }
+
                 /** @var ProductUnit $unit */
                 $unit = ProductUnit::where('id', $item['product_unit_id'])
                     ->where('product_id', $product->id)
@@ -293,18 +303,56 @@ class PosService
                 $conversionFactor = (float) $unit->conversion_factor;
                 $baseQuantity = $quantity * $conversionFactor;
 
-                // HPP berjalan saat transaksi
-                $currentHpp = (float) $product->cost_price;
+                // HPP berjalan & Pemotongan Stok sesuai Klasifikasi Tipe Produk
+                if ($product->tracksInventory()) {
+                    $currentHpp = (float) $product->cost_price;
 
-                // Potong Stok melalui InventoryService (terkunci dengan Zero Negative Inventory)
-                $this->inventoryService->deductStock(
-                    product: $product,
-                    store: $shift->store,
-                    quantity: $baseQuantity,
-                    mutationType: 'SALE',
-                    referenceNumber: $invoiceNumber,
-                    notes: "Penjualan POS Faktur: {$invoiceNumber}"
-                );
+                    // Potong Stok melalui InventoryService (terkunci dengan Zero Negative Inventory)
+                    $this->inventoryService->deductStock(
+                        product: $product,
+                        store: $shift->store,
+                        quantity: $baseQuantity,
+                        mutationType: 'SALE',
+                        referenceNumber: $invoiceNumber,
+                        notes: "Penjualan POS Faktur: {$invoiceNumber}"
+                    );
+                } elseif ($product->type === Product::TYPE_RAKITAN_NON_PROSES) {
+                    $boms = ProductBom::where('parent_product_id', $product->id)
+                        ->with(['componentProduct', 'componentUnit'])
+                        ->get();
+
+                    if ($boms->isEmpty()) {
+                        throw new \InvalidArgumentException("Paket bundling [{$product->name}] belum memiliki komposisi komponen (BOM).");
+                    }
+
+                    $bundleCostPerBaseUnit = 0.0;
+                    foreach ($boms as $bom) {
+                        $compProduct = $bom->componentProduct;
+                        if (! $compProduct) {
+                            continue;
+                        }
+                        $compFactor = (float) ($bom->componentUnit?->conversion_factor ?: 1.0);
+                        $compBaseQtyPerBundle = (float) $bom->quantity * $compFactor;
+                        $totalCompBaseQty = $baseQuantity * $compBaseQtyPerBundle;
+
+                        if ($compProduct->tracksInventory()) {
+                            $this->inventoryService->deductStock(
+                                product: $compProduct,
+                                store: $shift->store,
+                                quantity: $totalCompBaseQty,
+                                mutationType: 'SALE',
+                                referenceNumber: $invoiceNumber,
+                                notes: "Komponen Paket Bundling [{$product->name}] Faktur: {$invoiceNumber}"
+                            );
+                            $bundleCostPerBaseUnit += ($compBaseQtyPerBundle * (float) $compProduct->cost_price);
+                        }
+                    }
+
+                    $currentHpp = $bundleCostPerBaseUnit > 0 ? $bundleCostPerBaseUnit : (float) $product->cost_price;
+                } else {
+                    // Item JASA atau NON_INVENTORY: tidak memotong stok fisik dan tidak mengurangi akun persediaan
+                    $currentHpp = 0.0;
+                }
 
                 // FEFO Batch Allocation & Deduction jika produk memiliki batch expiry
                 $itemBatchId = $item['batch_id'] ?? null;

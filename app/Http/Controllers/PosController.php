@@ -279,6 +279,8 @@ class PosController extends Controller
                 'id' => $product->id,
                 'sku' => $product->sku,
                 'name' => $product->name,
+                'type' => $product->type ?: Product::TYPE_BARANG,
+                'tracks_inventory' => $product->tracksInventory(),
                 'category' => $product->category,
                 'matched_unit_id' => $matchedUnit?->id,
                 'matched_unit_code' => $matchedUnit?->unit_code,
@@ -287,7 +289,9 @@ class PosController extends Controller
                 'scale_weight' => $item['scale_weight'] ?? null,
                 'stock' => round($stockInTargetUnit, 2),
                 'stock_base' => round($availableStockBase, 2),
-                'stock_formatted' => (floor($stockInTargetUnit) == $stockInTargetUnit ? (int) $stockInTargetUnit : number_format($stockInTargetUnit, 2, ',', '.')) . ' ' . ($targetUnit?->unit_code ?? ''),
+                'stock_formatted' => $product->tracksInventory()
+                    ? (floor($stockInTargetUnit) == $stockInTargetUnit ? (int) $stockInTargetUnit : number_format($stockInTargetUnit, 2, ',', '.')) . ' ' . ($targetUnit?->unit_code ?? '')
+                    : 'Tanpa Stok',
                 'selling_price' => (float) $sellingPrice,
                 'selling_price_formatted' => 'Rp ' . number_format($sellingPrice, 0, ',', '.'),
                 'units' => $product->units->where('is_active', true)->values()->map(fn ($u) => [
