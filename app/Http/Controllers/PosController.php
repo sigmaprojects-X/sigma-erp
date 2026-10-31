@@ -634,6 +634,49 @@ class PosController extends Controller
     }
 
     /**
+     * Validasi kepemilikan & otorisasi akses terhadap shift kasir.
+     *
+     * - Role cashier: wajib shift.cashier_id == auth()->id(), shift.status == OPEN, dan shift.store_id == user.store_id.
+     * - Role manager/store_head/owner: diizinkan atas shift di toko yang mereka kelola.
+     * - Role lainnya: ditolak dengan 403.
+     */
+    protected function authorizeShiftAccess(Request $request, string $shiftId): CashierShift
+    {
+        $shift = CashierShift::findOrFail($shiftId);
+        $user = $request->user() ?? Auth::user();
+
+        if (! $user) {
+            abort(403, 'Akses ditolak: Pengguna belum terautentikasi.');
+        }
+
+        if ($user->role === 'cashier') {
+            if (
+                $shift->cashier_id !== $user->id
+                || $shift->status !== 'OPEN'
+                || empty($user->store_id)
+                || $shift->store_id !== $user->store_id
+            ) {
+                abort(403, 'Akses ditolak: Kasir hanya dapat mengakses shift miliknya sendiri yang berstatus OPEN di tokonya.');
+            }
+
+            return $shift;
+        }
+
+        if (in_array($user->role, ['manager', 'store_head', 'owner'], true)) {
+            $managesStore = (! empty($user->store_id) && $shift->store_id === $user->store_id)
+                || ($user->role === 'owner' && empty($user->store_id));
+
+            if (! $managesStore) {
+                abort(403, 'Akses ditolak: Shift berada di luar toko yang Anda kelola.');
+            }
+
+            return $shift;
+        }
+
+        abort(403, 'Akses ditolak: Role Anda tidak memiliki izin untuk mengakses shift kasir.');
+    }
+
+    /**
      * Setor Kas ke Brankas di Tengah Shift (Cash Drop).
      */
     public function cashDrop(Request $request): JsonResponse
@@ -644,7 +687,7 @@ class PosController extends Controller
             'reason' => 'nullable|string|max:255',
         ]);
 
-        $shift = CashierShift::findOrFail($request->shift_id);
+        $shift = $this->authorizeShiftAccess($request, $request->shift_id);
 
         $drop = $this->posService->recordCashDrop(
             shift: $shift,
@@ -670,7 +713,7 @@ class PosController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $shift = CashierShift::findOrFail($request->shift_id);
+        $shift = $this->authorizeShiftAccess($request, $request->shift_id);
 
         $closedShift = $this->posService->blindCloseShift(
             shift: $shift,
@@ -724,7 +767,7 @@ class PosController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $shift = CashierShift::findOrFail($request->shift_id);
+        $shift = $this->authorizeShiftAccess($request, $request->shift_id);
         $company = $shift->company ?? Company::findOrFail($shift->company_id);
 
         $defaultTier = CustomerTier::where('company_id', $company->id)
@@ -920,7 +963,7 @@ class PosController extends Controller
         ]);
 
         $transaction = PosTransaction::findOrFail($id);
-        $shift = CashierShift::findOrFail($request->shift_id);
+        $shift = $this->authorizeShiftAccess($request, $request->shift_id);
 
         try {
             $result = $this->posService->reprintReceipt(
@@ -965,7 +1008,8 @@ class PosController extends Controller
         $query = PosTransaction::with(['items.product', 'items.unit'])->latest();
 
         if ($shiftId) {
-            $query->where('cashier_shift_id', $shiftId);
+            $shift = $this->authorizeShiftAccess($request, (string) $shiftId);
+            $query->where('cashier_shift_id', $shift->id);
         }
 
         $transactions = $query->take(20)->get();
@@ -1035,7 +1079,9 @@ class PosController extends Controller
             $approvedBy = $user?->id;
         }
 
-        $currentShift = $request->shift_id ? CashierShift::find($request->shift_id) : null;
+        $currentShift = $request->filled('shift_id')
+            ? $this->authorizeShiftAccess($request, (string) $request->shift_id)
+            : null;
 
         try {
             $posReturn = $this->posService->processReturn(
