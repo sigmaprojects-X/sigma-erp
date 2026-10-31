@@ -681,7 +681,7 @@
                                         <button type="button"
                                                 @click.stop="openEditItemModal(item)"
                                                 class="p-1 rounded text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition-colors cursor-pointer"
-                                                title="Edit Qty / Diskon (F2)">✏️</button>
+                                                title="Edit Qty / Diskon">✏️</button>
                                         <button type="button"
                                                 @click.stop="removeCartRow(idx)"
                                                 class="p-1 rounded text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
@@ -741,7 +741,7 @@
                     </button>
                     <button type="button" @click="openEditModal()" class="px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Ubah Qty / Satuan Item">
                         <span>✏️</span>
-                        <span>Detail Item [F3 / F2]</span>
+                        <span>Detail Item</span>
                     </button>
                     <button type="button" @click="triggerCashDrawer()" class="px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-50 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Buka Laci Kasir (Cash Drawer Kick)">
                         <span>🔒</span>
@@ -935,7 +935,7 @@
                         :disabled="cart.length === 0"
                         class="bg-gradient-to-r from-[#059669] to-[#10B981] hover:from-[#047857] hover:to-[#059669] text-white font-black text-sm px-8 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed">
                     <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                    <span>BAYAR [F12 / F8]</span>
+                    <span>BAYAR [F12]</span>
                     <svg class="w-4 h-4 text-emerald-200 stroke-current" fill="none" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </button>
             </div>
@@ -952,7 +952,7 @@
             <span class="text-slate-600">|</span>
             <span><strong class="text-amber-300 font-mono">[F2]</strong> Buka Laci</span>
             <span class="text-slate-600">|</span>
-            <span><strong class="text-amber-300 font-mono">[F3]</strong> Detail Item</span>
+            <span><strong class="text-amber-300 font-mono">[F3]</strong> Pelanggan</span>
             <span class="text-slate-600">|</span>
             <span><strong class="text-amber-300 font-mono">[F4]</strong> Voucher</span>
             <span class="text-slate-600">|</span>
@@ -978,7 +978,7 @@
     <!-- 6. MODALS POPUP (CHECKOUT, VOUCHER, SHIFT, BLIND CLOSING)      -->
     <!-- ============================================================== -->
 
-    <!-- A. MODAL CHECKOUT / PEMBAYARAN [F12 / F8] -->
+    <!-- A. MODAL CHECKOUT / PEMBAYARAN [F12] -->
     <div x-show="checkoutModal"
          x-cloak
          @keydown.escape.window="if(checkoutModal) { checkoutModal = false; focusQuantityInput(); }"
@@ -993,7 +993,7 @@
                     </div>
                     <div>
                         <h3 class="font-extrabold text-sm tracking-wide">
-                            Pembayaran Kasir [F12 / F8]
+                            Pembayaran Kasir [F12]
                         </h3>
                         <p class="text-[10.5px] text-slate-300">Pilih metode pembayaran & input nominal pelunasan</p>
                     </div>
@@ -1634,13 +1634,13 @@
         </div>
     </div>
 
-    <!-- E. MODAL DETAIL ITEM / UBAH SATUAN & QTY [F2] -->
+    <!-- E. MODAL DETAIL ITEM / UBAH SATUAN & QTY -->
     <div x-show="editItemModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
         <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
             <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
                 <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
                     <span>📦</span>
-                    <span>Detail Item &amp; Satuan Kemasan [F2]</span>
+                    <span>Detail Item &amp; Satuan Kemasan</span>
                 </h3>
                 <button type="button" @click="editItemModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
