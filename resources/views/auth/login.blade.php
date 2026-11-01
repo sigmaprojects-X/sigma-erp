@@ -93,102 +93,102 @@
     <!-- ============================================================== -->
     <!-- 2. KONTEN UTAMA: SPLIT SCREEN (55% KIRI BRANDING | 45% KANAN) -->
     <!-- ============================================================== -->
-    <main class="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between px-6 sm:px-10 lg:px-12 py-8 lg:py-12 relative z-10 gap-10 lg:gap-8">
+    <main class="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between px-6 sm:px-10 lg:px-14 py-8 lg:py-12 relative z-10 gap-10 lg:gap-12">
 
         <!-- ========================================== -->
         <!-- AREA KIRI: BRANDING SIGMA ERP & POS (~55%) -->
         <!-- ========================================== -->
-        <div class="w-full lg:w-[55%] flex flex-col justify-center space-y-7 text-left">
+        <div class="w-full lg:w-[55%] flex flex-col justify-center space-y-8 lg:space-y-9 text-left">
             
-            <!-- 1. Logo Resmi SIGMA ERP -->
-            <div class="flex items-center gap-4">
-                <div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md shadow-xl flex items-center justify-center">
-                    <img src="{{ asset('logo-icon.png') }}" alt="SIGMA ERP Logo" class="h-12 sm:h-14 w-auto object-contain drop-shadow-md">
+            <!-- 1. Logo Resmi SIGMA ERP (Diperbesar 20% & Lebih Proporsional) -->
+            <div class="flex items-center gap-4 sm:gap-5">
+                <div class="p-3 sm:p-3.5 rounded-2xl bg-white/[0.05] border border-white/15 backdrop-blur-md shadow-2xl flex items-center justify-center">
+                    <img src="{{ asset('logo-icon.png') }}" alt="SIGMA ERP Logo" class="h-16 sm:h-20 w-auto object-contain drop-shadow-xl">
                 </div>
                 <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-2xl sm:text-3xl font-black text-white tracking-wider">SIGMA</span>
-                        <span class="text-xs sm:text-sm font-black text-[#00d2ff] bg-cyan-950/60 border border-cyan-400/30 px-2 py-0.5 rounded-md tracking-wider">ERP &amp; POS</span>
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-3xl sm:text-4xl font-black text-white tracking-wider">SIGMA</span>
+                        <span class="text-xs sm:text-sm font-black text-[#00d2ff] bg-cyan-950/70 border border-cyan-400/40 px-2.5 py-0.5 rounded-lg tracking-widest uppercase shadow-sm">ERP &amp; POS</span>
                     </div>
-                    <span class="text-[11px] text-slate-400 font-medium tracking-wide">Enterprise Retail Management System</span>
+                    <span class="text-xs text-slate-300 font-medium tracking-wide mt-0.5 block">Enterprise Retail Management System</span>
                 </div>
             </div>
 
-            <!-- 2. Headline & Slogan -->
-            <div class="space-y-3">
-                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-[1.15]">
-                    SIGMA <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00d2ff] to-[#38bdf8]">ERP &amp; POS</span>
+            <!-- 2. Headline & Slogan (Diperbesar & Lebih Jelas) -->
+            <div class="space-y-3.5">
+                <h1 class="text-4xl sm:text-5xl lg:text-[56px] font-black tracking-tight text-white leading-[1.1]">
+                    SIGMA <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00d2ff] via-[#38bdf8] to-[#00b4d8]">ERP &amp; POS</span>
                 </h1>
-                <p class="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-[#00d2ff] shadow-sm shadow-[#00d2ff]"></span>
+                <p class="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#00d2ff] shadow-md shadow-[#00d2ff]"></span>
                     <span>One Integrated System. Smarter Business.</span>
                 </p>
-                <p class="text-sm sm:text-base text-slate-300 max-w-xl font-normal leading-relaxed pt-1">
+                <p class="text-sm sm:text-base text-slate-200/90 max-w-xl font-medium leading-relaxed pt-1">
                     Sistem terintegrasi untuk manajemen toko, kasir, persediaan dan logistik.
                 </p>
             </div>
 
-            <!-- 3. Empat Kartu Fitur (4 Feature Cards) -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 pt-2 max-w-2xl">
+            <!-- 3. Empat Kartu Fitur (Lebih Besar, Ikon & Teks Jelas, Hover Halus) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 max-w-2xl">
                 
                 <!-- Kartu 1: Manajemen Toko -->
-                <div class="bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2.5 shadow-lg shadow-black/20 transition-all duration-200 group">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/30 flex items-center justify-center text-cyan-300 group-hover:scale-105 transition-transform shadow-inner">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-white/[0.05] hover:bg-white/[0.09] border border-white/12 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-xl shadow-black/20 hover:scale-[1.03] transition-all duration-300 group">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/35 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition-transform shadow-inner">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                     </div>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white leading-tight">Manajemen Toko</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-slate-100 group-hover:text-white leading-tight">Manajemen Toko</span>
                 </div>
 
                 <!-- Kartu 2: Kasir Modern -->
-                <div class="bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2.5 shadow-lg shadow-black/20 transition-all duration-200 group">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/30 flex items-center justify-center text-cyan-300 group-hover:scale-105 transition-transform shadow-inner">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-white/[0.05] hover:bg-white/[0.09] border border-white/12 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-xl shadow-black/20 hover:scale-[1.03] transition-all duration-300 group">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/35 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition-transform shadow-inner">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                     </div>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white leading-tight">Kasir Modern</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-slate-100 group-hover:text-white leading-tight">Kasir Modern</span>
                 </div>
 
                 <!-- Kartu 3: Inventori Real-Time -->
-                <div class="bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2.5 shadow-lg shadow-black/20 transition-all duration-200 group">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/30 flex items-center justify-center text-cyan-300 group-hover:scale-105 transition-transform shadow-inner">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-white/[0.05] hover:bg-white/[0.09] border border-white/12 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-xl shadow-black/20 hover:scale-[1.03] transition-all duration-300 group">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/35 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition-transform shadow-inner">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
                     </div>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white leading-tight">Inventori Real-Time</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-slate-100 group-hover:text-white leading-tight">Inventori Real-Time</span>
                 </div>
 
                 <!-- Kartu 4: Logistik Terintegrasi -->
-                <div class="bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2.5 shadow-lg shadow-black/20 transition-all duration-200 group">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/30 flex items-center justify-center text-cyan-300 group-hover:scale-105 transition-transform shadow-inner">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-white/[0.05] hover:bg-white/[0.09] border border-white/12 hover:border-cyan-400/40 backdrop-blur-md rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-xl shadow-black/20 hover:scale-[1.03] transition-all duration-300 group">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#125bce]/40 to-[#00d2ff]/25 border border-cyan-400/35 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition-transform shadow-inner">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                         </svg>
                     </div>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white leading-tight">Logistik Terintegrasi</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-slate-100 group-hover:text-white leading-tight">Logistik Terintegrasi</span>
                 </div>
             </div>
 
             <!-- 4. Bagian Identitas & Kepercayaan (Pill Trust Badge) -->
             <div class="pt-1">
-                <div class="inline-flex items-center gap-3.5 px-4 sm:px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-950/70 via-blue-900/40 to-blue-950/20 border border-blue-500/25 backdrop-blur-md shadow-xl max-w-md">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#125bce] to-[#00d2ff] flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="inline-flex items-center gap-3.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-blue-950/80 via-blue-900/40 to-blue-950/20 border border-blue-500/25 backdrop-blur-md shadow-xl max-w-md">
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#125bce] to-[#00d2ff] flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
                     </div>
                     <div>
-                        <div class="font-extrabold text-sm text-white flex items-center gap-1.5">
+                        <div class="font-extrabold text-sm sm:text-base text-white flex items-center gap-1.5">
                             <span>Aman</span>
                             <span class="text-cyan-400">•</span>
                             <span>Andal</span>
                             <span class="text-cyan-400">•</span>
                             <span>Profesional</span>
                         </div>
-                        <p class="text-[11.5px] text-slate-300 font-normal mt-0.5">Solusi bisnis terbaik untuk masa depan Anda</p>
+                        <p class="text-xs text-slate-300 font-normal mt-0.5">Solusi bisnis terbaik untuk masa depan Anda</p>
                     </div>
                 </div>
             </div>
@@ -199,10 +199,10 @@
         <!-- AREA KANAN: FORM LOGIN ENTERPRISE (~45%)   -->
         <!-- ========================================== -->
         <div class="w-full lg:w-[45%] flex items-center justify-center">
-            <div class="bg-white rounded-[32px] p-7 sm:p-9 shadow-2xl shadow-blue-950/50 border border-slate-100 w-full max-w-[440px] text-slate-900 relative">
+            <div class="bg-white rounded-[32px] p-8 sm:p-10 shadow-2xl shadow-blue-950/60 border border-slate-100 w-full max-w-[450px] text-slate-900 relative">
                 
                 <!-- Icon Avatar Header -->
-                <div class="flex justify-center mb-3">
+                <div class="flex justify-center mb-3.5">
                     <div class="w-16 h-16 rounded-full bg-blue-50/90 border-4 border-blue-100 flex items-center justify-center shadow-sm">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-[#125bce] to-[#00d2ff] flex items-center justify-center text-white shadow-md shadow-blue-500/20">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,7 +214,7 @@
 
                 <!-- Judul & Subjudul Form Login -->
                 <div class="text-center mb-6">
-                    <h2 class="text-2xl font-black text-slate-900 tracking-tight">Selamat Datang Kembali</h2>
+                    <h2 class="text-2xl sm:text-[26px] font-black text-slate-900 tracking-tight">Selamat Datang Kembali</h2>
                     <p class="text-xs sm:text-sm text-slate-500 font-normal mt-1">Masuk untuk melanjutkan aktivitas bisnis Anda.</p>
                 </div>
 
@@ -242,7 +242,7 @@
                 @endif
 
                 <!-- Form Login Resmi (Backend Authentikasi Tetap Utuh) -->
-                <form action="{{ route('login.post') }}" method="POST" class="space-y-4">
+                <form action="{{ route('login.post') }}" method="POST" class="space-y-4.5">
                     @csrf
 
                     <!-- 1. Input Alamat Email -->
@@ -255,7 +255,7 @@
                             </div>
                             <input type="email" id="email" name="email" value="{{ old('email') }}" required autofocus
                                 placeholder="Alamat Email"
-                                class="w-full pl-11 pr-4 py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#125bce] focus:ring-4 focus:ring-blue-500/10 rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 placeholder:font-normal">
+                                class="w-full pl-11 pr-4 py-3.5 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#125bce] focus:ring-4 focus:ring-blue-500/10 rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 placeholder:font-normal">
                         </div>
                     </div>
 
@@ -269,7 +269,7 @@
                             </div>
                             <input :type="showPassword ? 'text' : 'password'" id="password" name="password" required
                                 placeholder="Password"
-                                class="w-full pl-11 pr-11 py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#125bce] focus:ring-4 focus:ring-blue-500/10 rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 placeholder:font-normal">
+                                class="w-full pl-11 pr-11 py-3.5 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#125bce] focus:ring-4 focus:ring-blue-500/10 rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 placeholder:font-normal">
                             
                             <!-- Toggle Show / Hide Password -->
                             <button type="button" @click="showPassword = !showPassword"
@@ -319,29 +319,28 @@
                     </span>
                 </div>
 
-                <!-- 6. Akun Pengujian Internal (HANYA MUNCUL PADA ENV LOKAL / TESTING) -->
+                <!-- 6. Akun Pengujian Internal (RINGKAS & TIDAK MENDOMINASI FORM - HANYA PADA ENV LOKAL) -->
                 @if(app()->environment('local', 'testing'))
                     <div class="pt-1">
-                        <div class="text-[10.5px] text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
-                            <span>Akun Cepat Sandbox:</span>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                <span>Akun Sandbox (1-Klik Isi):</span>
+                            </span>
                             <span class="text-blue-600 font-mono text-[9.5px]">Local Dev</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
-                            <button type="button" @click="fillAccount('owner@sigma.test')" class="p-1.5 rounded-lg bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-left cursor-pointer transition-colors">
-                                <span class="font-bold text-amber-700">👑 Owner</span>
-                                <div class="text-slate-500 truncate">owner@sigma.test</div>
+                        <div class="grid grid-cols-4 gap-1.5 font-mono text-[11px]">
+                            <button type="button" @click="fillAccount('owner@sigma.test')" title="owner@sigma.test" class="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-center font-bold text-amber-700 hover:text-amber-800 transition-colors cursor-pointer text-xs">
+                                👑 Owner
                             </button>
-                            <button type="button" @click="fillAccount('manager@sigma.test')" class="p-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-left cursor-pointer transition-colors">
-                                <span class="font-bold text-blue-700">👔 Manager</span>
-                                <div class="text-slate-500 truncate">manager@sigma.test</div>
+                            <button type="button" @click="fillAccount('manager@sigma.test')" title="manager@sigma.test" class="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-center font-bold text-blue-700 hover:text-blue-800 transition-colors cursor-pointer text-xs">
+                                👔 Manager
                             </button>
-                            <button type="button" @click="fillAccount('kasir1@sigma.test')" class="p-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left cursor-pointer transition-colors">
-                                <span class="font-bold text-emerald-700">🛒 Kasir</span>
-                                <div class="text-slate-500 truncate">kasir1@sigma.test</div>
+                            <button type="button" @click="fillAccount('kasir1@sigma.test')" title="kasir1@sigma.test" class="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-center font-bold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer text-xs">
+                                🛒 Kasir
                             </button>
-                            <button type="button" @click="fillAccount('sales1@sigma.test')" class="p-1.5 rounded-lg bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-300 text-left cursor-pointer transition-colors">
-                                <span class="font-bold text-purple-700">💼 Sales</span>
-                                <div class="text-slate-500 truncate">sales1@sigma.test</div>
+                            <button type="button" @click="fillAccount('sales1@sigma.test')" title="sales1@sigma.test" class="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-300 text-center font-bold text-purple-700 hover:text-purple-800 transition-colors cursor-pointer text-xs">
+                                💼 Sales
                             </button>
                         </div>
                     </div>
@@ -357,9 +356,9 @@
     <!-- ============================================================== -->
     <footer class="w-full bg-[#020718]/90 border-t border-blue-900/40 backdrop-blur-md px-6 sm:px-12 lg:px-16 py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-slate-400 relative z-20">
         
-        <!-- Hak Cipta & Info Keamanan -->
+        <!-- Hak Cipta & Info Keamanan (Identitas Resmi SIGMA PROJECTS) -->
         <div class="flex items-center gap-2 text-center sm:text-left">
-            <span>&copy; {{ date('Y') }} PT SIGMA RETAIL INDONESIA</span>
+            <span>&copy; {{ date('Y') }} SIGMA PROJECTS</span>
             <span class="text-slate-600 hidden sm:inline">&bull;</span>
             <span class="text-slate-500 hidden sm:inline">Didukung Keamanan Enkripsi Tingkat Tinggi</span>
         </div>
