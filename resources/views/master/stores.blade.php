@@ -8,6 +8,9 @@
      x-data="{
          createModal: false,
          editModal: false,
+         shareModal: false,
+         shareStore: {},
+         copiedKey: null,
          editStore: {
              id: '',
              code: '',
@@ -15,6 +18,39 @@
              type: 'STORE',
              phone: '',
              address: ''
+         },
+         openShare(store) {
+             this.shareStore = Object.assign({}, store);
+             this.shareModal = true;
+             this.copiedKey = null;
+         },
+         getMarketplaceUrl() {
+             const code = (this.shareStore.code || '').toLowerCase();
+             return window.location.origin + '/cabang/' + code;
+         },
+         getOpnameUrl() {
+             const code = (this.shareStore.code || '').toLowerCase();
+             return window.location.origin + '/warehouse/opname-pwa?cabang=' + code;
+         },
+         getPosUrl() {
+             const code = (this.shareStore.code || '').toLowerCase();
+             return window.location.origin + '/pos?cabang=' + code;
+         },
+         getWaShareUrl() {
+             const name = this.shareStore.name || 'Toko Kami';
+             const link = this.getMarketplaceUrl();
+             const text = encodeURIComponent(`Halo! Kini Anda bisa belanja online langsung di ${name} melalui link resmi:\n${link}\n\nBelanja praktis, cepat & terpercaya!`);
+             return 'https://api.whatsapp.com/send?text=' + text;
+         },
+         copyToClipboard(text, key) {
+             navigator.clipboard.writeText(text).then(() => {
+                 this.copiedKey = key;
+                 setTimeout(() => {
+                     if (this.copiedKey === key) this.copiedKey = null;
+                 }, 2000);
+             }).catch(() => {
+                 prompt('Salin tautan ini:', text);
+             });
          }
      }">
 
@@ -128,6 +164,13 @@
                             </td>
                             <td class="py-2.5 px-3 text-center">
                                 <div class="flex items-center justify-center gap-1.5">
+                                    <button type="button"
+                                            @click="openShare(@js($st))"
+                                            class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md font-extrabold text-[10.5px] transition-colors cursor-pointer flex items-center gap-1"
+                                            title="Lihat & Bagikan Tautan Cabang">
+                                        <span>🔗</span>
+                                        <span>Tautan</span>
+                                    </button>
                                     <button type="button"
                                             @click="editStore = {
                                                 id: '{{ $st->id }}',
@@ -327,6 +370,143 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL BAGIKAN TAUTAN CABANG -->
+    <div x-show="shareModal"
+         x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-slate-950/60 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden p-6 space-y-4"
+             @click.away="shareModal = false">
+            
+            <div class="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-xl shrink-0">
+                        🔗
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900 leading-tight">Tautan Akses &amp; Berbagi Cabang</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            <span class="font-bold text-slate-800" x-text="shareStore.name"></span>
+                            <span class="font-mono text-slate-400"> • Kode: <strong x-text="shareStore.code"></strong></span>
+                        </p>
+                    </div>
+                </div>
+                <button type="button" @click="shareModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer">&times;</button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- 1. MARKETPLACE KONSUMEN -->
+                <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 font-black text-slate-900">
+                            <span>🛒</span>
+                            <span>Marketplace Online Konsumen (PWA HP)</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Publik / Pelanggan
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                        Bagikan ke pelanggan untuk belanja online. Pesanan &amp; reservasi stok otomatis masuk ke cabang ini.
+                    </p>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="text"
+                               readonly
+                               :value="getMarketplaceUrl()"
+                               class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-[11px] font-bold text-blue-700 select-all focus:outline-hidden">
+                        <button type="button"
+                                @click="copyToClipboard(getMarketplaceUrl(), 'market')"
+                                class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors whitespace-nowrap cursor-pointer shrink-0">
+                            <span x-show="copiedKey !== 'market'">📋 Salin</span>
+                            <span x-show="copiedKey === 'market'" class="text-emerald-200">✅ Tersalin!</span>
+                        </button>
+                        <a :href="getMarketplaceUrl()" target="_blank"
+                           class="p-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg transition-colors cursor-pointer shrink-0"
+                           title="Buka Halaman di Tab Baru">
+                            ↗️
+                        </a>
+                        <a :href="getWaShareUrl()" target="_blank"
+                           class="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors cursor-pointer shrink-0"
+                           title="Kirim ke WhatsApp">
+                            💬
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 2. STOCK OPNAME GUDANG -->
+                <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 font-black text-slate-900">
+                            <span>📦</span>
+                            <span>PWA Stock Opname Gudang (Audit HP Staf)</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                            Staf Gudang / Kasir
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                        Kirimkan ke staf untuk scan barcode rak fisik &amp; audit buta (*Blind Opname*) di cabang ini.
+                    </p>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="text"
+                               readonly
+                               :value="getOpnameUrl()"
+                               class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-[11px] font-bold text-purple-700 select-all focus:outline-hidden">
+                        <button type="button"
+                                @click="copyToClipboard(getOpnameUrl(), 'opname')"
+                                class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-colors whitespace-nowrap cursor-pointer shrink-0">
+                            <span x-show="copiedKey !== 'opname'">📋 Salin</span>
+                            <span x-show="copiedKey === 'opname'" class="text-emerald-200">✅ Tersalin!</span>
+                        </button>
+                        <a :href="getOpnameUrl()" target="_blank"
+                           class="p-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg transition-colors cursor-pointer shrink-0"
+                           title="Buka PWA Gudang di Tab Baru">
+                            ↗️
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 3. KASIR POS -->
+                <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 font-black text-slate-900">
+                            <span>💻</span>
+                            <span>Layar Kasir POS Cabang (Komputer / Tablet Kasir)</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Kasir Toko
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                        Buka di browser PC kasir toko atau tablet kasir untuk langsung transaksi di cabang ini.
+                    </p>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="text"
+                               readonly
+                               :value="getPosUrl()"
+                               class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-[11px] font-bold text-amber-800 select-all focus:outline-hidden">
+                        <button type="button"
+                                @click="copyToClipboard(getPosUrl(), 'pos')"
+                                class="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors whitespace-nowrap cursor-pointer shrink-0">
+                            <span x-show="copiedKey !== 'pos'">📋 Salin</span>
+                            <span x-show="copiedKey === 'pos'" class="text-emerald-200">✅ Tersalin!</span>
+                        </button>
+                        <a :href="getPosUrl()" target="_blank"
+                           class="p-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg transition-colors cursor-pointer shrink-0"
+                           title="Buka Layar Kasir POS di Tab Baru">
+                            ↗️
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end pt-3 border-t border-slate-100">
+                <button type="button" @click="shareModal = false" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer">
+                    Tutup
+                </button>
+            </div>
         </div>
     </div>
 
