@@ -264,11 +264,13 @@ var
   // Halaman-halaman wizard kustom
   DbConfigPage: TInputQueryWizardPage;
   PortPage: TInputQueryWizardPage;
+  BackupDirPage: TInputDirWizardPage;
   PrereqPage: TOutputMsgMemoWizardPage;
 
   // Variabel konfigurasi yang dikumpulkan dari pengguna
   SelectedDbPass: String;
   SelectedPort: String;
+  SelectedBackupDir: String;
   AppKeyGenerated: Boolean;
   InstallSuccess: Boolean;
 
@@ -360,6 +362,20 @@ begin
   );
   PortPage.Add('Port Server (1024-65535, default: 8008):', False);
   PortPage.Values[0] := PortDefault;
+
+  // ---- Halaman 4: Folder Penyimpanan Backup Database -----
+  BackupDirPage := CreateInputDirPage(
+    PortPage.ID,
+    'Folder Penyimpanan Backup Database',
+    'Tentukan lokasi folder tempat file cadangan database (.sql) akan disimpan secara otomatis.',
+    'Pilih folder di partisi harddisk yang aman (misalnya D:\SIGMA_BACKUP atau Harddisk Eksternal):',
+    False, 'Folder Baru'
+  );
+  BackupDirPage.Add('');
+  if DirExists('D:\') then
+    BackupDirPage.Values[0] := 'D:\SIGMA_BACKUP'
+  else
+    BackupDirPage.Values[0] := 'C:\SIGMA-BACKUP';
 end;
 
 // ===========================================================================
@@ -468,6 +484,22 @@ begin
     end;
     SelectedPort := Trim(PortPage.Values[0]);
   end;
+
+  // Validasi halaman Folder Backup Database
+  if CurPageID = BackupDirPage.ID then
+  begin
+    if Trim(BackupDirPage.Values[0]) = '' then
+    begin
+      MsgBox(
+        'Folder penyimpanan backup database tidak boleh kosong.' + #13#10 +
+        'Tentukan folder tempat file cadangan .sql disimpan (contoh: D:\SIGMA_BACKUP).',
+        mbError, MB_OK
+      );
+      Result := False;
+      Exit;
+    end;
+    SelectedBackupDir := Trim(BackupDirPage.Values[0]);
+  end;
 end;
 
 // ===========================================================================
@@ -574,6 +606,13 @@ begin
       SetEnvKeyValue(EnvContent, 'DB_USERNAME', DbUser);
       SetEnvKeyValue(EnvContent, 'DB_PASSWORD', SelectedDbPass);
       SetEnvKeyValue(EnvContent, 'DB_SCHEMA', 'sigma');
+
+      SelectedBackupDir := Trim(BackupDirPage.Values[0]);
+      if SelectedBackupDir = '' then
+        SelectedBackupDir := AppDir + '\storage\app\backups';
+
+      ForceDirectories(SelectedBackupDir);
+      SetEnvKeyValue(EnvContent, 'SIGMA_BACKUP_DIR', SelectedBackupDir);
 
       EnvContent.SaveToFile(EnvFile);
     finally

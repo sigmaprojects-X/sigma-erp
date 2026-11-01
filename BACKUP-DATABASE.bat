@@ -10,10 +10,32 @@ echo.
 
 cd /d "%~dp0"
 
-:: 1. Lokasi Folder Backup Terpadu (sama dengan UI MaintenanceController)
+:: 1. Ambil Parameter dari .env (Koneksi & Folder Backup)
+set DB_HOST=127.0.0.1
+set DB_PORT=5432
+set DB_DATABASE=sigma_erp
+set DB_USERNAME=postgres
+set DB_PASSWORD=885588
+set SIGMA_BACKUP_DIR=
+
+if exist ".env" (
+    for /f "tokens=1,2 delims==" %%a in (.env) do (
+        if "%%a"=="DB_HOST" set DB_HOST=%%b
+        if "%%a"=="DB_PORT" set DB_PORT=%%b
+        if "%%a"=="DB_DATABASE" set DB_DATABASE=%%b
+        if "%%a"=="DB_USERNAME" set DB_USERNAME=%%b
+        if "%%a"=="DB_PASSWORD" set DB_PASSWORD=%%b
+        if "%%a"=="SIGMA_BACKUP_DIR" set SIGMA_BACKUP_DIR=%%b
+    )
+)
+
+:: Lokasi Folder Backup Terpadu (bisa diatur via SIGMA_BACKUP_DIR)
 set "BACKUP_DIR=storage\app\backups"
+if defined SIGMA_BACKUP_DIR if not "!SIGMA_BACKUP_DIR!"=="" (
+    set "BACKUP_DIR=!SIGMA_BACKUP_DIR!"
+)
 if not exist "%BACKUP_DIR%" (
-    mkdir "%BACKUP_DIR%"
+    mkdir "%BACKUP_DIR%" 2>nul
 )
 
 :: 2. Format Timestamp YYYYMMDD_HHMMSS via PowerShell Get-Date
@@ -44,23 +66,6 @@ if !errorlevel! neq 0 (
         echo [ERROR] pg_dump.exe tidak ditemukan di PATH atau folder PostgreSQL default!
         pause
         exit /b 1
-    )
-)
-
-:: 4. Ambil Parameter dari .env
-set DB_HOST=127.0.0.1
-set DB_PORT=5432
-set DB_DATABASE=sigma_erp
-set DB_USERNAME=postgres
-set DB_PASSWORD=885588
-
-if exist ".env" (
-    for /f "tokens=1,2 delims==" %%a in (.env) do (
-        if "%%a"=="DB_HOST" set DB_HOST=%%b
-        if "%%a"=="DB_PORT" set DB_PORT=%%b
-        if "%%a"=="DB_DATABASE" set DB_DATABASE=%%b
-        if "%%a"=="DB_USERNAME" set DB_USERNAME=%%b
-        if "%%a"=="DB_PASSWORD" set DB_PASSWORD=%%b
     )
 )
 

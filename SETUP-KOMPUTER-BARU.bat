@@ -56,20 +56,43 @@ if not exist ".env" (
     echo [OK] File .env sudah tersedia.
 )
 
-:: 3. Konfirmasi Password PostgreSQL & Tulis .env Secara Deterministik
-echo.
+:: 3. Wizard Konfigurasi Interaktif (Port, Password DB, dan Folder Backup)
+echo -------------------------------------------------------------------------------
+echo KONFIGURASI SERVER & FOLDER PENYIMPANAN BACKUP:
+echo -------------------------------------------------------------------------------
+set "SRV_PORT=8008"
+set /p SRV_PORT="Port Web Server [Tekan Enter jika default '8008']: "
+if "!SRV_PORT!"=="" set "SRV_PORT=8008"
+
 set "DB_PASS=885588"
-set /p DB_PASS="Masukkan Password PostgreSQL Anda [Tekan Enter jika default '885588']: "
+set /p DB_PASS="Password Database PostgreSQL [Tekan Enter jika default '885588']: "
 if "!DB_PASS!"=="" set "DB_PASS=885588"
 
+set "DEF_BACKUP=D:\SIGMA_BACKUP"
+if not exist "D:\" set "DEF_BACKUP=%~dp0storage\app\backups"
+set "CHOSEN_BACKUP=!DEF_BACKUP!"
+set /p CHOSEN_BACKUP="Folder Penyimpanan Backup Database [Tekan Enter jika '!DEF_BACKUP!']: "
+if "!CHOSEN_BACKUP!"=="" set "CHOSEN_BACKUP=!DEF_BACKUP!"
+
+if not exist "!CHOSEN_BACKUP!" (
+    mkdir "!CHOSEN_BACKUP!" 2>nul
+)
+
+echo.
+echo [*] Menyimpan konfigurasi ke file .env...
+set "SIGMA_ENV_PORT=!SRV_PORT!"
 set "SIGMA_ENV_DB_PASS=!DB_PASS!"
-php -r "$file = '.env'; $lines = file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : []; $updates = ['APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'DB_CONNECTION' => 'pgsql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_DATABASE' => 'sigma_erp', 'DB_USERNAME' => 'postgres', 'DB_PASSWORD' => getenv('SIGMA_ENV_DB_PASS') ?: '', 'DB_SCHEMA' => 'sigma']; $seen = []; foreach ($lines as $i => $line) { if (preg_match('/^\s*#?\s*([A-Z0-9_]+)\s*=/', $line, $m)) { $k = $m[1]; if (array_key_exists($k, $updates)) { $lines[$i] = $k . '=' . $updates[$k]; $seen[$k] = true; } } } foreach ($updates as $k => $v) { if (!isset($seen[$k])) { $lines[] = $k . '=' . $v; } } file_put_contents($file, implode(PHP_EOL, $lines) . PHP_EOL);"
+set "SIGMA_ENV_BACKUP=!CHOSEN_BACKUP!"
+php -r "$file = '.env'; $lines = file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : []; $port = getenv('SIGMA_ENV_PORT') ?: '8008'; $backup = getenv('SIGMA_ENV_BACKUP') ?: ''; $updates = ['APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'APP_PORT' => $port, 'APP_URL' => 'http://localhost:' . $port, 'DB_CONNECTION' => 'pgsql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_DATABASE' => 'sigma_erp', 'DB_USERNAME' => 'postgres', 'DB_PASSWORD' => getenv('SIGMA_ENV_DB_PASS') ?: '', 'DB_SCHEMA' => 'sigma', 'SIGMA_BACKUP_DIR' => $backup]; $seen = []; foreach ($lines as $i => $line) { if (preg_match('/^\s*#?\s*([A-Z0-9_]+)\s*=/', $line, $m)) { $k = $m[1]; if (array_key_exists($k, $updates)) { $lines[$i] = $k . '=' . $updates[$k]; $seen[$k] = true; } } } foreach ($updates as $k => $v) { if (!isset($seen[$k])) { $lines[] = $k . '=' . $v; } } file_put_contents($file, implode(PHP_EOL, $lines) . PHP_EOL);"
 if !errorlevel! neq 0 (
     color 0C
     echo [ERROR] Gagal menulis konfigurasi database ke file .env!
     pause
     exit /b 1
 )
+
+:: Buka Port Firewall Windows Otomatis untuk Jaringan LAN/WiFi
+netsh advfirewall firewall add rule name="SIGMA ERP Server (Port !SRV_PORT!)" protocol=TCP dir=in localport=!SRV_PORT! action=allow >nul 2>nul
 
 echo [*] Menggenerate APP_KEY...
 php artisan key:generate --force

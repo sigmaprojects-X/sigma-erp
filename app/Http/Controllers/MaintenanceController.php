@@ -26,6 +26,11 @@ class MaintenanceController extends Controller
      */
     protected function getBackupDirectory(): string
     {
+        $customDir = env('SIGMA_BACKUP_DIR');
+        if ($customDir && is_string($customDir) && trim($customDir) !== '') {
+            return trim($customDir);
+        }
+
         return storage_path('app'.DIRECTORY_SEPARATOR.'backups');
     }
 

@@ -57,23 +57,34 @@ set "DEFAULT_APP_DIR=C:\SIGMA-ERP"
 set "CHOSEN_APP_DIR=%DEFAULT_APP_DIR%"
 set "CHOSEN_PORT=8008"
 set "CHOSEN_PASS=885588"
+set "DEFAULT_BACKUP_DIR=D:\SIGMA_BACKUP"
+if not exist "D:\" set "DEFAULT_BACKUP_DIR=C:\SIGMA-BACKUP"
+set "CHOSEN_BACKUP_DIR=%DEFAULT_BACKUP_DIR%"
 
 echo -------------------------------------------------------------------------------
-echo KONFIGURASI PENEMPATAN APLIKASI ^& KONEKSI DATABASE:
+echo KONFIGURASI PENEMPATAN APLIKASI, DATABASE & BACKUP:
 echo -------------------------------------------------------------------------------
-echo [1] Lokasi Aplikasi default : %DEFAULT_APP_DIR%
-echo [2] Port Web Server default : %CHOSEN_PORT%
+echo [1] Lokasi Aplikasi default       : %DEFAULT_APP_DIR%
+echo [2] Port Web Server default       : %CHOSEN_PORT%
+echo [3] Folder Backup Database        : %DEFAULT_BACKUP_DIR%
 echo -------------------------------------------------------------------------------
 echo.
 
 set /p USER_APP="Tentukan Folder Instalasi Aplikasi [%DEFAULT_APP_DIR%]: "
 if not "%USER_APP%"=="" set "CHOSEN_APP_DIR=%USER_APP%"
 
-set /p USER_PORT="Tentukan Port Aplikasi [%CHOSEN_PORT%]: "
+set /p USER_PORT="Tentukan Port Web Server [%CHOSEN_PORT%]: "
 if not "%USER_PORT%"=="" set "CHOSEN_PORT=%USER_PORT%"
 
 set /p USER_PASS="Password Database PostgreSQL [%CHOSEN_PASS%]: "
 if not "%USER_PASS%"=="" set "CHOSEN_PASS=%USER_PASS%"
+
+set /p USER_BACKUP="Folder Penyimpanan Backup Database [%DEFAULT_BACKUP_DIR%]: "
+if not "%USER_BACKUP%"=="" set "CHOSEN_BACKUP_DIR=%USER_BACKUP%"
+
+if not exist "%CHOSEN_BACKUP_DIR%" (
+    mkdir "%CHOSEN_BACKUP_DIR%" 2>nul
+)
 
 echo.
 echo ===============================================================================
@@ -126,7 +137,8 @@ if not exist ".env" (
 
 set "SIGMA_ENV_PORT=!CHOSEN_PORT!"
 set "SIGMA_ENV_DB_PASS=!CHOSEN_PASS!"
-php -r "$file = '.env'; $lines = file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : []; $port = getenv('SIGMA_ENV_PORT') ?: '8008'; $updates = ['APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'APP_PORT' => $port, 'APP_URL' => 'http://localhost:' . $port, 'DB_CONNECTION' => 'pgsql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_DATABASE' => 'sigma_erp', 'DB_USERNAME' => 'postgres', 'DB_PASSWORD' => getenv('SIGMA_ENV_DB_PASS') ?: '', 'DB_SCHEMA' => 'sigma']; $seen = []; foreach ($lines as $i => $line) { if (preg_match('/^\s*#?\s*([A-Z0-9_]+)\s*=/', $line, $m)) { $k = $m[1]; if (array_key_exists($k, $updates)) { $lines[$i] = $k . '=' . $updates[$k]; $seen[$k] = true; } } } foreach ($updates as $k => $v) { if (!isset($seen[$k])) { $lines[] = $k . '=' . $v; } } file_put_contents($file, implode(PHP_EOL, $lines) . PHP_EOL);"
+set "SIGMA_ENV_BACKUP=!CHOSEN_BACKUP_DIR!"
+php -r "$file = '.env'; $lines = file_exists($file) ? file($file, FILE_IGNORE_NEW_LINES) : []; $port = getenv('SIGMA_ENV_PORT') ?: '8008'; $backup = getenv('SIGMA_ENV_BACKUP') ?: ''; $updates = ['APP_ENV' => 'production', 'APP_DEBUG' => 'false', 'APP_PORT' => $port, 'APP_URL' => 'http://localhost:' . $port, 'DB_CONNECTION' => 'pgsql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '5432', 'DB_DATABASE' => 'sigma_erp', 'DB_USERNAME' => 'postgres', 'DB_PASSWORD' => getenv('SIGMA_ENV_DB_PASS') ?: '', 'DB_SCHEMA' => 'sigma', 'SIGMA_BACKUP_DIR' => $backup]; $seen = []; foreach ($lines as $i => $line) { if (preg_match('/^\s*#?\s*([A-Z0-9_]+)\s*=/', $line, $m)) { $k = $m[1]; if (array_key_exists($k, $updates)) { $lines[$i] = $k . '=' . $updates[$k]; $seen[$k] = true; } } } foreach ($updates as $k => $v) { if (!isset($seen[$k])) { $lines[] = $k . '=' . $v; } } file_put_contents($file, implode(PHP_EOL, $lines) . PHP_EOL);"
 if !errorlevel! neq 0 (
     color 0C
     echo [ERROR] Gagal menulis konfigurasi ke file .env!
