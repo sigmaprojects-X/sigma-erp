@@ -255,6 +255,16 @@
         <!-- RIGHT: ACTIONS & CONTROLS -->
         <div class="flex items-center gap-2 text-xs text-slate-300 flex-wrap">
             
+            <!-- TOMBOL RETUR & PENUKARAN BARANG [F8] PILL -->
+            <button type="button"
+                    @click="openExchangeModal()"
+                    class="px-3 py-1 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
+                    title="Penukaran Barang / Retur Struk Kasir [F8]">
+                <span>🔄</span>
+                <span>Retur / Tukar</span>
+                <kbd class="px-1 py-0.2 bg-black/20 rounded text-[9.5px] font-mono text-rose-200">F8</kbd>
+            </button>
+
             <!-- TOMBOL CEK HARGA [F9] PILL -->
             <button type="button"
                     @click="openLookupModal()"
@@ -928,6 +938,13 @@
             <!-- LEFT COMMAND BUTTONS -->
             <div class="flex items-center gap-2 flex-wrap">
                 <button type="button"
+                        @click="openExchangeModal()"
+                        class="px-3.5 py-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-extrabold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
+                        title="Penukaran Barang / Retur Struk Kasir [F8]">
+                    <span>🔄</span>
+                    <span>Retur / Tukar [F8]</span>
+                </button>
+                <button type="button"
                         @click="openLookupModal()"
                         class="px-4 py-2 bg-[#1877F2] hover:bg-[#1565C0] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                         title="Cek Harga & Ketersediaan Stok Real-Time [F9]">
@@ -997,6 +1014,8 @@
             <span><strong class="text-amber-300 font-mono">[F4]</strong> Voucher</span>
             <span class="text-slate-600">|</span>
             <span><strong class="text-amber-300 font-mono">[F6]</strong> Tukar Poin</span>
+            <span class="text-slate-600">|</span>
+            <span><strong class="text-rose-400 font-mono">[F8]</strong> Retur/Tukar</span>
             <span class="text-slate-600">|</span>
             <span><strong class="text-emerald-400 font-mono">[F9]</strong> Cek Harga</span>
             <span class="text-slate-600">|</span>
@@ -1747,7 +1766,7 @@
             </div>
             <div x-show="isPastShiftReprint" class="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-1.5">
                 <label class="block font-bold text-amber-900">Shift Lampau Memerlukan PIN Manajer:</label>
-                <input type="password" x-model="managerPin" placeholder="Default: 1234" class="pos-input w-full font-mono">
+                <input type="password" x-model="reprintManagerPin" autocomplete="new-password" placeholder="PIN Manajer" class="pos-input w-full font-mono">
             </div>
             <div class="flex gap-2 pt-2 border-t border-slate-200">
                 <button type="button" @click="reprintModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer">Tutup</button>
@@ -3017,6 +3036,7 @@
                 selectedReprintTx: null,
                 isPastShiftReprint: false,
                 managerPin: '',
+                reprintManagerPin: '',
 
                 get subtotal() {
                     return this.cart.reduce((acc, item) => acc + (parseFloat(item.subtotal) || 0), 0);
@@ -4167,7 +4187,7 @@
                             voucher_code: this.voucherCode || null,
                             redeem_points: this.redeemPoints || 0,
                             notes: this.transactionNotes || null,
-                            manager_pin: this.managerPin || null,
+                            manager_pin: this.cart.some(i => (parseFloat(i.discount_amount) || 0) > 0) ? (this.managerPin || null) : null,
                         };
 
                         const res = await fetch('/pos/checkout', {
@@ -4430,7 +4450,7 @@
                 selectTransactionForReprint(t) {
                     this.selectedReprintTx = t;
                     this.isPastShiftReprint = Boolean(t.cashier_shift_id && this.activeShiftId && t.cashier_shift_id !== this.activeShiftId);
-                    this.managerPin = '';
+                    this.reprintManagerPin = '';
                 },
 
                 async executeReprint() {
@@ -4438,7 +4458,7 @@
                         alert('Pilih faktur transaksi terlebih dahulu.');
                         return;
                     }
-                    if (this.isPastShiftReprint && !this.managerPin) {
+                    if (this.isPastShiftReprint && !this.reprintManagerPin) {
                         alert('Cetak ulang transaksi dari shift lampau memerlukan PIN Otorisasi Manajer.');
                         return;
                     }
@@ -4453,7 +4473,7 @@
                             body: JSON.stringify({
                                 shift_id: this.activeShiftId,
                                 paper: this.printerPaperSize,
-                                manager_pin: this.managerPin || null,
+                                manager_pin: this.reprintManagerPin || null,
                             }),
                         });
                         const data = await res.json().catch(() => ({}));

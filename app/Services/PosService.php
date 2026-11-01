@@ -236,16 +236,25 @@ class PosService
             throw new \InvalidArgumentException('Keranjang belanja tidak boleh kosong.');
         }
 
-        // Otorisasi PIN Manajer jika diskon manual diajukan bersama manager_pin
+        // Otorisasi PIN Manajer HANYA JIKA ada diskon manual yang diajukan bersama manager_pin
+        $hasManualDiscount = false;
+        foreach ($cartItems as $item) {
+            if (isset($item['discount_amount']) && (float) $item['discount_amount'] > 0) {
+                $hasManualDiscount = true;
+                break;
+            }
+        }
+
         $authorizedManager = null;
-        if ($managerPin !== null && $managerPin !== '') {
+        if ($hasManualDiscount && $managerPin !== null && trim((string) $managerPin) !== '') {
+            $cleanPin = trim((string) $managerPin);
             $candidates = User::where('is_active', true)
                 ->whereNotNull('manager_pin')
                 ->get()
                 ->filter(fn (User $u) => Gate::forUser($u)->allows('use-manager-pin'));
 
             foreach ($candidates as $mgr) {
-                if ($mgr->verifyManagerPin($managerPin)) {
+                if ($mgr->verifyManagerPin($cleanPin)) {
                     $authorizedManager = $mgr;
                     break;
                 }
