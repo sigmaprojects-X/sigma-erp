@@ -568,6 +568,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::prefix('pos')->name('pos.')->middleware('role:owner,manager,store_head,cashier,sales')->group(function () {
         Route::get('/', [PosController::class, 'index'])->middleware('permission:pos_terminal.buka')->name('index');
         Route::get('/search', [PosController::class, 'search'])->middleware('permission:pos_terminal.buka')->name('search');
+        Route::get('/customers/search', [PosController::class, 'searchCustomers'])->middleware('permission:pos_terminal.buka')->name('customers.search');
+        Route::post('/customers/quick-store', [PosController::class, 'quickStoreCustomer'])->middleware('permission:pos_terminal.baru')->name('customers.quick-store');
         Route::get('/lookup-item', [PosController::class, 'lookupItem'])->middleware('permission:pos_terminal.buka')->name('lookup-item');
         Route::post('/calculate-price', [PosController::class, 'calculatePrice'])->middleware('permission:pos_terminal.buka')->name('calculate-price');
         Route::post('/recalculate-cart', [PosController::class, 'recalculateCart'])->middleware('permission:pos_terminal.buka')->name('recalculate-cart');

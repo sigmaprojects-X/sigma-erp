@@ -1322,4 +1322,98 @@ class PosController extends Controller
             ],
         ]);
     }
+
+    /**
+     * API Pencarian Cepat Pelanggan POS berdasarkan Nama, No. HP, atau Kode (F3 Fast Lookup).
+     */
+    public function searchCustomers(Request $request): JsonResponse
+    {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $q = trim((string) $request->input('q', ''));
+        $driver = DB::connection()->getDriverName();
+        $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+
+        $customers = Customer::where('company_id', $company->id)
+            ->where('is_active', true)
+            ->when($q !== '', function ($query) use ($q, $likeOp) {
+                $cleanPhone = preg_replace('/[^0-9]/', '', $q);
+                $query->where(function ($sub) use ($q, $cleanPhone, $likeOp) {
+                    $sub->where('name', $likeOp, "%{$q}%")
+                        ->orWhere('code', $likeOp, "%{$q}%")
+                        ->orWhere('phone', $likeOp, "%{$q}%");
+                    if (!empty($cleanPhone)) {
+                        $sub->orWhere('phone', $likeOp, "%{$cleanPhone}%");
+                    }
+                });
+            })
+            ->with('tier')
+            ->orderByRaw("code = 'CUST-UMUM' DESC")
+            ->orderBy('name')
+            ->limit(30)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'customers' => $customers,
+        ]);
+    }
+
+    /**
+     * Pendaftaran Cepat Pelanggan Baru dari Layar Kasir POS (Quick Add Member).
+     */
+    public function quickStoreCustomer(Request $request): JsonResponse
+    {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'phone' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:255',
+        ]);
+
+        // Ambil customer tier default (Retail / Eceran)
+        $defaultTier = CustomerTier::where('company_id', $company->id)->where('is_default', true)->first()
+            ?? CustomerTier::where('company_id', $company->id)->first();
+
+        if (! $defaultTier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tingkat/Tier Pelanggan default belum dikonfigurasi di sistem.',
+            ], 422);
+        }
+
+        // Generate kode unik pelanggan CUST-XXXXX
+        $count = Customer::where('company_id', $company->id)->count() + 1;
+        $code = 'CUST-' . str_pad((string) $count, 5, '0', STR_PAD_LEFT);
+        while (Customer::where('company_id', $company->id)->where('code', $code)->exists()) {
+            $count++;
+            $code = 'CUST-' . str_pad((string) $count, 5, '0', STR_PAD_LEFT);
+        }
+
+        $customer = DB::transaction(function () use ($company, $store, $defaultTier, $code, $validated) {
+            return Customer::create([
+                'company_id' => $company->id,
+                'store_id' => $store->id,
+                'customer_tier_id' => $defaultTier->id,
+                'code' => $code,
+                'name' => trim($validated['name']),
+                'phone' => trim($validated['phone'] ?? '') ?: null,
+                'address' => trim($validated['address'] ?? '') ?: null,
+                'credit_limit' => 0.00,
+                'current_credit_balance' => 0.00,
+                'credit_term_days' => 0,
+                'loyalty_points' => 0,
+                'lifetime_points' => 0,
+                'is_active' => true,
+            ]);
+        });
+
+        $customer->load('tier');
+
+        return response()->json([
+            'success' => true,
+            'message' => "Pelanggan baru [{$customer->name}] berhasil didaftarkan.",
+            'customer' => $customer,
+        ]);
+    }
 }

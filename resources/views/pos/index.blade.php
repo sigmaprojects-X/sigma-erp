@@ -373,19 +373,26 @@
 
                     <!-- Pelanggan Interaktif [F3] -->
                     <div class="flex items-center gap-1.5">
-                        <span class="text-slate-500 font-semibold">Pelanggan [F3] :</span>
-                        <div class="flex items-center gap-1">
-                            <select x-ref="customerSelect"
-                                    x-model="selectedCustomerId"
-                                    @change="onCustomerChange()"
-                                    class="excel-input font-bold text-slate-800 cursor-pointer bg-white border-slate-300 hover:border-slate-400 focus:border-blue-600 shadow-2xs text-xs py-0.5 max-w-[260px] truncate">
-                                @foreach($customers as $cust)
-                                    <option value="{{ $cust->id }}" {{ $cust->code === 'CUST-UMUM' ? 'selected' : '' }}>
-                                        {{ $cust->name }} {{ $cust->code === 'CUST-UMUM' ? '(Pelanggan Umum / Eceran)' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <button type="button" @click="cycleCustomer()" class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-blue-600 cursor-pointer" title="Ganti Pelanggan Cepat (F3)">
+                        <span class="text-slate-500 font-semibold text-xs">Pelanggan [F3] :</span>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button"
+                                    @click="openCustomerModal()"
+                                    class="flex items-center gap-2 px-3 py-1 bg-white hover:bg-blue-50/80 border border-slate-300 hover:border-blue-500 rounded-lg shadow-2xs transition-all cursor-pointer group text-xs text-left"
+                                    title="Pilih Pelanggan / Cari No. HP / Nama [F3]">
+                                <span class="text-blue-600 font-bold group-hover:scale-110 transition-transform">👤</span>
+                                <div class="flex items-center gap-1.5 max-w-[280px]">
+                                    <span class="font-extrabold text-slate-900 truncate" x-text="selectedCustomer ? selectedCustomer.name : 'Pelanggan Umum'"></span>
+                                    <template x-if="selectedCustomer && selectedCustomer.phone && selectedCustomer.phone !== '-'">
+                                        <span class="font-mono text-slate-500 text-[11px] shrink-0" x-text="'(' + selectedCustomer.phone + ')'"></span>
+                                    </template>
+                                </div>
+                                <span class="text-slate-400 font-semibold text-[10px]">▼</span>
+                                <kbd class="px-1.5 py-0.2 bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-800 text-slate-600 border border-slate-200 rounded text-[9.5px] font-mono font-bold">F3</kbd>
+                            </button>
+                            <button type="button"
+                                    @click="openCustomerModal()"
+                                    class="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 cursor-pointer transition-colors"
+                                    title="Buka Pencarian No. HP / Nama Pelanggan (F3)">
                                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                             </button>
                         </div>
@@ -1744,6 +1751,185 @@
         </div>
     </div>
 
+    <!-- MODAL PENCARIAN & PEMILIHAN PELANGGAN [F3] -->
+    <div x-show="customerModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-xl w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg font-bold">
+                        👤
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-slate-900">Pilih / Cari Pelanggan [F3]</h3>
+                        <p class="text-[11px] text-slate-500">Cari berdasarkan No. HP / WhatsApp, Nama, atau Kode Member</p>
+                    </div>
+                </div>
+                <button type="button" @click="closeCustomerModal()" class="text-slate-400 hover:text-slate-700 font-bold text-xl cursor-pointer">&times;</button>
+            </div>
+
+            <!-- Mode Pencarian vs Tambah Cepat -->
+            <div class="flex items-center justify-between gap-2">
+                <!-- Search Box -->
+                <div class="relative flex-1">
+                    <input type="text"
+                           x-ref="customerSearchInput"
+                           x-model="customerSearchQuery"
+                           @input="filterCustomers()"
+                           @keydown.arrow-down.prevent="navigateCustomerResults(1)"
+                           @keydown.arrow-up.prevent="navigateCustomerResults(-1)"
+                           @keydown.enter.prevent="selectHighlightedCustomer()"
+                           @keydown.escape.prevent="closeCustomerModal()"
+                           placeholder="Ketik No. HP (0812...), Nama, atau Kode..."
+                           class="pos-input w-full pl-9 pr-8 text-sm font-bold font-mono">
+                    <span class="absolute left-3 top-2.5 text-slate-400">🔍</span>
+                    <button type="button"
+                            x-show="customerSearchQuery"
+                            @click="customerSearchQuery = ''; filterCustomers(); $refs.customerSearchInput.focus()"
+                            class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+
+                <!-- Tombol Toggle Daftarkan Pelanggan Baru -->
+                <button type="button"
+                        @click="toggleQuickAddCustomer()"
+                        class="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                        :class="showQuickAddCustomer ? 'bg-slate-200 text-slate-700' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'">
+                    <span x-text="showQuickAddCustomer ? '← Kembali Cari' : '+ Pelanggan Baru'"></span>
+                </button>
+            </div>
+
+            <!-- FORM PENDAFTARAN CEPAT (JIKA TOGGLE DIAKTIFKAN) -->
+            <div x-show="showQuickAddCustomer" x-cloak class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
+                <div class="font-extrabold text-emerald-950 text-xs flex items-center gap-1.5">
+                    <span>✨</span>
+                    <span>Pendaftaran Cepat Pelanggan Baru</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-bold text-slate-700 text-[11px] mb-1">Nama Lengkap *</label>
+                        <input type="text"
+                               x-ref="newCustNameInput"
+                               x-model="newCustomerName"
+                               placeholder="Nama Pelanggan"
+                               class="pos-input w-full font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 text-[11px] mb-1">No. HP / WhatsApp</label>
+                        <input type="text"
+                               x-model="newCustomerPhone"
+                               placeholder="08123456789"
+                               class="pos-input w-full font-mono font-bold">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 text-[11px] mb-1">Alamat (Opsional)</label>
+                    <input type="text"
+                           x-model="newCustomerAddress"
+                           placeholder="Alamat Singkat / Kota"
+                           class="pos-input w-full text-xs">
+                </div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button"
+                            @click="showQuickAddCustomer = false"
+                            class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-50 cursor-pointer">
+                        Batal
+                    </button>
+                    <button type="button"
+                            @click="submitQuickCustomer()"
+                            class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5">
+                        <span>💾</span>
+                        <span>Simpan &amp; Pilih Langsung</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- LIST HASIL PENCARIAN (JIKA TIDAK DALAM MODE FORM TAMBAH) -->
+            <div x-show="!showQuickAddCustomer" class="space-y-2">
+                <!-- Baris Opsi Cepat Pelanggan Umum -->
+                <div class="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl hover:bg-blue-100/70 cursor-pointer transition-colors"
+                     :class="selectedCustomerId === defaultGeneralCustId ? 'ring-2 ring-blue-500' : ''"
+                     @click="selectCustomerById(defaultGeneralCustId)">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">🛒</span>
+                        <div>
+                            <div class="font-extrabold text-blue-950 text-xs">Pelanggan Umum / Eceran (Standar)</div>
+                            <div class="text-[10px] text-blue-700">Untuk transaksi retail biasa tanpa nomor telepon / member</div>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-200/80 text-blue-900">Pilih Cepat</span>
+                </div>
+
+                <!-- Hasil Pelanggan Tersaring -->
+                <div class="max-h-64 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl bg-slate-50">
+                    <template x-for="(c, idx) in filteredCustomers" :key="c.id">
+                        <div class="p-3 cursor-pointer transition-colors flex items-center justify-between"
+                             :class="idx === selectedCustResultIdx ? 'bg-blue-100/80 border-l-4 border-[#1877F2]' : 'hover:bg-white bg-slate-50/60'"
+                             @click="selectCustomer(c)">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0"
+                                      x-text="c.name.charAt(0).toUpperCase()"></span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-extrabold text-slate-900 text-xs truncate" x-text="c.name"></span>
+                                        <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-200 text-slate-700 shrink-0"
+                                              x-text="c.tier ? c.tier.name : 'Umum'"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-[10.5px] text-slate-500 font-mono mt-0.5">
+                                        <template x-if="c.phone && c.phone !== '-'">
+                                            <span class="font-bold text-blue-700 flex items-center gap-0.5">
+                                                <span>📱</span>
+                                                <span x-text="c.phone"></span>
+                                            </span>
+                                        </template>
+                                        <span>•</span>
+                                        <span x-text="c.code"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0 pl-2">
+                                <template x-if="(c.loyalty_points || 0) > 0">
+                                    <div class="text-amber-700 font-bold text-[10px] flex items-center justify-end gap-1">
+                                        <span>⭐</span>
+                                        <span x-text="formatRupiah(c.loyalty_points) + ' Poin'"></span>
+                                    </div>
+                                </template>
+                                <template x-if="parseFloat(c.credit_limit || 0) > 0">
+                                    <div class="text-[10px] font-mono text-indigo-700 font-semibold">
+                                        Plafon: <span x-text="'Rp ' + formatRupiah(c.credit_limit)"></span>
+                                    </div>
+                                </template>
+                                <button type="button"
+                                        class="mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold transition-all"
+                                        :class="idx === selectedCustResultIdx ? 'bg-blue-600 text-white shadow-2xs' : 'bg-slate-200 text-slate-700 hover:bg-blue-600 hover:text-white'">
+                                    Pilih [Enter]
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="filteredCustomers.length === 0">
+                        <div class="py-8 text-center text-slate-400">
+                            <div class="text-2xl mb-1">🔍</div>
+                            <div class="font-bold text-xs text-slate-600">Pelanggan tidak ditemukan</div>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Coba gunakan nama lain atau no. HP yang sesuai, atau klik tombol <strong>+ Pelanggan Baru</strong> di atas.</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Footer panduan -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-200 text-[11px] text-slate-400">
+                <div class="flex items-center gap-2 font-mono">
+                    <span><kbd class="px-1 py-0.2 bg-slate-100 rounded border">↑↓</kbd> Pilih</span>
+                    <span><kbd class="px-1 py-0.2 bg-slate-100 rounded border">Enter</kbd> Konfirmasi</span>
+                    <span><kbd class="px-1 py-0.2 bg-slate-100 rounded border">Esc</kbd> Tutup</span>
+                </div>
+                <button type="button" @click="closeCustomerModal()" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- F. MODAL CETAK ULANG STRUK [F10] -->
     <div x-show="reprintModal" x-cloak class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
         <div class="bg-white border border-slate-200 rounded-2xl p-5 max-w-lg w-full shadow-2xl text-xs space-y-4 animate-in fade-in zoom-in duration-150">
@@ -2815,6 +3001,15 @@
                 customerTiers: @json($customerTiers),
                 selectedCustomerId: '{{ $customers->firstWhere("code", "CUST-UMUM")?->id ?? $customers->first()?->id }}',
                 selectedTierId: '{{ $customers->firstWhere("code", "CUST-UMUM")?->customer_tier_id ?? $customerTiers->firstWhere("is_default", true)?->id ?? $customerTiers->first()?->id }}',
+                defaultGeneralCustId: '{{ $customers->firstWhere("code", "CUST-UMUM")?->id ?? $customers->first()?->id }}',
+                customerModal: false,
+                customerSearchQuery: '',
+                filteredCustomers: [],
+                selectedCustResultIdx: 0,
+                showQuickAddCustomer: false,
+                newCustomerName: '',
+                newCustomerPhone: '',
+                newCustomerAddress: '',
                 transactionDate: '{{ now()->format("d/m/Y H:i:s") }}',
                 liveClock: '',
 
@@ -3203,7 +3398,7 @@
                             break;
                         case 'F3':
                             e.preventDefault();
-                            this.cycleCustomer();
+                            this.openCustomerModal();
                             break;
                         case 'F4':
                             e.preventDefault();
@@ -3253,7 +3448,7 @@
                 isAnyModalOpen() {
                     return this.checkoutModal || this.openShiftModal || this.editItemModal ||
                            this.cashDropModal || this.blindCloseModal || this.reprintModal || this.cashDrawerModal || 
-                           this.successModal || this.switchCashierModal || this.printerSettingModal || this.receiptSimulationModal || this.pendingModal || this.exchangeModal || this.tukarPoinModal || this.lookupModal;
+                           this.successModal || this.switchCashierModal || this.printerSettingModal || this.receiptSimulationModal || this.pendingModal || this.exchangeModal || this.tukarPoinModal || this.lookupModal || this.customerModal;
                 },
 
                 closeAllModals() {
@@ -3274,6 +3469,8 @@
                     this.exchangeModal = false;
                     this.tukarPoinModal = false;
                     this.lookupModal = false;
+                    this.customerModal = false;
+                    this.showQuickAddCustomer = false;
                     this.focusQuantityInput();
                 },
 
@@ -3766,13 +3963,120 @@
                     }
                 },
 
-                cycleCustomer() {
-                    const select = this.$refs.customerSelect;
-                    if (select && this.customers.length > 0) {
-                        select.selectedIndex = (select.selectedIndex + 1) % select.options.length;
-                        this.selectedCustomerId = select.value;
-                        this.onCustomerChange();
+                openCustomerModal() {
+                    this.customerModal = true;
+                    this.showQuickAddCustomer = false;
+                    this.customerSearchQuery = '';
+                    this.filterCustomers();
+                    this.$nextTick(() => {
+                        this.$refs.customerSearchInput?.focus();
+                        this.$refs.customerSearchInput?.select();
+                    });
+                },
+
+                closeCustomerModal() {
+                    this.customerModal = false;
+                    this.showQuickAddCustomer = false;
+                    this.focusQuantityInput();
+                },
+
+                toggleQuickAddCustomer() {
+                    this.showQuickAddCustomer = !this.showQuickAddCustomer;
+                    if (this.showQuickAddCustomer) {
+                        this.newCustomerName = this.customerSearchQuery || '';
+                        this.newCustomerPhone = '';
+                        this.newCustomerAddress = '';
+                        this.$nextTick(() => this.$refs.newCustNameInput?.focus());
+                    } else {
+                        this.$nextTick(() => this.$refs.customerSearchInput?.focus());
                     }
+                },
+
+                filterCustomers() {
+                    const q = (this.customerSearchQuery || '').trim().toLowerCase();
+                    const cleanPhoneQuery = q.replace(/[^0-9]/g, '');
+
+                    if (!q) {
+                        this.filteredCustomers = this.customers.filter(c => c.code !== 'CUST-UMUM').slice(0, 30);
+                        this.selectedCustResultIdx = 0;
+                        return;
+                    }
+
+                    this.filteredCustomers = this.customers.filter(c => {
+                        const nameMatch = (c.name || '').toLowerCase().includes(q);
+                        const codeMatch = (c.code || '').toLowerCase().includes(q);
+                        const rawPhone = (c.phone || '').toLowerCase();
+                        const cleanPhone = (c.phone || '').replace(/[^0-9]/g, '');
+                        const phoneMatch = rawPhone.includes(q) || (cleanPhoneQuery.length >= 2 && cleanPhone.includes(cleanPhoneQuery));
+
+                        return nameMatch || codeMatch || phoneMatch;
+                    }).slice(0, 30);
+
+                    this.selectedCustResultIdx = 0;
+                },
+
+                navigateCustomerResults(step) {
+                    if (this.filteredCustomers.length === 0) return;
+                    this.selectedCustResultIdx = (this.selectedCustResultIdx + step + this.filteredCustomers.length) % this.filteredCustomers.length;
+                },
+
+                selectHighlightedCustomer() {
+                    if (this.filteredCustomers.length > 0 && this.selectedCustResultIdx >= 0) {
+                        this.selectCustomer(this.filteredCustomers[this.selectedCustResultIdx]);
+                    }
+                },
+
+                selectCustomer(cust) {
+                    if (!cust) return;
+                    this.selectedCustomerId = cust.id;
+                    this.onCustomerChange();
+                    this.closeCustomerModal();
+                },
+
+                selectCustomerById(id) {
+                    const cust = this.customers.find(c => c.id === id);
+                    if (cust) {
+                        this.selectCustomer(cust);
+                    }
+                },
+
+                async submitQuickCustomer() {
+                    const name = (this.newCustomerName || '').trim();
+                    if (!name) {
+                        alert('Nama pelanggan wajib diisi.');
+                        this.$refs.newCustNameInput?.focus();
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch('/pos/customers/quick-store', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': this.csrfToken,
+                            },
+                            body: JSON.stringify({
+                                name: name,
+                                phone: (this.newCustomerPhone || '').trim(),
+                                address: (this.newCustomerAddress || '').trim(),
+                            }),
+                        });
+
+                        const data = await res.json();
+                        if (data.success && data.customer) {
+                            this.customers.push(data.customer);
+                            this.selectCustomer(data.customer);
+                        } else {
+                            alert(data.message || 'Gagal mendaftarkan pelanggan baru.');
+                        }
+                    } catch (err) {
+                        alert('Terjadi kesalahan saat menyimpan data pelanggan.');
+                    }
+                },
+
+                cycleCustomer() {
+                    this.openCustomerModal();
                 },
 
                 cycleSales() {
