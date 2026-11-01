@@ -27,7 +27,7 @@ class DepositManagementController extends Controller
 
     public function customerIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $search = $request->input('search');
 
         $customers = $this->depositService->getCustomerDepositsSummary($company, $search);
@@ -58,7 +58,7 @@ class DepositManagementController extends Controller
 
     public function customerTopUp(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'customer_id' => 'required|uuid|exists:customers,id',
@@ -81,7 +81,7 @@ class DepositManagementController extends Controller
 
     public function customerWithdraw(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'customer_id' => 'required|uuid|exists:customers,id',
@@ -104,7 +104,7 @@ class DepositManagementController extends Controller
 
     public function customerLedger(string $customerId): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $customer = Customer::where('company_id', $company->id)->findOrFail($customerId);
 
         $ledger = $this->depositService->getCustomerDepositLedger($company, $customer->id);
@@ -124,7 +124,7 @@ class DepositManagementController extends Controller
 
     public function supplierIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $search = $request->input('search');
 
         $suppliers = $this->depositService->getSupplierDepositsSummary($company, $search);
@@ -155,7 +155,7 @@ class DepositManagementController extends Controller
 
     public function supplierTopUp(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'supplier_id' => 'required|uuid|exists:suppliers,id',
@@ -178,7 +178,7 @@ class DepositManagementController extends Controller
 
     public function supplierRefund(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'supplier_id' => 'required|uuid|exists:suppliers,id',
@@ -201,7 +201,7 @@ class DepositManagementController extends Controller
 
     public function supplierLedger(string $supplierId): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $supplier = Supplier::where('company_id', $company->id)->findOrFail($supplierId);
 
         $ledger = $this->depositService->getSupplierDepositLedger($company, $supplier->id);

@@ -15,7 +15,7 @@ class AuditLogController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $companyId = $company?->id;
 
         $query = AuditLog::with('user')->latest();

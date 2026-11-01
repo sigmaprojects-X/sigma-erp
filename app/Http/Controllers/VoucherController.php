@@ -18,7 +18,7 @@ class VoucherController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = Voucher::where('company_id', $company->id)->latest('created_at');
 
@@ -52,7 +52,7 @@ class VoucherController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->get();
 
         return view('vouchers.create', compact('stores'));
@@ -78,7 +78,7 @@ class VoucherController extends Controller
         ]);
 
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
             $isTemplate = $request->has('is_template');
             $qty = $isTemplate ? 1 : (int) ($validated['quantity_to_generate'] ?? 1);
 
@@ -126,7 +126,7 @@ class VoucherController extends Controller
      */
     public function printCoupons(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = Voucher::where('company_id', $company->id);
 

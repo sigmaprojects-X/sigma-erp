@@ -27,7 +27,7 @@ class AssemblyController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = ProductAssembly::where('company_id', $company->id)
             ->with(['store', 'parentProduct', 'parentUnit', 'creator', 'items.componentProduct', 'items.componentUnit'])
             ->latest('assembly_date')
@@ -70,7 +70,7 @@ class AssemblyController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $products = Product::where('company_id', $company->id)
             ->where('is_active', true)
@@ -205,7 +205,7 @@ class AssemblyController extends Controller
      */
     public function boms(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $boms = ProductBom::where('company_id', $company->id)
             ->with(['parentProduct', 'componentProduct', 'componentUnit'])
             ->get()

@@ -24,7 +24,7 @@ class StockTransferController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = StockTransfer::where('company_id', $company->id)
             ->with(['sourceStore', 'destinationStore', 'creator', 'dispatcher', 'receiver', 'items.product'])
             ->latest('transfer_date')
@@ -60,7 +60,7 @@ class StockTransferController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $products = Product::where('company_id', $company->id)->where('is_active', true)->with('units')->get();
 
@@ -85,7 +85,7 @@ class StockTransferController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $sourceStore = Store::findOrFail($request->source_store_id);
         $destinationStore = Store::findOrFail($request->destination_store_id);
 

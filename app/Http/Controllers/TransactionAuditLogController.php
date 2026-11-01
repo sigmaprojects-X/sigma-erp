@@ -16,7 +16,7 @@ class TransactionAuditLogController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $startDate = $request->input('start_date', now()->subDays(30)->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());

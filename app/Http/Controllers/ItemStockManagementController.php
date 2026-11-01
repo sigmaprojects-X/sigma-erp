@@ -35,7 +35,7 @@ class ItemStockManagementController extends Controller
 
     public function openingStockIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -144,7 +144,7 @@ class ItemStockManagementController extends Controller
 
     public function openingStockStore(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'store_id' => 'required|uuid|exists:stores,id',
@@ -227,7 +227,7 @@ class ItemStockManagementController extends Controller
             'store_id' => 'required|uuid|exists:stores,id',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->findOrFail($request->input('store_id'));
 
         $file = $request->file('file');
@@ -513,7 +513,7 @@ class ItemStockManagementController extends Controller
 
     public function minimumStockIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -614,7 +614,7 @@ class ItemStockManagementController extends Controller
 
     public function minimumStockUpdate(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'product_id' => 'required|uuid|exists:products,id',
@@ -638,7 +638,7 @@ class ItemStockManagementController extends Controller
             'file' => 'required|file|max:15360',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $file = $request->file('file');
         $filePath = $file->getRealPath();

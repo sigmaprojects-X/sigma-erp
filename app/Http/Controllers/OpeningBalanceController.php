@@ -29,7 +29,7 @@ class OpeningBalanceController extends Controller
 
     public function coaIndex(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $accounts = $this->openingService->getCoaOpeningBalances($company);
 
         $totalDebit = $accounts->sum('opening_debit');
@@ -56,7 +56,7 @@ class OpeningBalanceController extends Controller
 
     public function coaStore(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'cutoff_date' => 'required|date',
@@ -88,7 +88,7 @@ class OpeningBalanceController extends Controller
 
     public function receivablesIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
 
@@ -110,7 +110,7 @@ class OpeningBalanceController extends Controller
 
     public function receivablesStore(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'customer_id' => 'required|uuid|exists:customers,id',
@@ -134,7 +134,7 @@ class OpeningBalanceController extends Controller
 
     public function receivablesDestroy(string $id): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         try {
             $this->openingService->deleteCustomerOpeningReceivable($company, $id);
@@ -150,7 +150,7 @@ class OpeningBalanceController extends Controller
      */
     public function receivablesTemplate(): StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $customers = Customer::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->take(25)->get();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -226,7 +226,7 @@ class OpeningBalanceController extends Controller
             'store_id' => 'nullable|uuid|exists:stores,id',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = ! empty($request->input('store_id')) ? Store::where('company_id', $company->id)->find($request->input('store_id')) : Store::where('company_id', $company->id)->first();
 
         $file = $request->file('file');
@@ -391,7 +391,7 @@ class OpeningBalanceController extends Controller
 
     public function payablesIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
 
@@ -413,7 +413,7 @@ class OpeningBalanceController extends Controller
 
     public function payablesStore(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'supplier_id' => 'required|uuid|exists:suppliers,id',
@@ -437,7 +437,7 @@ class OpeningBalanceController extends Controller
 
     public function payablesDestroy(string $id): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         try {
             $this->openingService->deleteSupplierOpeningPayable($company, $id);
@@ -453,7 +453,7 @@ class OpeningBalanceController extends Controller
      */
     public function payablesTemplate(): StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->take(25)->get();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -529,7 +529,7 @@ class OpeningBalanceController extends Controller
             'store_id' => 'nullable|uuid|exists:stores,id',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = ! empty($request->input('store_id')) ? Store::where('company_id', $company->id)->find($request->input('store_id')) : Store::where('company_id', $company->id)->first();
 
         $file = $request->file('file');

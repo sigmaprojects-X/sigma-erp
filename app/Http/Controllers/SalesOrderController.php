@@ -36,7 +36,7 @@ class SalesOrderController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = SalesOrder::where('company_id', $company->id)
             ->with(['customer', 'store', 'creator', 'items.product'])
@@ -71,7 +71,7 @@ class SalesOrderController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $customers = Customer::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $products = Product::where('company_id', $company->id)
@@ -105,7 +105,7 @@ class SalesOrderController extends Controller
         ]);
 
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
             $user = Auth::user();
 
             $order = DB::transaction(function () use ($validated, $company, $user) {

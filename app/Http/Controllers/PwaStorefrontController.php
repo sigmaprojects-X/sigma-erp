@@ -37,17 +37,46 @@ class PwaStorefrontController extends Controller
     /**
      * Tampilan Beranda Marketplace / Katalog PWA Pelanggan via HP.
      */
-    public function index(Request $request): View
+    public function index(Request $request, ?string $companyCode = null): View
     {
+        $company = null;
         $store = null;
-        if ($request->filled('store_id')) {
-            $store = Store::find($request->store_id);
-        }
-        if (! $store) {
-            $store = Store::where('is_active', true)->first() ?? Store::first();
+
+        // 1. Cek parameter kode perusahaan dari URL (/store/c/{code}) atau query string (?c=... atau ?company=...)
+        $targetCode = $companyCode ?: ($request->query('c') ?: $request->query('company'));
+
+        if ($targetCode) {
+            $company = Company::where('is_active', true)
+                ->where(function ($q) use ($targetCode) {
+                    $q->whereRaw('LOWER(code) = ?', [strtolower(trim($targetCode))])
+                      ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($targetCode))]);
+                })->first();
+
+            if ($company) {
+                $store = $company->stores()->where('is_main_store', true)->first()
+                    ?? $company->stores()->first();
+            }
         }
 
-        $company = $store ? $store->company : (Company::first());
+        // 2. Jika tidak ada parameter perusahaan, cek store_id
+        if (! $store && $request->filled('store_id')) {
+            $store = Store::find($request->store_id);
+            if ($store) {
+                $company = $store->company;
+            }
+        }
+
+        // 3. Fallback jika tidak ditentukan
+        if (! $company) {
+            $store = Store::where('is_active', true)->first() ?? Store::first();
+            $company = $store ? $store->company : Company::first();
+        }
+
+        if (! $store && $company) {
+            $store = $company->stores()->where('is_main_store', true)->first()
+                ?? $company->stores()->first()
+                ?? Store::first();
+        }
 
         $categories = ProductCategory::where('company_id', $company->id)
             ->where('is_active', true)

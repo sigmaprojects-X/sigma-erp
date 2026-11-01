@@ -29,7 +29,7 @@ class PurchaseOrderController extends Controller
      */
     public function recommendations(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
         $supplierId = $request->query('supplier_id');
 
@@ -52,7 +52,7 @@ class PurchaseOrderController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
 
         $query = PurchaseOrder::where('company_id', $company->id)
@@ -89,7 +89,7 @@ class PurchaseOrderController extends Controller
      */
     public function create(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
         $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $selectedSupplierId = $request->query('supplier_id');
@@ -115,7 +115,7 @@ class PurchaseOrderController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
         $supplier = Supplier::findOrFail($request->supplier_id);
 
@@ -292,7 +292,7 @@ class PurchaseOrderController extends Controller
      */
     public function debtLedger(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
         $supplierId = $request->query('supplier_id');
 
@@ -373,7 +373,7 @@ class PurchaseOrderController extends Controller
             'invoices.*.amount' => 'required|numeric|min:0.01',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
         $supplierId = $request->supplier_id;
         if (! $supplierId && ! empty($request->invoices[0]['purchase_id'])) {
@@ -427,7 +427,7 @@ class PurchaseOrderController extends Controller
      */
     public function exportDebtLedger(Request $request): StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $unpaidPurchases = Purchase::with('supplier')
             ->where('company_id', $company->id)

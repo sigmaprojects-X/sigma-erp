@@ -26,7 +26,7 @@ class BatchExpiryController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         // Jalankan auto-sinkronisasi status kedaluwarsa
         $this->batchExpiryService->syncExpiredStatus();
@@ -72,7 +72,7 @@ class BatchExpiryController extends Controller
      */
     public function nearExpired(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $this->batchExpiryService->syncExpiredStatus();
 
         $days = (int) $request->input('days', 30);
@@ -106,7 +106,7 @@ class BatchExpiryController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $products = Product::where('company_id', $company->id)
             ->where('is_active', true)

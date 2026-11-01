@@ -23,7 +23,7 @@ class CashManagementController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $type = $request->input('type');
@@ -77,7 +77,7 @@ class CashManagementController extends Controller
      */
     public function createIn(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $cashAccounts = $this->cashService->getCashAndBankAccounts($company);
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
@@ -96,7 +96,7 @@ class CashManagementController extends Controller
      */
     public function storeIn(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'transaction_date' => 'required|date',
@@ -124,7 +124,7 @@ class CashManagementController extends Controller
      */
     public function createOut(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $cashAccounts = $this->cashService->getCashAndBankAccounts($company);
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
@@ -143,7 +143,7 @@ class CashManagementController extends Controller
      */
     public function storeOut(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'transaction_date' => 'required|date',
@@ -171,7 +171,7 @@ class CashManagementController extends Controller
      */
     public function createTransfer(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $cashAccounts = $this->cashService->getCashAndBankAccounts($company);
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
@@ -189,7 +189,7 @@ class CashManagementController extends Controller
      */
     public function storeTransfer(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'transaction_date' => 'required|date',
@@ -219,7 +219,7 @@ class CashManagementController extends Controller
      */
     public function show(string $id): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $transaction = CashTransaction::where('company_id', $company->id)
             ->with(['sourceAccount', 'destinationAccount', 'categoryAccount', 'store', 'creator', 'journalEntry.lines.account'])
             ->findOrFail($id);

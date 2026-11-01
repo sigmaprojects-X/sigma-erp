@@ -27,7 +27,7 @@ class OperationalReportController extends Controller
      */
     public function peakHours(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
@@ -49,7 +49,7 @@ class OperationalReportController extends Controller
      */
     public function voidReturns(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
@@ -71,7 +71,7 @@ class OperationalReportController extends Controller
      */
     public function consignment(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];

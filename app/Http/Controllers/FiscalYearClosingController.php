@@ -21,7 +21,7 @@ class FiscalYearClosingController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $selectedYear = (int) $request->input('year', date('Y'));
 
@@ -45,7 +45,7 @@ class FiscalYearClosingController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'fiscal_year' => 'required|integer|min:2020|max:2050',
@@ -73,7 +73,7 @@ class FiscalYearClosingController extends Controller
      */
     public function reopen(Request $request, int $year): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         // Hanya role owner atau manager yang berhak membuka kembali tutup buku
         if (! in_array(Auth::user()?->role, ['owner', 'manager'])) {

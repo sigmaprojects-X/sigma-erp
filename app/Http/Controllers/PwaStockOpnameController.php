@@ -27,7 +27,7 @@ class PwaStockOpnameController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::user();
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $userStore = $user?->store ?? Store::where('company_id', $company->id)->first();
 
         // Ambil sesi opname aktif di toko pengguna
@@ -80,7 +80,7 @@ class PwaStockOpnameController extends Controller
         ]);
 
         $user = Auth::user();
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $userStore = $user?->store ?? Store::where('company_id', $company->id)->firstOrFail();
 
         try {

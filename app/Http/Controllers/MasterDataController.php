@@ -34,7 +34,9 @@ class MasterDataController extends Controller
      */
     public function products(Request $request): View
     {
-        $query = Product::with(['units', 'barcodes', 'prices.customerTier', 'stocks']);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = Product::where('company_id', $company->id)
+            ->with(['units', 'barcodes', 'prices.customerTier', 'stocks']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -52,9 +54,9 @@ class MasterDataController extends Controller
         }
 
         $products = $query->orderBy('name')->paginate(20)->withQueryString();
-        $customerTiers = CustomerTier::where('is_active', true)->get();
-        $categories = ProductCategory::where('is_active', true)->orderBy('name')->get();
-        $units = Unit::where('is_active', true)->orderBy('code')->get();
+        $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();
+        $categories = ProductCategory::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+        $units = Unit::where('company_id', $company->id)->where('is_active', true)->orderBy('code')->get();
 
         return view('master.products', compact('products', 'customerTiers', 'categories', 'units'));
     }
@@ -926,7 +928,8 @@ class MasterDataController extends Controller
      */
     public function customers(Request $request): View
     {
-        $query = Customer::with('customerTier');
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = Customer::where('company_id', $company->id)->with('customerTier');
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -938,7 +941,7 @@ class MasterDataController extends Controller
         }
 
         $customers = $query->orderBy('name')->paginate(20)->withQueryString();
-        $customerTiers = CustomerTier::where('is_active', true)->get();
+        $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();
 
         return view('master.customers', compact('customers', 'customerTiers'));
     }
@@ -1025,7 +1028,8 @@ class MasterDataController extends Controller
      */
     public function suppliers(Request $request): View
     {
-        $query = Supplier::query();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = Supplier::where('company_id', $company->id);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -1453,7 +1457,7 @@ class MasterDataController extends Controller
      */
     public function stores(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = Store::where('company_id', $company->id);
 
         if ($search = $request->input('search')) {
@@ -1486,7 +1490,7 @@ class MasterDataController extends Controller
             'address' => 'nullable|string',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         Store::create([
             'company_id' => $company->id,
@@ -1544,7 +1548,7 @@ class MasterDataController extends Controller
      */
     public function customerTiers(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = CustomerTier::where('company_id', $company->id)->withCount('customers');
 
         if ($search = $request->input('search')) {
@@ -1582,7 +1586,7 @@ class MasterDataController extends Controller
             'point_multiplier' => 'nullable|numeric|min:0',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         CustomerTier::create([
             'company_id' => $company->id,
@@ -1641,7 +1645,7 @@ class MasterDataController extends Controller
      */
     public function barcodePrint(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $categories = ProductCategory::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();
@@ -1691,7 +1695,7 @@ class MasterDataController extends Controller
      */
     public function exportProducts(Request $request): StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $tierRetail = CustomerTier::where('code', 'RETAIL')->first();
         $tierGrosir = CustomerTier::where('code', 'GROSIR')->first();
 
@@ -1845,7 +1849,7 @@ class MasterDataController extends Controller
             'file' => 'required|file|max:10240',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('code', 'STR-001')->first() ?? Store::firstOrFail();
         $tierRetail = CustomerTier::where('code', 'RETAIL')->first();
         $tierGrosir = CustomerTier::where('code', 'GROSIR')->first();

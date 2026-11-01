@@ -32,7 +32,7 @@ class AccountingController extends Controller
      */
     public function coaIndex(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $typeFilter = $request->input('type');
         $search = trim((string) $request->input('search'));
 
@@ -115,7 +115,7 @@ class AccountingController extends Controller
      */
     public function coaStore(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:chart_of_accounts,code,NULL,id,company_id,'.$company->id,
@@ -144,7 +144,7 @@ class AccountingController extends Controller
      */
     public function coaUpdate(Request $request, string $id): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $account = ChartOfAccount::where('company_id', $company->id)->findOrFail($id);
 
         $validated = $request->validate([
@@ -174,7 +174,7 @@ class AccountingController extends Controller
      */
     public function journalIndex(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $refType = $request->input('reference_type');
@@ -239,7 +239,7 @@ class AccountingController extends Controller
      */
     public function journalCreate(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $accounts = ChartOfAccount::where('company_id', $company->id)
             ->where('is_active', true)
@@ -263,7 +263,7 @@ class AccountingController extends Controller
      */
     public function journalStore(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'entry_date' => 'required|date',
@@ -341,7 +341,7 @@ class AccountingController extends Controller
      */
     public function journalShow(string $id): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $journal = JournalEntry::where('company_id', $company->id)
             ->with(['store', 'lines.account'])
             ->findOrFail($id);

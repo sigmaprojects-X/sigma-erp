@@ -27,7 +27,7 @@ class TaxManagementController extends Controller
     public function settings(Request $request): View
     {
         $user = $request->user();
-        $company = $user?->store?->company ?? Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = $user?->store?->company ?? app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $taxConfig = TaxConfiguration::where('company_id', $company->id)
             ->latest('effective_from')
@@ -63,7 +63,7 @@ class TaxManagementController extends Controller
         ]);
 
         $user = $request->user();
-        $company = $user?->store?->company ?? Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = $user?->store?->company ?? app(\App\Services\CompanyService::class)->getActiveCompany();
 
         DB::transaction(function () use ($request, $company) {
             $isTaxEnabled = $request->boolean('is_tax_enabled');
@@ -102,7 +102,7 @@ class TaxManagementController extends Controller
     public function report(Request $request): View|StreamedResponse
     {
         $user = $request->user();
-        $company = $user?->store?->company ?? Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = $user?->store?->company ?? app(\App\Services\CompanyService::class)->getActiveCompany();
 
         // Default rentang tanggal: Bulan berjalan
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());

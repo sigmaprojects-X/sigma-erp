@@ -23,7 +23,7 @@ class LoyaltyController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $program = $this->loyaltyService->getActiveProgram($company);
 
         $query = Customer::where('company_id', $company->id)
@@ -63,7 +63,7 @@ class LoyaltyController extends Controller
      */
     public function settings(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $program = $this->loyaltyService->getActiveProgram($company);
 
         return view('customers.loyalty.settings', compact('program', 'company'));
@@ -86,7 +86,7 @@ class LoyaltyController extends Controller
         ]);
 
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
             $data = $validated;
             $data['is_active'] = $request->has('is_active');
             $data['allow_merchandise_redemption'] = $request->has('allow_merchandise_redemption');
@@ -180,7 +180,7 @@ class LoyaltyController extends Controller
     public function expirePoints(Request $request): RedirectResponse|JsonResponse
     {
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
             $expiredCount = $this->loyaltyService->expirePoints($company);
 
             if ($request->expectsJson() || $request->ajax()) {

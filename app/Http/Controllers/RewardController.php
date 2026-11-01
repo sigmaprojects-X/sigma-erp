@@ -26,7 +26,7 @@ class RewardController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $rewards = LoyaltyReward::where('company_id', $company->id)
             ->with(['product'])
@@ -60,7 +60,7 @@ class RewardController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $products = Product::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
 
         return view('customers.rewards.create', compact('products'));
@@ -82,7 +82,7 @@ class RewardController extends Controller
         ]);
 
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
             $reward = LoyaltyReward::create([
                 'company_id' => $company->id,

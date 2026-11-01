@@ -40,7 +40,7 @@ class PurchaseController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = Purchase::where('company_id', $company->id)
             ->with(['supplier', 'store', 'items.product'])
@@ -125,7 +125,7 @@ class PurchaseController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->first();
         $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $bankAccounts = BankAccount::where('company_id', $company->id)->where('is_active', true)->orderBy('bank_name')->get();
@@ -168,7 +168,7 @@ class PurchaseController extends Controller
             return response()->json([]);
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
         $likeTerm = '%'.$term.'%';
@@ -287,7 +287,7 @@ class PurchaseController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::findOrFail($request->store_id);
         $supplier = Supplier::findOrFail($request->supplier_id);
 
@@ -590,7 +590,7 @@ class PurchaseController extends Controller
      */
     public function returnsIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = PurchaseReturn::where('company_id', $company->id)
             ->with([
@@ -728,7 +728,7 @@ class PurchaseController extends Controller
                 /** @var Purchase $lockedPurchase */
                 $lockedPurchase = Purchase::where('id', $purchase->id)->lockForUpdate()->firstOrFail();
 
-                $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+                $company = app(\App\Services\CompanyService::class)->getActiveCompany();
                 $store = $lockedPurchase->store ?? Store::where('company_id', $company->id)->first();
                 $userId = Auth::id();
 
@@ -912,7 +912,7 @@ class PurchaseController extends Controller
      */
     public function createFlexibleReturn(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->get();
         $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
 
@@ -954,7 +954,7 @@ class PurchaseController extends Controller
         ]);
 
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
             $store = $request->store_id ? Store::findOrFail($request->store_id) : Store::where('company_id', $company->id)->firstOrFail();
             $supplier = Supplier::findOrFail($request->supplier_id);
 
@@ -1447,7 +1447,7 @@ class PurchaseController extends Controller
      */
     public function supplierUnpaidInvoices(Request $request, string $supplierId): JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->query('store_id');
         $store = $storeId ? Store::find($storeId) : Store::where('company_id', $company->id)->first();
 
@@ -1498,7 +1498,7 @@ class PurchaseController extends Controller
      */
     public function exportPurchases(Request $request): StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = Purchase::with(['supplier', 'store'])
             ->where('company_id', $company->id);

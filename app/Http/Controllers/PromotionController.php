@@ -23,7 +23,7 @@ class PromotionController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $promotions = Promotion::where('company_id', $company->id)
             ->with(['buyProduct', 'rewardProduct', 'store'])
@@ -45,7 +45,7 @@ class PromotionController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $products = Product::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $stores = Store::where('company_id', $company->id)->get();
 
@@ -77,7 +77,7 @@ class PromotionController extends Controller
         ]);
 
         try {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
             $promo = Promotion::create([
                 'company_id' => $company->id,
@@ -149,7 +149,7 @@ class PromotionController extends Controller
      */
     public function evaluate(Request $request): JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
         $cartItems = $request->input('cart_items', []);

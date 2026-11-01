@@ -29,7 +29,7 @@ class StockMovementController extends Controller
      */
     public function indexIn(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -56,7 +56,7 @@ class StockMovementController extends Controller
      */
     public function createIn(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
         $selectedStore = $stores->firstWhere('id', $selectedStoreId) ?? $stores->first();
@@ -81,7 +81,7 @@ class StockMovementController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::findOrFail($request->store_id);
         $userId = Auth::id();
 
@@ -175,7 +175,7 @@ class StockMovementController extends Controller
      */
     public function indexOut(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -202,7 +202,7 @@ class StockMovementController extends Controller
      */
     public function createOut(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
         $selectedStore = $stores->firstWhere('id', $selectedStoreId) ?? $stores->first();
@@ -227,7 +227,7 @@ class StockMovementController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::findOrFail($request->store_id);
         $userId = Auth::id();
 

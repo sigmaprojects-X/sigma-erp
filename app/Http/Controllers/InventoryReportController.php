@@ -29,7 +29,7 @@ class InventoryReportController extends Controller
      */
     public function valuation(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
         $categoryId = $request->input('category_id');
@@ -55,7 +55,7 @@ class InventoryReportController extends Controller
      */
     public function stockCard(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
@@ -94,7 +94,7 @@ class InventoryReportController extends Controller
      */
     public function lowStock(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
@@ -113,7 +113,7 @@ class InventoryReportController extends Controller
      */
     public function turnover(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
@@ -135,7 +135,7 @@ class InventoryReportController extends Controller
      */
     public function expiry(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
         $withinDays = (int) $request->input('within_days', 90);
@@ -155,7 +155,7 @@ class InventoryReportController extends Controller
      */
     public function opnameDiscrepancy(Request $request): View|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];

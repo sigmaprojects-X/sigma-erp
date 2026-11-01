@@ -31,7 +31,7 @@ class FinancialReportController extends Controller
      */
     public function incomeStatement(Request $request): View|JsonResponse|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
@@ -59,7 +59,7 @@ class FinancialReportController extends Controller
      */
     public function balanceSheet(Request $request): View|JsonResponse|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $asOfDate = $request->input('as_of_date', now()->toDateString());
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
@@ -86,7 +86,7 @@ class FinancialReportController extends Controller
      */
     public function trialBalance(Request $request): View|JsonResponse|StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
@@ -114,7 +114,7 @@ class FinancialReportController extends Controller
      */
     public function generalLedger(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
@@ -149,7 +149,7 @@ class FinancialReportController extends Controller
      */
     public function cashFlow(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
@@ -173,7 +173,7 @@ class FinancialReportController extends Controller
      */
     public function shifts(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = CashierShift::with(['cashier', 'store'])
             ->where('company_id', $company->id)
             ->where('status', 'CLOSED');
@@ -247,7 +247,7 @@ class FinancialReportController extends Controller
      */
     public function sales(Request $request): View|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
@@ -317,7 +317,7 @@ class FinancialReportController extends Controller
      */
     public function purchases(Request $request): View|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $period = FinancialReportService::resolvePeriodDates($request);
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
@@ -376,7 +376,7 @@ class FinancialReportController extends Controller
      */
     public function agingReceivables(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
@@ -391,7 +391,7 @@ class FinancialReportController extends Controller
      */
     public function agingPayables(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
         $store = $storeId ? Store::find($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();

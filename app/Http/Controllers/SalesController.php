@@ -34,10 +34,13 @@ class SalesController extends Controller
     public function index(): View
     {
         $today = Carbon::today();
-        $store = Store::where('code', 'STR-001')->first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+            ?? Store::where('company_id', $company->id)->first()
+            ?? Store::first();
 
-        // Query transaksi hari ini
-        $todayTransactions = PosTransaction::whereDate('created_at', $today);
+        // Query transaksi hari ini (Terfilter per Perusahaan Aktif)
+        $todayTransactions = PosTransaction::where('company_id', $company->id)->whereDate('created_at', $today);
 
         $todayRevenue = (float) (clone $todayTransactions)->sum('grand_total');
         $todayCount = (int) (clone $todayTransactions)->count();
@@ -48,8 +51,8 @@ class SalesController extends Controller
             + (float) (clone $todayTransactions)->where('payment_method', 'SPLIT')->where('split_payment_method', 'TRANSFER')->sum('paid_amount');
 
         // Retur hari ini
-        $todayReturnsCount = PosReturn::whereDate('created_at', $today)->count();
-        $todayReturnsAmount = (float) PosReturn::whereDate('created_at', $today)->sum('total_refund_amount');
+        $todayReturnsCount = PosReturn::where('company_id', $company->id)->whereDate('created_at', $today)->count();
+        $todayReturnsAmount = (float) PosReturn::where('company_id', $company->id)->whereDate('created_at', $today)->sum('total_refund_amount');
 
         // Top 5 Produk Terlaris (Best Sellers)
         $topProducts = PosTransactionItem::with('product')
@@ -212,7 +215,7 @@ class SalesController extends Controller
                 break;
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storesQuery = Store::where('is_active', true);
         if ($company) {
             $storesQuery->where('company_id', $company->id);
@@ -277,7 +280,9 @@ class SalesController extends Controller
      */
     public function transactions(Request $request): View
     {
-        $query = PosTransaction::with(['customer', 'customerTier', 'salesPerson', 'items.product', 'items.productUnit']);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = PosTransaction::where('company_id', $company->id)
+            ->with(['customer', 'customerTier', 'salesPerson', 'items.product', 'items.productUnit']);
 
         // Filter Pencarian No Faktur / Pelanggan
         if ($search = $request->input('search')) {
@@ -364,7 +369,7 @@ class SalesController extends Controller
             return response()->json([]);
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $tierId = $request->get('tier_id');
 
         $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -444,7 +449,7 @@ class SalesController extends Controller
      */
     public function createInvoice(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $customers = Customer::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $tiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();

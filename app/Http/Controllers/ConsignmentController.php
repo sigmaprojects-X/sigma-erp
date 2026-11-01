@@ -28,7 +28,7 @@ class ConsignmentController extends Controller
      */
     public function receipts(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = ConsignmentReceipt::where('company_id', $company->id)
             ->with(['supplier', 'store', 'receiver', 'items.product'])
@@ -62,7 +62,7 @@ class ConsignmentController extends Controller
      */
     public function createReceipt(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
         $products = Product::where('company_id', $company->id)
@@ -126,7 +126,7 @@ class ConsignmentController extends Controller
      */
     public function settlements(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $query = ConsignmentSettlement::where('company_id', $company->id)
             ->with(['supplier', 'store', 'creator', 'items.product'])
@@ -160,7 +160,7 @@ class ConsignmentController extends Controller
      */
     public function createSettlement(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
 

@@ -23,7 +23,7 @@ class StockOpnameController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = StockOpname::where('company_id', $company->id)
             ->with(['store', 'creator', 'approver'])
             ->latest('opname_date')
@@ -55,7 +55,7 @@ class StockOpnameController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         return view('warehouse.opnames.create', compact('company', 'stores'));
@@ -72,7 +72,7 @@ class StockOpnameController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::findOrFail($request->store_id);
 
         $opname = $this->warehouseService->startOpname(

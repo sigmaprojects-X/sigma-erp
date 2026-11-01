@@ -23,7 +23,7 @@ class TransferRequestController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $query = TransferRequest::where('company_id', $company->id)
             ->with(['requestingStore', 'destinationStore', 'creator', 'approver', 'stockTransfer'])
             ->latest('request_date')
@@ -59,7 +59,7 @@ class TransferRequestController extends Controller
      */
     public function create(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $userStore = Auth::user()?->store ?? $stores->first();
 
@@ -93,7 +93,7 @@ class TransferRequestController extends Controller
             'items.*.notes' => 'nullable|string|max:255',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $requestingStore = Store::findOrFail($request->requesting_store_id);
         $destinationStore = Store::findOrFail($request->destination_store_id);
 

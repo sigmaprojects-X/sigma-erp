@@ -36,7 +36,7 @@ class InventoryController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -151,7 +151,7 @@ class InventoryController extends Controller
      */
     public function exportStockSummary(Request $request): StreamedResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->get('store_id', Auth::user()?->store_id);
         $store = Store::findOrFail($storeId);
 
@@ -253,7 +253,7 @@ class InventoryController extends Controller
      */
     public function adjustmentsIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -279,7 +279,7 @@ class InventoryController extends Controller
      */
     public function adjustmentsCreate(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
         $selectedStore = $stores->firstWhere('id', $selectedStoreId) ?? $stores->first();
@@ -303,7 +303,7 @@ class InventoryController extends Controller
             'items.*.reason' => 'required|string|max:150',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::findOrFail($request->store_id);
         $userId = Auth::id();
 
@@ -429,7 +429,7 @@ class InventoryController extends Controller
      */
     public function quarantineIndex(Request $request): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $selectedStoreId = $request->get('store_id', Auth::user()?->store_id ?? $stores->first()?->id);
@@ -594,7 +594,7 @@ class InventoryController extends Controller
             return response()->json([]);
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::first();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->get('store_id', Auth::user()?->store_id);
 
         $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';

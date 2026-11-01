@@ -26,7 +26,7 @@ class FixedAssetController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $category = $request->query('category');
         $status = $request->query('status');
@@ -78,7 +78,7 @@ class FixedAssetController extends Controller
      */
     public function create(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $bankAccounts = BankAccount::where('company_id', $company->id)->where('is_active', true)->get();
 
@@ -94,7 +94,7 @@ class FixedAssetController extends Controller
      */
     public function store(Request $request): RedirectResponse|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $request->validate([
             'asset_code' => 'required|string|max:50',
@@ -216,7 +216,7 @@ class FixedAssetController extends Controller
      */
     public function depreciateAll(Request $request): RedirectResponse|JsonResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $periodDate = $request->input('period_date', now()->endOfMonth()->toDateString());
 
         $activeAssets = FixedAsset::where('company_id', $company->id)

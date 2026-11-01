@@ -17,7 +17,7 @@ class AccountingSettingController extends Controller
      */
     public function index(): View
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $accounts = ChartOfAccount::where('company_id', $company->id)
             ->where('is_active', true)
@@ -140,7 +140,7 @@ class AccountingSettingController extends Controller
      */
     public function update(Request $request): RedirectResponse
     {
-        $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $validated = $request->validate([
             'settings' => 'required|array',
