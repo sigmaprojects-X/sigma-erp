@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use App\Models\Store;
+use App\Services\CompanyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,13 +13,19 @@ use Illuminate\View\View;
 
 class SettingController extends Controller
 {
+    public function __construct(
+        protected CompanyService $companyService
+    ) {}
+
     /**
      * Tampilkan halaman Pengaturan Umum & Desktop Wallpaper.
      */
     public function index(): View
     {
-        $company = Company::first();
-        $store = Store::where('code', 'STR-001')->first() ?? Store::first();
+        $company = $this->companyService->getActiveCompany();
+        $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+            ?? Store::where('company_id', $company->id)->first()
+            ?? Store::first();
 
         return view('settings.general', compact('company', 'store'));
     }
@@ -28,7 +35,7 @@ class SettingController extends Controller
      */
     public function updateGeneral(Request $request): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         $validated = $request->validate([
             'name' => 'required|string|max:150',
@@ -145,7 +152,7 @@ class SettingController extends Controller
      */
     public function resetLogo(): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         DB::transaction(function () use ($company) {
             if ($company->logo_path && File::exists(public_path($company->logo_path))) {
@@ -164,7 +171,7 @@ class SettingController extends Controller
      */
     public function resetWallpaper(): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         DB::transaction(function () use ($company) {
             if ($company->wallpaper_path && File::exists(public_path($company->wallpaper_path))) {
@@ -183,8 +190,10 @@ class SettingController extends Controller
      */
     public function printer(): View
     {
-        $company = Company::firstOrFail();
-        $store = Store::where('code', 'STR-001')->first() ?? Store::first();
+        $company = $this->companyService->getActiveCompany();
+        $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+            ?? Store::where('company_id', $company->id)->first()
+            ?? Store::first();
 
         // Default value fill jika belum ada
         if (empty($company->receipt_footer_line1)) {
@@ -199,7 +208,7 @@ class SettingController extends Controller
      */
     public function updatePrinter(Request $request): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         $validated = $request->validate([
             'receipt_paper_size' => 'required|in:58,80',
@@ -283,8 +292,10 @@ class SettingController extends Controller
      */
     public function testPrint(Request $request): View
     {
-        $company = Company::firstOrFail();
-        $store = Store::where('code', 'STR-001')->first() ?? Store::first();
+        $company = $this->companyService->getActiveCompany();
+        $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+            ?? Store::where('company_id', $company->id)->first()
+            ?? Store::first();
 
         // Buat dummy mock transaction object untuk keperluan preview/test print
         $mockTransaction = (object) [
@@ -358,8 +369,10 @@ class SettingController extends Controller
      */
     public function cashier(): View
     {
-        $company = Company::firstOrFail();
-        $store = Store::where('code', 'STR-001')->first() ?? Store::first();
+        $company = $this->companyService->getActiveCompany();
+        $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+            ?? Store::where('company_id', $company->id)->first()
+            ?? Store::first();
 
         return view('settings.cashier', compact('company', 'store'));
     }
@@ -369,7 +382,7 @@ class SettingController extends Controller
      */
     public function updateCashier(Request $request): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         $validated = $request->validate([
             'cashier_default_starting_cash' => 'required|numeric|min:0',
@@ -414,7 +427,7 @@ class SettingController extends Controller
      */
     public function stores(): View
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $stores = Store::where('company_id', $company->id)
             ->withCount(['stocks', 'products'])
             ->orderByDesc('is_main_store')
@@ -429,7 +442,7 @@ class SettingController extends Controller
      */
     public function storeStore(Request $request): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:stores,code',
@@ -484,7 +497,7 @@ class SettingController extends Controller
      */
     public function updateStore(Request $request, string $id): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->findOrFail($id);
 
         $validated = $request->validate([
@@ -531,7 +544,7 @@ class SettingController extends Controller
      */
     public function toggleStoreStatus(string $id): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->findOrFail($id);
 
         if ($store->is_main_store && $store->is_active) {
@@ -549,7 +562,7 @@ class SettingController extends Controller
      */
     public function setMainStore(string $id): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->findOrFail($id);
 
         if (! $store->is_active) {

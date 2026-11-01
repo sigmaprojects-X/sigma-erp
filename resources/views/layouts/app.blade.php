@@ -914,6 +914,13 @@
                              x-transition:leave-start="opacity-100 translate-y-0"
                              x-transition:leave-end="opacity-0 -translate-y-1"
                              class="pl-3 py-1 space-y-1 border-l-2 border-[#132D6B] ml-5 my-1">
+                            @if(auth()->user()?->role === 'owner')
+                            <a href="{{ route('settings.companies.index') }}"
+                               class="flex items-center space-x-2.5 rounded-xl px-3 py-2 text-xs transition-all duration-200 {{ request()->routeIs('settings.companies*') ? 'bg-[#125BCE] text-white font-bold shadow-xs shadow-[#125BCE]/40 ring-1 ring-[#18BDEB]/30' : 'text-slate-300 hover:text-white font-semibold hover:bg-white/10' }}">
+                                <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('settings.companies*') ? 'bg-[#18BDEB]' : 'bg-slate-500' }}"></span>
+                                <span>🏢 Kelola Perusahaan (Holding)</span>
+                            </a>
+                            @endif
                             <a href="{{ route('settings.general') }}"
                                class="flex items-center space-x-2.5 rounded-xl px-3 py-2 text-xs transition-all duration-200 {{ request()->routeIs('settings.general*') ? 'bg-[#125BCE] text-white font-bold shadow-xs shadow-[#125BCE]/40 ring-1 ring-[#18BDEB]/30' : 'text-slate-300 hover:text-white font-semibold hover:bg-white/10' }}">
                                 <span class="w-1.5 h-1.5 rounded-full {{ request()->routeIs('settings.general*') ? 'bg-[#18BDEB]' : 'bg-slate-500' }}"></span>
@@ -1030,10 +1037,73 @@
             </div>
 
             <!-- Desktop Title & Breadcrumbs -->
-            <div class="hidden md:block">
+            <div class="hidden md:flex items-center gap-3">
                 <h1 class="text-xl font-black text-[#0B1F4D] dark:text-white tracking-tight">
                     @yield('page_title', 'Sistem Manajemen Toko & Kasir POS')
                 </h1>
+
+                <!-- SAKELAR MULTI-COMPANY (DROPDOWN HOLDING) -->
+                @if(isset($currentCompany))
+                <div class="relative" x-data="{ openCompanyDropdown: false }">
+                    <button type="button"
+                            @click="openCompanyDropdown = !openCompanyDropdown"
+                            class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-700/60 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-xs font-black text-slate-800 dark:text-white transition-all shadow-2xs cursor-pointer"
+                            title="Entitas Perusahaan Aktif: {{ $currentCompany->name }}">
+                        <span class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white text-[10px]">🏢</span>
+                        <span class="max-w-[170px] xl:max-w-[220px] truncate">{{ $currentCompany->name }}</span>
+                        @if(isset($canSwitchCompany) && $canSwitchCompany && isset($availableCompanies) && $availableCompanies->count() > 1)
+                            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" :class="{ 'rotate-180': openCompanyDropdown }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        @endif
+                    </button>
+
+                    @if(isset($canSwitchCompany) && $canSwitchCompany && isset($availableCompanies))
+                    <div x-show="openCompanyDropdown"
+                         x-cloak
+                         @click.away="openCompanyDropdown = false"
+                         x-transition:enter="transition ease-out duration-150"
+                         x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                         x-transition:leave="transition ease-in duration-100"
+                         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                         x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
+                         class="absolute left-0 mt-2 w-72 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl py-2 z-50 text-left">
+                        <div class="px-3.5 py-1.5 border-b border-slate-100 dark:border-slate-700/60 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
+                            Beralih Entitas Perusahaan
+                        </div>
+
+                        <div class="max-h-60 overflow-y-auto py-1">
+                            @foreach($availableCompanies as $comp)
+                                <form action="{{ route('company.switch') }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="company_id" value="{{ $comp->id }}">
+                                    <button type="submit"
+                                            class="w-full flex items-center justify-between px-3.5 py-2.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors cursor-pointer {{ $comp->id === $currentCompany->id ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-black' : 'text-slate-700 dark:text-slate-300 font-bold' }}">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <span class="text-sm">🏢</span>
+                                            <div class="truncate text-left">
+                                                <div class="truncate">{{ $comp->name }}</div>
+                                                <div class="text-[9.5px] font-mono text-slate-400">{{ $comp->code }}</div>
+                                            </div>
+                                        </div>
+                                        @if($comp->id === $currentCompany->id)
+                                            <span class="text-blue-600 dark:text-blue-400 font-black text-xs">✓</span>
+                                        @endif
+                                    </button>
+                                </form>
+                            @endforeach
+                        </div>
+
+                        <div class="border-t border-slate-100 dark:border-slate-700/60 pt-1 mt-1 px-2">
+                            <a href="{{ route('settings.companies.index') }}"
+                               class="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-extrabold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700/60 transition-colors">
+                                <span>➕</span>
+                                <span>Kelola / Tambah Perusahaan</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+                @endif
             </div>
 
             <!-- Right Actions: Quick Search, Buka Kasir POS, Dark Mode Toggle, Profile -->

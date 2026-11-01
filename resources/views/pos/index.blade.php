@@ -185,6 +185,46 @@
                 <span class="bg-[#FFB800] text-slate-950 font-black text-[9px] px-1.5 py-0.2 rounded">PRO</span>
             </div>
 
+            <!-- COMPANY HOLDING PILL / SWITCHER -->
+            @if(isset($currentCompany))
+            <div class="relative" x-data="{ openPosCompanyDropdown: false }">
+                <button type="button"
+                        @click="openPosCompanyDropdown = !openPosCompanyDropdown"
+                        class="px-3 py-1 bg-[#06214C] hover:bg-[#082C66] border border-cyan-400/30 rounded-full text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        title="Entitas Perusahaan: {{ $currentCompany->name }}">
+                    <span class="text-cyan-400 text-xs">🏢</span>
+                    <span class="font-extrabold tracking-wide max-w-[120px] md:max-w-[180px] truncate text-cyan-200">{{ $currentCompany->name }}</span>
+                    @if(isset($canSwitchCompany) && $canSwitchCompany && isset($availableCompanies) && $availableCompanies->count() > 1)
+                        <span class="text-[9px] text-cyan-400">▾</span>
+                    @endif
+                </button>
+
+                @if(isset($canSwitchCompany) && $canSwitchCompany && isset($availableCompanies))
+                <div x-show="openPosCompanyDropdown"
+                     x-cloak
+                     @click.away="openPosCompanyDropdown = false"
+                     class="absolute left-0 mt-2 w-64 rounded-xl bg-slate-900 border border-cyan-500/30 shadow-2xl py-1 z-50 text-left">
+                    <div class="px-3 py-1 text-[10px] font-black uppercase text-cyan-300 border-b border-white/10">
+                        Beralih Perusahaan Kasir
+                    </div>
+                    @foreach($availableCompanies as $comp)
+                        <form action="{{ route('company.switch') }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="company_id" value="{{ $comp->id }}">
+                            <button type="submit"
+                                    class="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-blue-600/40 transition-colors cursor-pointer {{ $comp->id === $currentCompany->id ? 'text-cyan-300 font-black bg-blue-600/20' : 'text-slate-200 font-medium' }}">
+                                <span class="truncate">{{ $comp->name }}</span>
+                                @if($comp->id === $currentCompany->id)
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                @endif
+                            </button>
+                        </form>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+            @endif
+
             <!-- KASIR BERTUGAS CHIP -->
             <div class="bg-[#06214C] border border-blue-400/30 hover:border-blue-400/60 rounded-full pl-1.5 pr-3 py-0.5 flex items-center gap-2 cursor-pointer shadow-xs transition-all"
                  @click="openSwitchCashierModal()"

@@ -645,22 +645,23 @@ class PosController extends Controller
      */
     protected function resolveCompanyAndStore(Request $request): array
     {
+        $companyService = app(\App\Services\CompanyService::class);
         $user = $request->user() ?? Auth::user();
 
-        if ($user && $user->store && $user->store->company) {
+        if ($user && $user->store && $user->store->company && $user->role !== 'owner') {
             $company = $user->store->company;
             $store = $user->store;
         } else {
-            $company = Company::where('code', 'SIGMA-HO')->first() ?? Company::firstOrFail();
-            if ($user && $user->store) {
+            $company = $companyService->getActiveCompany();
+            if ($user && $user->store && $user->store->company_id === $company->id) {
                 $store = $user->store;
             } elseif ($request->filled('store_id')) {
                 $store = Store::where('company_id', $company->id)->find($request->store_id)
-                    ?? Store::where('company_id', $company->id)->where('code', 'STR-001')->first()
+                    ?? Store::where('company_id', $company->id)->where('is_main_store', true)->first()
                     ?? Store::where('company_id', $company->id)->first()
                     ?? Store::firstOrFail();
             } else {
-                $store = Store::where('company_id', $company->id)->where('code', 'STR-001')->first()
+                $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
                     ?? Store::where('company_id', $company->id)->first()
                     ?? Store::firstOrFail();
             }

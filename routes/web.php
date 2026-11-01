@@ -41,6 +41,7 @@ use App\Http\Controllers\TaxManagementController;
 use App\Http\Controllers\TransferRequestController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\AutoNumberSettingController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\MaintenanceController;
 use Illuminate\Support\Facades\Route;
 
@@ -81,6 +82,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         return redirect()->route('sales.index');
     });
+
+    // SAKELAR MULTI-COMPANY (COMPANY SWITCHER UNTUK OWNER)
+    Route::post('/company/switch', [CompanyController::class, 'switchCompany'])->name('company.switch');
 
     // Cetak Nota Retur Penjualan (Dapat diakses oleh Kasir POS dan Manajemen)
     Route::get('/sales/returns/{id}/print', [SalesController::class, 'printReturnNote'])
@@ -588,6 +592,14 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/general', [SettingController::class, 'updateGeneral'])->middleware('permission:settings_general.ubah')->name('general.update');
         Route::post('/wallpaper/reset', [SettingController::class, 'resetWallpaper'])->middleware('permission:settings_general.ubah')->name('wallpaper.reset');
         Route::post('/logo/reset', [SettingController::class, 'resetLogo'])->middleware('permission:settings_general.ubah')->name('logo.reset');
+
+        // 5-HOLDING. KELOLA PERUSAHAAN (MULTI-COMPANY HOLDING)
+        Route::prefix('companies')->name('companies.')->middleware('role:owner')->group(function () {
+            Route::get('/', [CompanyController::class, 'index'])->name('index');
+            Route::post('/', [CompanyController::class, 'store'])->name('store');
+            Route::put('/{id}', [CompanyController::class, 'update'])->name('update');
+            Route::patch('/{id}/toggle-status', [CompanyController::class, 'toggleStatus'])->name('toggle-status');
+        });
 
         // 5a. CABANG TOKO & GUDANG MULTI-STORE
         Route::prefix('stores')->name('stores.')->group(function () {

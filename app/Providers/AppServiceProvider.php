@@ -3,7 +3,10 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\CompanyService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -72,6 +75,26 @@ class AppServiceProvider extends ServiceProvider
         // 5. Modul Settings
         Gate::define('manage-settings', function (User $user) {
             return in_array($user->role, ['owner', 'manager'], true);
+        });
+
+        // 6. Multi-Company Global View Context (Header & Layouts)
+        View::composer(['layouts.app', 'pos.index', 'settings.*'], function ($view) {
+            if (Auth::check()) {
+                try {
+                    $companyService = app(CompanyService::class);
+                    $currentCompany = $companyService->getActiveCompany();
+                    $availableCompanies = $companyService->getAvailableCompanies();
+                    $canSwitchCompany = Auth::user()->role === 'owner';
+
+                    $view->with([
+                        'currentCompany' => $currentCompany,
+                        'availableCompanies' => $availableCompanies,
+                        'canSwitchCompany' => $canSwitchCompany,
+                    ]);
+                } catch (\Throwable $e) {
+                    // Fail silently during initial seed/migration
+                }
+            }
         });
     }
 }
