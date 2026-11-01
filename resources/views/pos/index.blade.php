@@ -14,21 +14,22 @@
             color: #1e293b;
         }
         .pos-table th {
-            background-color: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 11px;
+            background-color: #f1f5f9;
+            border-bottom: 2px solid #cbd5e1;
+            font-size: 12px;
             font-weight: 800;
             color: #334155;
-            padding: 9px 12px;
+            padding: 10px 14px;
             user-select: none;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
         }
         .pos-table td {
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 12px;
-            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            padding: 10px 14px;
             white-space: nowrap;
+            vertical-align: middle;
         }
         .pos-input {
             border: 1px solid #cbd5e1;
@@ -654,57 +655,62 @@
                 <table class="pos-table w-full border-collapse">
                     <thead class="sticky top-0 z-10 shadow-2xs">
                         <tr>
-                            <th class="w-12 text-center">NO</th>
-                            <th class="w-40 text-left">KODE / BARCODE</th>
+                            <th class="w-14 text-center">NO</th>
+                            <th class="w-44 text-left">KODE / BARCODE</th>
                             <th class="text-left">NAMA PRODUK</th>
-                            <th class="w-24 text-right">KUANTITAS</th>
-                            <th class="w-28 text-center">SATUAN KEMASAN</th>
-                            <th class="w-32 text-right">HARGA SATUAN</th>
-                            <th class="w-24 text-right">DISKON</th>
-                            <th class="w-32 text-right">SUBTOTAL</th>
-                            <th class="w-20 text-center">AKSI</th>
+                            <th class="w-28 text-right">KUANTITAS</th>
+                            <th class="w-32 text-center">SATUAN KEMASAN</th>
+                            <th class="w-36 text-right">HARGA SATUAN</th>
+                            <th class="w-28 text-right">DISKON</th>
+                            <th class="w-36 text-right">SUBTOTAL</th>
+                            <th class="w-24 text-center">AKSI</th>
                         </tr>
                     </thead>
                     <tbody>
                         <!-- BARIS DATA KERANJANG AKTIF -->
                         <template x-for="(item, idx) in cart" :key="idx">
-                            <tr :class="selectedCartIdx === idx ? 'bg-blue-50/80 font-semibold border-l-4 border-[#1877F2]' : (idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white')"
+                            <tr :class="selectedCartIdx === idx ? 'bg-blue-50/90 font-semibold border-l-4 border-[#1877F2] shadow-xs' : (idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white')"
                                 @click="selectedCartIdx = idx"
-                                class="cursor-pointer hover:bg-blue-50/40 transition-colors duration-100 border-b border-slate-100 text-slate-800">
+                                class="cursor-pointer hover:bg-blue-50/50 transition-all duration-100 border-b border-slate-200/80 text-slate-800">
                                 
                                 <!-- NO -->
-                                <td class="text-center font-bold text-xs sm:text-sm text-blue-600" x-text="idx + 1"></td>
+                                <td class="text-center font-bold text-slate-500">
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 font-mono text-xs font-black text-slate-600 border border-slate-200" x-text="idx + 1"></span>
+                                </td>
                                 
                                 <!-- KODE / BARCODE -->
-                                <td class="font-mono text-xs font-semibold text-slate-600" x-text="item.barcode || item.sku"></td>
+                                <td class="font-mono text-slate-600">
+                                    <span class="inline-block px-2.5 py-1 rounded bg-slate-100/90 border border-slate-200 text-xs font-bold text-slate-700 tracking-wide" x-text="item.barcode || item.sku"></span>
+                                </td>
                                 
                                 <!-- NAMA PRODUK & STOK TOKO -->
-                                <td class="font-bold text-sm text-slate-900">
-                                    <div class="flex items-center gap-1.5">
+                                <td class="font-bold text-slate-900">
+                                    <div class="flex items-center gap-2">
                                         <template x-if="item.is_tebus_murah">
-                                            <span class="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-black uppercase tracking-wider shadow-2xs">Tebus Murah</span>
+                                            <span class="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-2xs">Tebus Murah</span>
                                         </template>
-                                        <span x-text="item.product_name"></span>
+                                        <span class="text-[15px] font-black text-slate-900 leading-tight" x-text="item.product_name"></span>
                                     </div>
                                     <template x-if="item.stock_formatted">
-                                        <div class="text-[11px] font-mono mt-0.5 flex items-center gap-1 font-semibold"
+                                        <div class="text-xs font-mono mt-1 flex items-center gap-1.5 font-semibold"
                                              :class="item.available_stock > 0 ? 'text-slate-600' : 'text-rose-600'">
                                             <span class="w-2 h-2 rounded-full" :class="item.available_stock > 0 ? 'bg-emerald-500' : 'bg-rose-500'"></span>
-                                            <span>Stok Toko : <strong class="text-slate-700" x-text="item.stock_formatted"></strong></span>
+                                            <span>Stok Toko : <strong class="text-slate-800 font-bold" x-text="item.stock_formatted"></strong></span>
                                         </div>
                                     </template>
                                 </td>
 
                                 <!-- KUANTITAS -->
-                                <td class="text-right font-mono font-black text-sm text-slate-900">
-                                    <span x-text="formatDec(item.quantity)"></span>
+                                <td class="text-right font-mono font-black text-slate-900">
+                                    <span class="inline-block px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200/70 text-[15px] sm:text-base font-black shadow-2xs"
+                                          x-text="formatDec(item.quantity)"></span>
                                 </td>
 
                                 <!-- SATUAN KEMASAN (DROPDOWN PILL IN-ROW) -->
                                 <td class="text-center">
                                     <select x-model="item.product_unit_id"
                                             @change="onItemUnitChange(item)"
-                                            class="text-xs bg-slate-50 border border-slate-300 rounded px-2.5 py-1 cursor-pointer shadow-2xs text-slate-800 font-bold hover:border-slate-400 focus:ring-1 focus:ring-blue-500">
+                                            class="text-xs sm:text-sm bg-white border border-slate-300 font-extrabold rounded-lg px-3 py-1.5 cursor-pointer shadow-2xs text-slate-800 hover:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                                         <template x-for="u in item.available_units" :key="u.id">
                                             <option :value="u.id" x-text="u.code" :selected="u.id === item.product_unit_id"></option>
                                         </template>
@@ -712,17 +718,17 @@
                                 </td>
 
                                 <!-- HARGA SATUAN -->
-                                <td class="text-right font-mono font-bold text-slate-800 text-sm"
+                                <td class="text-right font-mono font-bold text-slate-800 text-[14px] sm:text-[15px]"
                                     x-text="formatRupiah(item.unit_price) + ',00'"></td>
 
                                 <!-- POTONGAN DISKON BARIS -->
-                                <td class="text-right font-mono text-sm"
-                                    :class="item.discount_amount > 0 ? 'text-rose-600 font-bold' : 'text-blue-600 font-bold'">
+                                <td class="text-right font-mono text-[14px] sm:text-[15px] font-bold"
+                                    :class="item.discount_amount > 0 ? 'text-rose-600 font-black' : 'text-slate-400 font-medium'">
                                     <span x-text="item.discount_amount > 0 ? ('-Rp ' + formatRupiah(item.discount_amount)) : '0,00'"></span>
                                 </td>
 
                                 <!-- SUBTOTAL -->
-                                <td class="text-right font-mono font-black text-sm text-blue-600"
+                                <td class="text-right font-mono font-black text-[15px] sm:text-[16px] text-[#1877F2]"
                                     x-text="formatRupiah(item.subtotal) + ',00'"></td>
 
                                 <!-- AKSI CEPAT PER BARIS -->
@@ -730,11 +736,11 @@
                                     <div class="flex items-center justify-center gap-1.5 text-slate-600">
                                         <button type="button"
                                                 @click.stop="openEditItemModal(item)"
-                                                class="p-1 rounded text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition-colors cursor-pointer"
-                                                title="Edit Qty / Diskon">✏️</button>
+                                                class="w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 inline-flex items-center justify-center text-sm shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                                                title="Edit Qty / Satuan / Diskon">✏️</button>
                                         <button type="button"
                                                 @click.stop="removeCartRow(idx)"
-                                                class="p-1 rounded text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+                                                class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 inline-flex items-center justify-center text-sm shadow-2xs transition-transform active:scale-95 cursor-pointer"
                                                 title="Hapus Baris (Delete)">🗑️</button>
                                     </div>
                                 </td>
