@@ -46,6 +46,18 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         Kode: <span class="font-mono font-semibold">{{ $userStore?->code ?? 'STR-001' }}</span> &bull; Petugas: <strong class="text-slate-700 dark:text-slate-300">{{ $user->name }}</strong>
                     </p>
+                    @if(isset($availableStores) && $availableStores->count() > 1 && in_array($user->role, ['owner', 'manager', 'store_head']))
+                        <form method="GET" action="{{ route('warehouse.opname-pwa.index') }}" class="mt-2 flex items-center gap-1.5">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lokasi:</span>
+                            <select name="cabang" onchange="this.form.submit()" class="text-xs font-bold bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-200 focus:outline-hidden">
+                                @foreach($availableStores as $st)
+                                    <option value="{{ $st->code }}" {{ ($userStore?->id === $st->id) ? 'selected' : '' }}>
+                                        🏬 {{ $st->name }} ({{ $st->code }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
+                    @endif
                 </div>
             </div>
 
@@ -265,11 +277,22 @@
 
             <!-- Cabang Toko Info -->
             <div>
-                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Lokasi Toko / Cabang</label>
-                <div class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                    <span>{{ $userStore?->name ?? 'Cabang Utama' }}</span>
-                    <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">{{ $userStore?->code ?? 'STR-001' }}</span>
-                </div>
+                <label for="modal_store_id" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Lokasi Toko / Cabang</label>
+                @if(isset($availableStores) && $availableStores->count() > 1 && in_array($user->role, ['owner', 'manager', 'store_head']))
+                    <select name="store_id" id="modal_store_id" class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-750 border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500">
+                        @foreach($availableStores as $st)
+                            <option value="{{ $st->id }}" {{ ($userStore?->id === $st->id) ? 'selected' : '' }}>
+                                🏬 {{ $st->name }} ({{ $st->code }})
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    <input type="hidden" name="store_id" value="{{ $userStore?->id }}">
+                    <div class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                        <span>{{ $userStore?->name ?? 'Cabang Utama' }}</span>
+                        <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">{{ $userStore?->code ?? 'STR-001' }}</span>
+                    </div>
+                @endif
             </div>
 
             <!-- Tanggal Opname -->

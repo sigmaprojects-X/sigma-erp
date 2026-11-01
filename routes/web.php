@@ -51,12 +51,14 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('store')->name('pwa.')->group(function () {
     Route::get('/', [PwaStorefrontController::class, 'index'])->name('index');
     Route::get('/c/{company_code}', [PwaStorefrontController::class, 'index'])->name('company');
+    Route::get('/s/{branch_code}', [PwaStorefrontController::class, 'index'])->name('branch');
     Route::get('/manifest.json', [PwaStorefrontController::class, 'manifest'])->name('manifest');
     Route::get('/products/{id}', [PwaStorefrontController::class, 'productDetail'])->name('product');
     Route::post('/checkout', [PwaStorefrontController::class, 'checkout'])->middleware('throttle:10,1')->name('checkout');
     Route::get('/orders/{orderNumber}', [PwaStorefrontController::class, 'orderStatus'])->name('order-status');
 });
 Route::get('/toko/{company_code}', [PwaStorefrontController::class, 'index'])->name('pwa.toko');
+Route::get('/cabang/{branch_code}', [PwaStorefrontController::class, 'index'])->name('pwa.cabang');
 Route::get('/katalog', fn () => redirect()->route('pwa.index'));
 
 // PWA Stock Opname Manifest (Public / Browser installable)

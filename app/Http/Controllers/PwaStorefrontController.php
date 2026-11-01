@@ -42,26 +42,49 @@ class PwaStorefrontController extends Controller
         $company = null;
         $store = null;
 
-        // 1. Cek parameter kode perusahaan dari URL (/store/c/{code}) atau query string (?c=... atau ?company=...)
-        $targetCode = $companyCode ?: ($request->query('c') ?: $request->query('company'));
+        // 1. Cek parameter kode dari route parameter (/cabang/{code}, /store/s/{code}, /toko/{code}) atau query string (?cabang=... / ?store=... / ?c=...)
+        $targetCode = $companyCode
+            ?: ($request->route('branch_code')
+            ?: ($request->query('cabang')
+            ?: ($request->query('store')
+            ?: ($request->query('store_code')
+            ?: ($request->query('c')
+            ?: $request->query('company'))))));
 
         if ($targetCode) {
-            $company = Company::where('is_active', true)
-                ->where(function ($q) use ($targetCode) {
-                    $q->whereRaw('LOWER(code) = ?', [strtolower(trim($targetCode))])
-                      ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($targetCode))]);
+            $cleanCode = strtolower(trim($targetCode));
+
+            // A. Cek apakah cocok dengan Kode Cabang / Toko (Store)
+            $storeCandidate = Store::with('company')
+                ->where('is_active', true)
+                ->where(function ($q) use ($cleanCode) {
+                    $q->whereRaw('LOWER(code) = ?', [$cleanCode])
+                      ->orWhereRaw('LOWER(name) = ?', [$cleanCode]);
                 })->first();
 
-            if ($company) {
-                $store = $company->stores()->where('is_main_store', true)->first()
-                    ?? $company->stores()->first();
+            if ($storeCandidate && $storeCandidate->company && $storeCandidate->company->is_active) {
+                $store = $storeCandidate;
+                $company = $storeCandidate->company;
+            } else {
+                // B. Cek apakah cocok dengan Kode Perusahaan Holding (Company)
+                $companyCandidate = Company::where('is_active', true)
+                    ->where(function ($q) use ($cleanCode) {
+                        $q->whereRaw('LOWER(code) = ?', [$cleanCode])
+                          ->orWhereRaw('LOWER(name) = ?', [$cleanCode]);
+                    })->first();
+
+                if ($companyCandidate) {
+                    $company = $companyCandidate;
+                    $store = $company->stores()->where('is_main_store', true)->first()
+                        ?? $company->stores()->first();
+                }
             }
         }
 
-        // 2. Jika tidak ada parameter perusahaan, cek store_id
+        // 2. Jika tidak ada parameter kode, cek store_id
         if (! $store && $request->filled('store_id')) {
-            $store = Store::find($request->store_id);
-            if ($store) {
+            $store = Store::with('company')->find($request->store_id);
+            if ($store && $store->company) {
                 $company = $store->company;
             }
         }

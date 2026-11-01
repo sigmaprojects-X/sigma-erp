@@ -28,7 +28,20 @@ class PwaStockOpnameController extends Controller
     {
         $user = Auth::user();
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $userStore = $user?->store ?? Store::where('company_id', $company->id)->first();
+
+        $selectedStore = null;
+        $targetStore = $request->query('cabang') ?: ($request->query('store') ?: $request->query('store_id'));
+        if ($targetStore) {
+            $selectedStore = Store::where('company_id', $company->id)
+                ->where(function ($q) use ($targetStore) {
+                    $q->where('id', $targetStore)
+                      ->orWhereRaw('LOWER(code) = ?', [strtolower(trim($targetStore))])
+                      ->orWhereRaw('LOWER(name) = ?', [strtolower(trim($targetStore))]);
+                })->first();
+        }
+
+        $userStore = $selectedStore ?? ($user?->store ?? Store::where('company_id', $company->id)->first());
+        $availableStores = Store::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
 
         // Ambil sesi opname aktif di toko pengguna
         $activeSessions = StockOpname::where('company_id', $company->id)
@@ -65,7 +78,7 @@ class PwaStockOpnameController extends Controller
             ->sort()
             ->values();
 
-        return view('warehouse.pwa.index', compact('activeSessions', 'recentSessions', 'userStore', 'user', 'availableRacks'));
+        return view('warehouse.pwa.index', compact('activeSessions', 'recentSessions', 'userStore', 'user', 'availableRacks', 'availableStores'));
     }
 
     /**
@@ -74,6 +87,7 @@ class PwaStockOpnameController extends Controller
     public function storeSession(Request $request): RedirectResponse
     {
         $request->validate([
+            'store_id' => 'nullable|uuid|exists:stores,id',
             'notes' => 'nullable|string|max:255',
             'opname_date' => 'nullable|date',
             'rack_location' => 'nullable|string|max:50',
@@ -81,7 +95,12 @@ class PwaStockOpnameController extends Controller
 
         $user = Auth::user();
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $userStore = $user?->store ?? Store::where('company_id', $company->id)->firstOrFail();
+
+        $userStore = null;
+        if ($request->filled('store_id')) {
+            $userStore = Store::where('company_id', $company->id)->where('id', $request->store_id)->first();
+        }
+        $userStore = $userStore ?? ($user?->store ?? Store::where('company_id', $company->id)->firstOrFail());
 
         try {
             $notes = $request->filled('notes') 
