@@ -1,6 +1,6 @@
 ; ==============================================================================
 ; SIGMA ERP & POS Pro - Professional Windows Installer Script (Inno Setup 6+)
-; Copyright (c) 2026 PT SIGMA RETAIL INDONESIA. All rights reserved.
+; Copyright (c) 2026 SIGMA PROJECTS. All rights reserved.
 ;
 ; CARA KOMPILASI:
 ;   1. Install Inno Setup 6 dari https://jrsoftware.org/isdl.php
@@ -13,7 +13,7 @@
 ; ============== KONSTANTA VERSI & IDENTITAS APLIKASI ==========================
 #define MyAppName        "SIGMA ERP & POS Pro"
 #define MyAppVersion     "1.0.2"
-#define MyAppPublisher   "PT SIGMA RETAIL INDONESIA"
+#define MyAppPublisher   "SIGMA PROJECTS"
 #define MyAppURL         "https://sigmamart.co.id"
 #define MyAppSupportURL  "https://sigmamart.co.id/support"
 #define MyAppIcon        "..\public\sigma.ico"
