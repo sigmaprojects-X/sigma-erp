@@ -8,6 +8,15 @@
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
+    <!-- PWA Progressive Web App Meta & Manifest -->
+    <meta name="theme-color" content="#03091e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SIGMA ERP">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="{{ asset('sigma-icon-192.png') }}">
+
     <!-- 1. Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://googleapis.com">
     <link rel="preconnect" href="https://gstatic.com" crossorigin>
@@ -172,6 +181,15 @@
         }
     </style>
     @stack('styles')
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').catch(function(e) {
+                    console.log('PWA SW error:', e);
+                });
+            });
+        }
+    </script>
 </head>
 <body class="min-h-screen bg-[#F4F7FC] dark:bg-slate-900 font-sans text-[#172033] dark:text-slate-100 pb-20 md:pb-0 antialiased selection:bg-[#125BCE] selection:text-white transition-colors duration-200"
       x-data="sigmaErpLayout()"
@@ -1306,5 +1324,46 @@
     </script>
 
     @stack('scripts')
+    <!-- Floating PWA Install Banner for Mobile HP -->
+    <div id="pwa-install-banner" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-slate-900/95 backdrop-blur-md border border-cyan-500/30 text-white p-3.5 rounded-2xl shadow-2xl flex items-center justify-between gap-3 z-50 transition-all duration-300" style="display: none;">
+        <div class="flex items-center gap-3">
+            <img src="{{ asset('sigma-icon-192.png') }}" alt="SIGMA" class="w-10 h-10 rounded-xl shadow-md border border-cyan-400/20">
+            <div>
+                <div class="font-bold text-xs text-cyan-300">Pasang Aplikasi SIGMA</div>
+                <div class="text-[11px] text-slate-300">Layar penuh &amp; instan di HP</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <button id="pwa-install-btn" class="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg transition cursor-pointer">Pasang</button>
+            <button onclick="document.getElementById('pwa-install-banner').style.display = 'none'" class="p-1.5 text-slate-400 hover:text-white rounded-lg text-xs cursor-pointer">&times;</button>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) banner.style.display = 'flex';
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('pwa-install-btn');
+            if (btn) {
+                btn.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        if (outcome === 'accepted') {
+                            const banner = document.getElementById('pwa-install-banner');
+                            if (banner) banner.style.display = 'none';
+                        }
+                        deferredPrompt = null;
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

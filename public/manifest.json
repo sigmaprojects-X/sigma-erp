@@ -1,0 +1,41 @@
+{
+  "name": "SIGMA ERP & POS Enterprise",
+  "short_name": "SIGMA POS",
+  "description": "Sistem Terintegrasi Toko, Kasir, Persediaan & Logistik",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#03091e",
+  "theme_color": "#03091e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/sigma-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/sigma-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Layar Kasir POS",
+      "short_name": "Kasir",
+      "description": "Buka Layar Transaksi Kasir POS",
+      "url": "/pos",
+      "icons": [{ "src": "/sigma-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Stok Opname Gudang",
+      "short_name": "Opname",
+      "description": "Stock Opname Gudang PWA",
+      "url": "/opname-pwa",
+      "icons": [{ "src": "/sigma-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
