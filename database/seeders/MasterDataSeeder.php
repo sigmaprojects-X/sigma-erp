@@ -145,6 +145,12 @@ class MasterDataSeeder extends Seeder
                 ]
             );
 
+            // Tautkan staf operasional cabang ke Store STR-001
+            $userKasir->update(['store_id' => $store->id]);
+            $userManager->update(['store_id' => $store->id]);
+            User::whereIn('email', ['sales1@sigma.test', 'sales2@sigma.test', 'warehouse@sigma.test'])
+                ->update(['store_id' => $store->id]);
+
             // 3. Buat Level Pelanggan (Customer Tiers - Level 1 s/d Level 6 Standar Multi-Tier)
             $tierRetail = CustomerTier::firstOrCreate(
                 [
