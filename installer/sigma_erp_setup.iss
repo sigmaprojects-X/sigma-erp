@@ -316,6 +316,37 @@ begin
 end;
 
 // ===========================================================================
+// HELPER: Ambil baris-baris terakhir dari file log untuk pesan dialog error
+// ===========================================================================
+function GetLogSnippet(const LogPath: String; MaxLines: Integer): String;
+var
+  Lines: TStringList;
+  i, StartIdx: Integer;
+begin
+  Result := '';
+  if FileExists(LogPath) then
+  begin
+    Lines := TStringList.Create;
+    try
+      Lines.LoadFromFile(LogPath);
+      if Lines.Count > 0 then
+      begin
+        StartIdx := Lines.Count - MaxLines;
+        if StartIdx < 0 then StartIdx := 0;
+        for i := StartIdx to Lines.Count - 1 do
+        begin
+          if Trim(Lines[i]) <> '' then
+            Result := Result + '  > ' + Lines[i] + #13#10;
+        end;
+      end;
+    except
+      Result := '';
+    end;
+    Lines.Free;
+  end;
+end;
+
+// ===========================================================================
 // HELPER: Jalankan perintah artisan Laravel dan catat output ke installer.log
 // ===========================================================================
 function RunArtisan(const ArtisanArgs: String): Boolean;
@@ -323,11 +354,13 @@ var
   ResultCode: Integer;
   LogFile: String;
   PhpExe: String;
+  PhpDir: String;
 begin
   LogFile := ExpandConstant('{app}') + '\storage\logs\installer.log';
   PhpExe := GetPhpExe();
+  PhpDir := ExpandConstant('{app}') + '\php';
   Result := Exec('cmd.exe',
-    '/C cd /D "' + ExpandConstant('{app}') + '" && ' + PhpExe + ' artisan ' + ArtisanArgs + ' >> "' + LogFile + '" 2>&1',
+    '/C set "PATH=' + PhpDir + ';%PATH%" && cd /D "' + ExpandConstant('{app}') + '" && ' + PhpExe + ' artisan ' + ArtisanArgs + ' >> "' + LogFile + '" 2>&1',
     ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := Result and (ResultCode = 0);
 end;
@@ -655,7 +688,9 @@ begin
     if not RunArtisan('key:generate --force') then
     begin
       InstallSuccess := False;
-      MsgBox('Gagal membuat APP_KEY Laravel! Silakan periksa log di: ' + LogFile, mbCriticalError, MB_OK);
+      MsgBox('Gagal membuat APP_KEY Laravel!' + #13#10#13#10 +
+        'Detail Log Terakhir:' + #13#10 + GetLogSnippet(LogFile, 8) + #13#10 +
+        'Silakan periksa log lengkap di: ' + LogFile, mbCriticalError, MB_OK);
       Exit;
     end;
 
@@ -685,28 +720,36 @@ begin
       AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
     begin
       InstallSuccess := False;
-      MsgBox('Gagal terhubung atau menyiapkan database PostgreSQL (' + DbName + '). Periksa apakah PostgreSQL berjalan dan password benar. Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      MsgBox('Gagal terhubung atau menyiapkan database PostgreSQL (' + DbName + ').' + #13#10#13#10 +
+        'Detail Log Terakhir:' + #13#10 + GetLogSnippet(LogFile, 8) + #13#10 +
+        'Periksa apakah PostgreSQL berjalan dan password benar. Detail log: ' + LogFile, mbCriticalError, MB_OK);
       Exit;
     end;
 
     if not RunArtisan('migrate --force') then
     begin
       InstallSuccess := False;
-      MsgBox('Gagal menjalankan migrasi database (php artisan migrate --force)! Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      MsgBox('Gagal menjalankan migrasi database (php artisan migrate --force)!' + #13#10#13#10 +
+        'Detail Log Terakhir:' + #13#10 + GetLogSnippet(LogFile, 8) + #13#10 +
+        'Detail log: ' + LogFile, mbCriticalError, MB_OK);
       Exit;
     end;
 
     if not RunArtisan('db:seed --force') then
     begin
       InstallSuccess := False;
-      MsgBox('Gagal menjalankan seeder data awal (php artisan db:seed --force)! Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      MsgBox('Gagal menjalankan seeder data awal (php artisan db:seed --force)!' + #13#10#13#10 +
+        'Detail Log Terakhir:' + #13#10 + GetLogSnippet(LogFile, 8) + #13#10 +
+        'Detail log: ' + LogFile, mbCriticalError, MB_OK);
       Exit;
     end;
 
     if not RunArtisan('optimize:clear') then
     begin
       InstallSuccess := False;
-      MsgBox('Gagal membersihkan cache aplikasi! Detail log: ' + LogFile, mbCriticalError, MB_OK);
+      MsgBox('Gagal membersihkan cache aplikasi!' + #13#10#13#10 +
+        'Detail Log Terakhir:' + #13#10 + GetLogSnippet(LogFile, 8) + #13#10 +
+        'Detail log: ' + LogFile, mbCriticalError, MB_OK);
       Exit;
     end;
 
