@@ -22,6 +22,11 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Pastikan direktori storage dan cache tersedia serta dapat ditulis
+if not exist "bootstrap\cache" mkdir "bootstrap\cache" 2>nul
+attrib -r -s "bootstrap\cache" /D 2>nul
+attrib -r -s "storage" /D 2>nul
+
 :: 3. Cek File Konfigurasi .env
 if not exist ".env" (
     echo [*] File .env tidak ditemukan, membuat dari .env.example...

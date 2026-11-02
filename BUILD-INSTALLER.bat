@@ -83,6 +83,10 @@ robocopy "%~dp0." "%DIST_FOLDER%" /E ^
 
 :: Tambahkan Wizard SETUP.bat ke dalam paket distribusi
 copy "%~dp0installer\SETUP-STANDALONE.bat" "%DIST_FOLDER%\SETUP.bat" >nul
+attrib -r -s "%~dp0bootstrap\cache" /D 2>nul
+attrib -r -s "%~dp0storage" /D 2>nul
+attrib -r -s "%DIST_FOLDER%\bootstrap\cache" /D 2>nul
+attrib -r -s "%DIST_FOLDER%\storage" /D 2>nul
 echo [OK] Paket distribusi bersih selesai dirakit.
 echo.
 
