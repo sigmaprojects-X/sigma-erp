@@ -112,6 +112,15 @@ where iscc.exe >nul 2>nul
 if %errorlevel% equ 0 set "ISCC_PATH=iscc.exe"
 
 if not defined ISCC_PATH (
+    if exist "C:\Program Files\Inno Setup 7\ISCC.exe" set "ISCC_PATH=C:\Program Files\Inno Setup 7\ISCC.exe"
+)
+if not defined ISCC_PATH (
+    if exist "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" set "ISCC_PATH=C:\Program Files (x86)\Inno Setup 7\ISCC.exe"
+)
+if not defined ISCC_PATH (
+    if exist "%LOCALAPPDATA%\Programs\Inno Setup 7\ISCC.exe" set "ISCC_PATH=%LOCALAPPDATA%\Programs\Inno Setup 7\ISCC.exe"
+)
+if not defined ISCC_PATH (
     if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" set "ISCC_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 )
 if not defined ISCC_PATH (

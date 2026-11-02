@@ -53,17 +53,11 @@ SetupIconFile={#MyAppIcon}
 ; Kompresi LZMA2 Tertinggi untuk file sekecil mungkin
 Compression=lzma2/ultra64
 SolidCompression=yes
-InternalCompressLevel=ultra64
-LZMANumFastBytes=273
-LZMAMatchFinder=BT4
-LZMADictionarySize=16384
 
 ; Kebutuhan Sistem
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
-MinVersion=10.0.17763  ; Windows 10 1809 minimum
 WizardStyle=modern
-WizardResizable=yes
 
 ; Pengaturan Uninstall
 UninstallDisplayIcon={app}\public\sigma.ico
@@ -80,8 +74,6 @@ VersionInfoProductVersion={#MyAppVersion}
 
 ; ============== BAHASA INSTALLER ==============================================
 [Languages]
-Name: "id"; MessagesFile: "compiler:Languages\Indonesian.isl"; \
-  LicenseFile: "license.rtf"
 Name: "en"; MessagesFile: "compiler:Default.isl"; \
   LicenseFile: "license.rtf"
 
@@ -186,10 +178,9 @@ Name: "{group}\SIGMA POS Kiosk (Layar Penuh)"; \
   WorkingDir: "{app}"; \
   IconFilename: "{app}\public\sigma.ico"; \
   Comment: "Buka Kasir POS Mode Fullscreen Kiosk"
-Name: "{group}\---"; \
+Name: "{group}\Folder Aplikasi"; \
   Filename: "{app}"; \
-  Flags: foldershortcut; \
-  Comment: "Folder Aplikasi"
+  Comment: "Buka Folder Instalasi Aplikasi"
 Name: "{group}\Utilitas\Mulai Server Manual"; \
   Filename: "{app}\START-SIGMA-SERVER.bat"; \
   WorkingDir: "{app}"; \
@@ -257,9 +248,6 @@ Filename: "{app}\START-SIGMA-SERVER.bat"; \
 
 ; ============== KODE PASCAL UNTUK WIZARD KUSTOM ===============================
 [Code]
-uses
-  SysUtils, StrUtils;
-
 var
   // Halaman-halaman wizard kustom
   DbConfigPage: TInputQueryWizardPage;
@@ -271,7 +259,6 @@ var
   SelectedDbPass: String;
   SelectedPort: String;
   SelectedBackupDir: String;
-  AppKeyGenerated: Boolean;
   InstallSuccess: Boolean;
 
 // ===========================================================================
@@ -308,9 +295,8 @@ function IsValidPort(const PortStr: String): Boolean;
 var
   PortNum: Integer;
 begin
-  Result := False;
-  if TryStrToInt(PortStr, PortNum) then
-    Result := (PortNum >= 1024) and (PortNum <= 65535);
+  PortNum := StrToIntDef(Trim(PortStr), -1);
+  Result := (PortNum >= 1024) and (PortNum <= 65535);
 end;
 
 // ===========================================================================
@@ -357,8 +343,8 @@ begin
     DbConfigPage.ID,
     'Konfigurasi Port Web Server',
     'Tentukan port jaringan yang digunakan oleh Server SIGMA ERP.',
-    'Port default adalah 8008. Ubah jika port tersebut sudah digunakan oleh aplikasi lain di komputer ini.' +
-    #13#10 + 'Contoh URL akses: http://localhost:8008'
+    'Port default adalah 8008. Ubah jika port tersebut sudah digunakan oleh aplikasi lain di komputer ini.' + #13#10 +
+    'Contoh URL akses: http://localhost:8008'
   );
   PortPage.Add('Port Server (1024-65535, default: 8008):', False);
   PortPage.Values[0] := PortDefault;
@@ -421,11 +407,9 @@ begin
       Report := Report + #13#10 +
         'PERHATIAN: PHP tidak ditemukan!' + #13#10 +
         'Anda dapat melanjutkan instalasi, namun aplikasi TIDAK AKAN BERJALAN' + #13#10 +
-        'sebelum PHP 8.3+ diinstall dan ditambahkan ke PATH Windows.' + #13#10 +
-        #13#10 +
+        'sebelum PHP 8.3+ diinstall dan ditambahkan ke PATH Windows.' + #13#10#13#10 +
         'Download PHP 8.3+ Thread-Safe (x64):' + #13#10 +
-        '  https://windows.php.net/download/' + #13#10 +
-        #13#10 +
+        '  https://windows.php.net/download/' + #13#10#13#10 +
         'Download PostgreSQL 16 untuk Windows:' + #13#10 +
         '  https://www.enterprisedb.com/downloads/postgres-postgresql-downloads';
     end
@@ -684,7 +668,7 @@ begin
     end;
 
     // === Langkah 5: Tambahkan exception Firewall Windows (jika task dipilih) ===
-    if IsTaskSelected('firewall') then
+    if WizardIsTaskSelected('firewall') then
     begin
       FirewallName := 'SIGMA ERP Server (Port ' + SelectedPort + ')';
       Exec('netsh.exe',
@@ -702,15 +686,13 @@ function WelcomeLabel2Text(): String;
 begin
   Result :=
     'Wizard ini akan memandu Anda memasang ' +
-    '{#MyAppName} versi {#MyAppVersion} di komputer Anda.' +
-    #13#10 + #13#10 +
+    '{#MyAppName} versi {#MyAppVersion} di komputer Anda.' + #13#10#13#10 +
     'SIGMA ERP & POS Pro adalah sistem manajemen bisnis ritel terintegrasi ' +
-    'yang mencakup:' +
-    #13#10 + '  * Kasir POS dengan pencarian cepat barcode & trigram' +
-    #13#10 + '  * Manajemen inventaris & harga 3-dimensi otomatis' +
-    #13#10 + '  * Akuntansi double-entry otomatis (jurnal, GL, laporan)' +
-    #13#10 + '  * Multi-kasir LAN/Wi-Fi & akses cabang via tunnel' +
-    #13#10 + #13#10 +
+    'yang mencakup:' + #13#10 +
+    '  * Kasir POS dengan pencarian cepat barcode & trigram' + #13#10 +
+    '  * Manajemen inventaris & harga 3-dimensi otomatis' + #13#10 +
+    '  * Akuntansi double-entry otomatis (jurnal, GL, laporan)' + #13#10 +
+    '  * Multi-kasir LAN/Wi-Fi & akses cabang via tunnel' + #13#10#13#10 +
     'Disarankan untuk menutup semua aplikasi lain sebelum melanjutkan.';
 end;
 
@@ -720,13 +702,11 @@ end;
 function InitializeUninstall(): Boolean;
 begin
   Result := MsgBox(
-    'Apakah Anda yakin ingin menghapus {#MyAppName} dari komputer ini?' +
-    #13#10 + #13#10 +
-    'PERHATIAN: Proses uninstall TIDAK akan menghapus:' +
-    #13#10 + '  - File database PostgreSQL (data transaksi Anda aman)' +
-    #13#10 + '  - File .env (konfigurasi koneksi)' +
-    #13#10 + '  - Folder storage/app (file upload & backup lokal)' +
-    #13#10 + #13#10 +
+    'Apakah Anda yakin ingin menghapus {#MyAppName} dari komputer ini?' + #13#10#13#10 +
+    'PERHATIAN: Proses uninstall TIDAK akan menghapus:' + #13#10 +
+    '  - File database PostgreSQL (data transaksi Anda aman)' + #13#10 +
+    '  - File .env (konfigurasi koneksi)' + #13#10 +
+    '  - Folder storage/app (file upload & backup lokal)' + #13#10#13#10 +
     'Data Anda tetap aman dan dapat dipulihkan dengan menginstal ulang aplikasi.',
     mbConfirmation,
     MB_YESNO or MB_DEFBUTTON2
