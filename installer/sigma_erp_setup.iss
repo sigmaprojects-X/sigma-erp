@@ -7,12 +7,12 @@
 ;   2. Buka file ini di Inno Setup Compiler
 ;   3. Klik Compile (Ctrl+F9) atau jalankan BUILD-INSTALLER.bat
 ;
-; OUTPUT: installer_output\SIGMA_ERP_POS_v1.0.2_Setup.exe (~26 MB)
+; OUTPUT: installer_output\SIGMA_ERP_POS_v1.0.3_Setup.exe (~35 MB)
 ; ==============================================================================
 
 ; ============== KONSTANTA VERSI & IDENTITAS APLIKASI ==========================
 #define MyAppName        "SIGMA ERP & POS Pro"
-#define MyAppVersion     "1.0.2"
+#define MyAppVersion     "1.0.3"
 #define MyAppPublisher   "SIGMA PROJECTS"
 #define MyAppURL         "https://sigmamart.co.id"
 #define MyAppSupportURL  "https://sigmamart.co.id/support"
@@ -130,6 +130,10 @@ Source: "..\public\*"; DestDir: "{app}\public"; \
 
 ; --- Vendor PHP (Composer Dependencies) ---
 Source: "..\vendor\*"; DestDir: "{app}\vendor"; \
+  Flags: ignoreversion recursesubdirs createallsubdirs
+
+; --- Bundled Portable PHP 8.3 Runtime (Zero-Config Internal Engine) ---
+Source: "runtime\php\*"; DestDir: "{app}\php"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; --- File Konfigurasi Utama ---
@@ -274,16 +278,56 @@ begin
 end;
 
 // ===========================================================================
+// HELPER: Cek lokasi PHP (Gunakan Bundled Portable PHP jika ada)
+// ===========================================================================
+function GetPhpExe(): String;
+begin
+  if FileExists(ExpandConstant('{app}') + '\php\php.exe') then
+    Result := '"' + ExpandConstant('{app}') + '\php\php.exe"'
+  else
+    Result := 'php';
+end;
+
+// ===========================================================================
+// HELPER: Deteksi cerdas psql PostgreSQL di PATH dan Program Files
+// ===========================================================================
+function GetPsqlExe(): String;
+begin
+  if ProgramExists('psql') then
+  begin
+    Result := 'psql';
+    Exit;
+  end;
+
+  if FileExists('C:\Program Files\PostgreSQL\18\bin\psql.exe') then
+    Result := '"C:\Program Files\PostgreSQL\18\bin\psql.exe"'
+  else if FileExists('C:\Program Files\PostgreSQL\17\bin\psql.exe') then
+    Result := '"C:\Program Files\PostgreSQL\17\bin\psql.exe"'
+  else if FileExists('C:\Program Files\PostgreSQL\16\bin\psql.exe') then
+    Result := '"C:\Program Files\PostgreSQL\16\bin\psql.exe"'
+  else if FileExists('C:\Program Files\PostgreSQL\15\bin\psql.exe') then
+    Result := '"C:\Program Files\PostgreSQL\15\bin\psql.exe"'
+  else if FileExists('C:\Program Files (x86)\PostgreSQL\16\bin\psql.exe') then
+    Result := '"C:\Program Files (x86)\PostgreSQL\16\bin\psql.exe"'
+  else if FileExists('C:\Program Files (x86)\PostgreSQL\15\bin\psql.exe') then
+    Result := '"C:\Program Files (x86)\PostgreSQL\15\bin\psql.exe"'
+  else
+    Result := '';
+end;
+
+// ===========================================================================
 // HELPER: Jalankan perintah artisan Laravel dan catat output ke installer.log
 // ===========================================================================
 function RunArtisan(const ArtisanArgs: String): Boolean;
 var
   ResultCode: Integer;
   LogFile: String;
+  PhpExe: String;
 begin
   LogFile := ExpandConstant('{app}') + '\storage\logs\installer.log';
+  PhpExe := GetPhpExe();
   Result := Exec('cmd.exe',
-    '/C cd /D "' + ExpandConstant('{app}') + '" && php artisan ' + ArtisanArgs + ' >> "' + LogFile + '" 2>&1',
+    '/C cd /D "' + ExpandConstant('{app}') + '" && ' + PhpExe + ' artisan ' + ArtisanArgs + ' >> "' + LogFile + '" 2>&1',
     ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := Result and (ResultCode = 0);
 end;
@@ -370,30 +414,23 @@ end;
 procedure CurPageChanged(CurPageID: Integer);
 var
   Report: String;
-  PhpOk, PsqlOk: Boolean;
+  PsqlExePath: String;
 begin
   if CurPageID = PrereqPage.ID then
   begin
-    PhpOk := ProgramExists('php');
-    PsqlOk := ProgramExists('psql');
+    PsqlExePath := GetPsqlExe();
 
-    Report := 'STATUS PEMERIKSAAN PRASYARAT SISTEM' + #13#10;
+    Report := 'STATUS PEMERIKSAAN KOMPONEN SISTEM' + #13#10;
     Report := Report + StringOfChar('=', 50) + #13#10#13#10;
 
-    // PHP
-    if PhpOk then
-      Report := Report + '[OK]  PHP 8.3+          : Terdeteksi di PATH sistem'
-    else
-      Report := Report + '[KRITIS] PHP 8.3+       : TIDAK DITEMUKAN!  ' +
-        'Download: https://windows.php.net/download/';
-    Report := Report + #13#10;
+    // PHP (Bundled)
+    Report := Report + '[OK]  PHP 8.3 Engine    : Siap (Tertanam / Bundled mandiri di dalam paket)' + #13#10;
 
     // PostgreSQL
-    if PsqlOk then
-      Report := Report + '[OK]  PostgreSQL 15+    : Terdeteksi di PATH sistem'
+    if PsqlExePath <> '' then
+      Report := Report + '[OK]  PostgreSQL Engine : Terdeteksi (' + PsqlExePath + ')'
     else
-      Report := Report + '[PERINGATAN] PostgreSQL : Tidak ditemukan di PATH. ' +
-        'Pastikan PostgreSQL sudah terinstall dan ditambahkan ke PATH.';
+      Report := Report + '[PERINGATAN] PostgreSQL : Belum terdeteksi di C:\Program Files\PostgreSQL.';
     Report := Report + #13#10;
 
     // Sistem Operasi
@@ -402,22 +439,20 @@ begin
 
     Report := Report + #13#10 + StringOfChar('-', 50) + #13#10;
 
-    if not PhpOk then
+    if PsqlExePath = '' then
     begin
       Report := Report + #13#10 +
-        'PERHATIAN: PHP tidak ditemukan!' + #13#10 +
-        'Anda dapat melanjutkan instalasi, namun aplikasi TIDAK AKAN BERJALAN' + #13#10 +
-        'sebelum PHP 8.3+ diinstall dan ditambahkan ke PATH Windows.' + #13#10#13#10 +
-        'Download PHP 8.3+ Thread-Safe (x64):' + #13#10 +
-        '  https://windows.php.net/download/' + #13#10#13#10 +
-        'Download PostgreSQL 16 untuk Windows:' + #13#10 +
+        'INFORMASI PENTING: Database PostgreSQL belum terpasang.' + #13#10 +
+        'Untuk komputer Server/Kasir Utama, pastikan PostgreSQL 15/16/17' + #13#10 +
+        'sudah terinstall di komputer ini agar database dapat dibuat.' + #13#10#13#10 +
+        'Download Installer Resmi PostgreSQL 16 (x64):' + #13#10 +
         '  https://www.enterprisedb.com/downloads/postgres-postgresql-downloads';
     end
     else
     begin
       Report := Report + #13#10 +
-        'Semua prasyarat utama terpenuhi.' + #13#10 +
-        'Lanjutkan instalasi dengan mengklik tombol [Berikutnya >.].';
+        'Semua komponen utama siap.' + #13#10 +
+        'Lanjutkan instalasi dengan mengklik tombol [Berikutnya >].';
     end;
 
     PrereqPage.RichEditViewer.Lines.Text := Report;
@@ -534,6 +569,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   AppDir, EnvFile, EnvExample, LogFile: String;
   DbHost, DbPort, DbName, DbUser, AppUrl: String;
+  PhpExe, PsqlExe: String;
   EnvContent: TStringList;
   ResultCode: Integer;
   FirewallName: String;
@@ -554,6 +590,10 @@ begin
     ForceDirectories(AppDir + '\storage\app\public');
     ForceDirectories(AppDir + '\storage\app\backups');
     ForceDirectories(AppDir + '\bootstrap\cache');
+
+    // Pastikan folder cache & storage dapat ditulis tanpa proteksi ReadOnly
+    Exec('attrib.exe', '-r -s "' + AppDir + '\bootstrap\cache" /D', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec('attrib.exe', '-r -s "' + AppDir + '\storage" /D /S', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // === Langkah 2: Buat .env dari .env.example jika belum ada ===
     if not FileExists(EnvFile) then
@@ -604,10 +644,11 @@ begin
     end;
 
     // === Langkah 4: Generate APP_KEY, Buat Database, Migrasi & Seeder ===
-    if not ProgramExists('php') then
+    PhpExe := GetPhpExe();
+    if (PhpExe = 'php') and (not ProgramExists('php')) then
     begin
       InstallSuccess := False;
-      MsgBox('PHP 8.3+ tidak ditemukan di PATH sistem! Instalasi database belum dapat dijalankan. Silakan lihat ' + LogFile, mbCriticalError, MB_OK);
+      MsgBox('Engine PHP tidak ditemukan! Silakan periksa file log di: ' + LogFile, mbCriticalError, MB_OK);
       Exit;
     end;
 
@@ -620,23 +661,25 @@ begin
 
     RunArtisan('storage:link --force');
 
-    if not ProgramExists('psql') then
+    PsqlExe := GetPsqlExe();
+    if PsqlExe = '' then
     begin
       InstallSuccess := False;
-      MsgBox('psql.exe tidak ditemukan di PATH sistem! Pastikan PostgreSQL 15+ sudah terinstall.', mbCriticalError, MB_OK);
+      MsgBox('Database PostgreSQL belum terdeteksi di komputer ini!' + #13#10#13#10 +
+        'Pastikan PostgreSQL 15/16/17 sudah terinstal agar database SIGMA dapat disiapkan.', mbCriticalError, MB_OK);
       Exit;
     end;
 
     // Buat database sigma_erp jika belum ada
     Exec('cmd.exe',
-      '/C set "PGPASSWORD=' + SelectedDbPass + '" && psql -v ON_ERROR_STOP=1 -U ' +
+      '/C set "PGPASSWORD=' + SelectedDbPass + '" && ' + PsqlExe + ' -v ON_ERROR_STOP=1 -U ' +
       DbUser + ' -h ' + DbHost + ' -p ' + DbPort +
       ' -d postgres -c "CREATE DATABASE ' + DbName + ';" >> "' + LogFile + '" 2>&1',
       AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // Pastikan koneksi ke database & schema sigma berhasil
     if not Exec('cmd.exe',
-      '/C set "PGPASSWORD=' + SelectedDbPass + '" && psql -v ON_ERROR_STOP=1 -U ' +
+      '/C set "PGPASSWORD=' + SelectedDbPass + '" && ' + PsqlExe + ' -v ON_ERROR_STOP=1 -U ' +
       DbUser + ' -h ' + DbHost + ' -p ' + DbPort +
       ' -d ' + DbName + ' -c "CREATE SCHEMA IF NOT EXISTS sigma;" >> "' + LogFile + '" 2>&1',
       AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then

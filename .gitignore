@@ -27,3 +27,5 @@ Homestead.yaml
 Thumbs.db
 /dist
 /installer_output
+/installer/runtime
+

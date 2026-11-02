@@ -2,15 +2,29 @@
 
 return [
     'app_name' => 'SIGMA ERP & POS Enterprise',
-    'version' => '1.0.2',
-    'build_number' => '20261030',
-    'release_date' => '2026-10-30',
+    'version' => '1.0.3',
+    'build_number' => '20261102',
+    'release_date' => '2026-11-02',
     'channel' => 'stable',
     'min_php_version' => '8.3.0',
     'min_postgres_version' => '15.0',
-    'latest_version' => '1.0.2',
+    'latest_version' => '1.0.3',
     'update_available' => false,
     'changelog' => [
+        'v1.0.3' => [
+            'release_date' => '2026-11-02',
+            'title' => 'Bundled Portable PHP 8.3 Runtime, Smart PostgreSQL Auto-Detection & Zero-Config Installer',
+            'features' => [
+                'Bundled Portable PHP 8.3 Runtime: Installer menyertakan runtime engine PHP 8.3 bawaan sehingga pengguna di komputer baru tidak perlu mendownload PHP atau mengonfigurasi php.ini secara manual',
+                'Smart PostgreSQL Auto-Detection: Deteksi otomatis path binary psql pada PostgreSQL 15, 16, 17, 18 tanpa bergantung pada Windows System PATH',
+                'Zero-Config Installation: Kunci enkripsi APP_KEY, relasi storage, schema database, dan seeder data awal dijalankan otomatis menggunakan PHP embedded mandiri',
+                'Peningkatan Ketahanan Izin Berkas: Otomasi pencabutan atribut proteksi ReadOnly pada storage dan bootstrap/cache saat instalasi dan startup server',
+            ],
+            'fixes' => [
+                'Pencegahan error "Gagal membuat APP_KEY Laravel" pada komputer baru tanpa PHP environment terkonfigurasi',
+                'Dukungan kompilator modern Inno Setup 7 dengan eliminasi preprocessor directive warnings',
+            ]
+        ],
         'v1.0.2' => [
             'release_date' => '2026-10-30',
             'title' => 'Update Integritas Master Produk, Discontinue & Reset Demo Bersih',

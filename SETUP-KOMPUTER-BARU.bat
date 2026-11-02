@@ -13,28 +13,33 @@ echo.
 
 cd /d "%~dp0"
 
-:: 1. Cek PHP 8.3+
-where php >nul 2>nul
-if !errorlevel! neq 0 (
-    color 0C
-    echo [ERROR] PHP tidak terdeteksi!
-    echo Harap install PHP 8.3+ terlebih dahulu dan centang 'Add to PATH'.
-    pause
-    exit /b 1
+:: 1. Cek PHP 8.3+ (Bundled Portable PHP atau System)
+if exist "%~dp0php\php.exe" (
+    set "PATH=%~dp0php;!PATH!"
+    echo [OK] Menggunakan Bundled Portable PHP 8.3 bawaan paket:
+    "%~dp0php\php.exe" -v | findstr /i "php 8"
+    echo.
+) else (
+    where php >nul 2>nul
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] PHP tidak terdeteksi!
+        echo Harap install PHP 8.3+ terlebih dahulu dan centang 'Add to PATH'.
+        pause
+        exit /b 1
+    )
+    php -r "exit(version_compare(PHP_VERSION, '8.3.0', '>=') ? 0 : 1);"
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] Versi PHP terlalu lama! SIGMA ERP membutuhkan PHP 8.3+.
+        php -v
+        pause
+        exit /b 1
+    )
+    echo [OK] PHP 8.3+ terdeteksi di PATH:
+    php -v | findstr /i "php 8"
+    echo.
 )
-
-php -r "exit(version_compare(PHP_VERSION, '8.3.0', '>=') ? 0 : 1);"
-if !errorlevel! neq 0 (
-    color 0C
-    echo [ERROR] Versi PHP terlalu lama! SIGMA ERP membutuhkan PHP 8.3+.
-    php -v
-    pause
-    exit /b 1
-)
-
-echo [OK] PHP 8.3+ terdeteksi:
-php -v | findstr /i "php 8"
-echo.
 
 :: 2. Siapkan File .env
 if not exist ".env" (

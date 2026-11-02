@@ -11,15 +11,21 @@ echo.
 :: 1. Verifikasi Direktori Kerja
 cd /d "%~dp0"
 
-:: 2. Cek Apakah PHP Terpasang
-where php >nul 2>nul
-if %errorlevel% neq 0 (
-    color 0C
-    echo [ERROR] PHP tidak terdeteksi di komputer ini!
-    echo Silakan install PHP 8.3+ atau masukkan path PHP ke System Environment Variables.
-    echo.
-    pause
-    exit /b 1
+:: 2. Cek Apakah PHP Terpasang (Gunakan Bundled PHP jika tersedia)
+set "PHP_BIN=php"
+if exist "%~dp0php\php.exe" (
+    set "PHP_BIN=%~dp0php\php.exe"
+    set "PATH=%~dp0php;!PATH!"
+) else (
+    where php >nul 2>nul
+    if !errorlevel! neq 0 (
+        color 0C
+        echo [ERROR] PHP tidak terdeteksi di komputer ini!
+        echo Silakan install PHP 8.3+ atau masukkan path PHP ke System Environment Variables.
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 :: Pastikan direktori storage dan cache tersedia serta dapat ditulis
