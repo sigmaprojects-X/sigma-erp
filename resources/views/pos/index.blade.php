@@ -248,17 +248,30 @@
             @endif
 
             <!-- KASIR BERTUGAS CHIP -->
-            <div class="bg-[#06214C] border border-blue-400/30 hover:border-blue-400/60 rounded-full pl-1.5 pr-3 py-0.5 flex items-center gap-2 cursor-pointer shadow-xs transition-all"
-                 @click="openSwitchCashierModal()"
-                 title="Klik untuk Ganti Kasir yang Bertugas">
-                <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-[#125BCE] to-[#18BDEB] text-white font-black text-[11px] flex items-center justify-center shadow-xs">
-                    {{ strtoupper(substr($cashier->name, 0, 1)) }}
+            @if(in_array(auth()->user()?->role, ['owner', 'manager', 'store_head'], true))
+                <div class="bg-[#06214C] border border-blue-400/30 hover:border-blue-400/60 rounded-full pl-1.5 pr-3 py-0.5 flex items-center gap-2 cursor-pointer shadow-xs transition-all"
+                     @click="openSwitchCashierModal()"
+                     title="Klik untuk Supervisi / Ganti Kasir yang Bertugas">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-[#125BCE] to-[#18BDEB] text-white font-black text-[11px] flex items-center justify-center shadow-xs">
+                        {{ strtoupper(substr($cashier->name, 0, 1)) }}
+                    </div>
+                    <div class="flex flex-col text-left">
+                        <span class="text-[8.5px] uppercase font-bold text-slate-400 leading-tight">KASIR BERTUGAS ▾</span>
+                        <span class="text-xs font-bold text-white leading-tight">{{ $cashier->name }}</span>
+                    </div>
                 </div>
-                <div class="flex flex-col text-left">
-                    <span class="text-[8.5px] uppercase font-bold text-slate-400 leading-tight">KASIR BERTUGAS</span>
-                    <span class="text-xs font-bold text-white leading-tight">{{ $cashier->name }}</span>
+            @else
+                <div class="bg-[#06214C] border border-blue-400/30 rounded-full pl-1.5 pr-3 py-0.5 flex items-center gap-2 shadow-xs select-none"
+                     title="Akun Kasir Aktif: {{ $cashier->name }}">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-[#125BCE] to-[#18BDEB] text-white font-black text-[11px] flex items-center justify-center shadow-xs">
+                        {{ strtoupper(substr($cashier->name, 0, 1)) }}
+                    </div>
+                    <div class="flex flex-col text-left">
+                        <span class="text-[8.5px] uppercase font-bold text-slate-400 leading-tight">KASIR BERTUGAS</span>
+                        <span class="text-xs font-bold text-white leading-tight">{{ $cashier->name }}</span>
+                    </div>
                 </div>
-            </div>
+            @endif
 
             <!-- ACTIVE SHIFT PILL -->
             @if($activeShift)
@@ -339,6 +352,17 @@
                     <span>🖨️</span>
                     <span>Cetak Ulang</span>
                 </button>
+
+                <!-- TOMBOL KELUAR / LOGOUT POS -->
+                <form method="POST" action="{{ route('logout') }}" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin keluar dari layar kasir? Pastikan seluruh transaksi aktif telah selesai.')">
+                    @csrf
+                    <button type="submit"
+                            title="Keluar / Ganti Akun Kasir"
+                            class="px-3 py-1 bg-slate-800 hover:bg-rose-700 text-slate-200 hover:text-white border border-slate-700 hover:border-rose-600 text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1.5">
+                        <span>🚪</span>
+                        <span>Keluar</span>
+                    </button>
+                </form>
             </div>
 
             <!-- WINDOW CONTROLS SIMULATION -->

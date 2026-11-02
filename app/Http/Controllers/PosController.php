@@ -46,18 +46,26 @@ class PosController extends Controller
         [$company, $store] = $this->resolveCompanyAndStore($request);
 
         // Ambil kasir aktif dari request / user yang sedang login / session
-        $allCashiers = User::where('is_active', true)->orderBy('name')->get();
+        // ISOLASI CABANG: Hanya ambil kasir di toko/cabang yang sama
+        $allCashiers = User::where('is_active', true)
+            ->where('store_id', $store->id)
+            ->orderBy('name')
+            ->get();
         $authUser = Auth::user();
-        
-        if ($request->filled('cashier_id')) {
-            $cashier = User::find($request->input('cashier_id')) ?? $authUser;
+
+        // Jika user yang login adalah kasir, KUNCI mati ke kasir tersebut (tidak boleh oper akun tanpa login)
+        if ($authUser && $authUser->role === 'cashier') {
+            $cashier = $authUser;
+            session(['pos_active_cashier_id' => $cashier->id]);
+        } elseif ($request->filled('cashier_id')) {
+            $cashier = User::where('store_id', $store->id)->find($request->input('cashier_id')) ?? $authUser;
             session(['pos_active_cashier_id' => $cashier?->id]);
         } else {
-            $cashier = $authUser ?: (session('pos_active_cashier_id') ? User::find(session('pos_active_cashier_id')) : null);
+            $cashier = $authUser ?: (session('pos_active_cashier_id') ? User::where('store_id', $store->id)->find(session('pos_active_cashier_id')) : null);
             if (! $cashier) {
-                $cashier = User::where('email', 'kasir1@sigma.test')->first() ?? User::first();
+                $cashier = $authUser ?? User::where('store_id', $store->id)->first() ?? User::first();
             }
-            session(['pos_active_cashier_id' => $cashier->id]);
+            session(['pos_active_cashier_id' => $cashier?->id]);
         }
 
         $activeShift = CashierShift::where('store_id', $store->id)

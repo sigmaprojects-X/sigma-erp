@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -77,10 +78,21 @@ class LoginController extends Controller
 
             $request->session()->regenerate();
 
+            // ENFORCE SINGLE SESSION (Model 1): Hapus sesi lama di perangkat lain (1 Akun 1 Device)
+            if (config('session.driver') === 'database') {
+                $sessionTable = config('session.table', 'sessions');
+                $currentSessionId = $request->session()->getId();
+
+                DB::table($sessionTable)
+                    ->where('user_id', $user->id)
+                    ->where('id', '!=', $currentSessionId)
+                    ->delete();
+            }
+
             AuditLog::record(
                 module: 'AUTH',
                 action: 'LOGIN_SUCCESS',
-                description: "Pengguna {$user->name} ({$user->role}) berhasil masuk ke sistem dari IP " . ($request->ip() ?? '127.0.0.1'),
+                description: "Pengguna {$user->name} ({$user->role}) berhasil masuk ke sistem dari IP " . ($request->ip() ?? '127.0.0.1') . " (Sesi perangkat lain ditutup otomatis)",
                 user: $user
             );
 

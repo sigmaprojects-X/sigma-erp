@@ -7,6 +7,8 @@
 @php
     $isEdit = isset($product);
     $customerTiersList = $customerTiers->values()->all();
+    $defaultTier = $customerTiers->firstWhere('is_default', true) ?? $customerTiers->first();
+    $otherTiers = $customerTiers->where('id', '!=', $defaultTier?->id);
 
     $initialUnits = [];
     if ($isEdit && $product->units->count() > 0) {
@@ -36,6 +38,14 @@
                 ];
             }
 
+            $hasOtherTierCustom = false;
+            foreach ($tierPrices as $tId => $tp) {
+                if ($defaultTier && $tId !== $defaultTier->id && ($tp['price'] ?? 0) > 0) {
+                    $hasOtherTierCustom = true;
+                    break;
+                }
+            }
+
             $firstPrice = $u->prices->first();
             $initialUnits[] = [
                 'id' => $u->id,
@@ -46,6 +56,7 @@
                 'is_active' => (bool)$u->is_active,
                 'barcode' => $uBarcode,
                 'tier_prices' => $tierPrices,
+                'showMoreTiers' => $hasOtherTierCustom,
                 'tiered_prices' => $tieredPrices,
                 'weight_gram' => (float)($u->weight_gram ?? 0),
                 'length_cm' => (float)($u->length_cm ?? 0),
@@ -79,10 +90,8 @@
             'is_active' => true,
             'barcode' => '',
             'tier_prices' => $defaultTierPrices,
-            'tiered_prices' => [
-                ['min_qty' => 12, 'margin' => 15, 'price' => 0],
-                ['min_qty' => 60, 'margin' => 10, 'price' => 0],
-            ],
+            'showMoreTiers' => false,
+            'tiered_prices' => [],
             'weight_gram' => 0,
             'length_cm' => 0,
             'width_cm' => 0,
@@ -830,7 +839,17 @@
                                             <option value="{{ $mu->code }}">{{ $mu->code }} - {{ $mu->name }}</option>
                                         @endforeach
                                     </select>
-                                    <p class="text-[10px] text-slate-400">Pilih satuan kemasan barang.</p>
+                                    <!-- QUICK UNIT BUTTONS -->
+                                    <div class="flex flex-wrap gap-1 pt-1">
+                                        <template x-for="quickU in ['PCS', 'PACK', 'RENCENG', 'DUS', 'BOX', 'BOTOL', 'KG', 'LITER']" :key="quickU">
+                                            <button type="button"
+                                                    @click="u.unit_code = quickU; recalculateUnit(index)"
+                                                    :class="u.unit_code === quickU ? 'bg-blue-600 text-white font-black ring-1 ring-blue-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold'"
+                                                    class="px-2 py-0.5 rounded-md text-[10px] border border-slate-300 transition-colors cursor-pointer"
+                                                    x-text="quickU">
+                                            </button>
+                                        </template>
+                                    </div>
                                 </div>
 
                                 <!-- NAMA KEMASAN -->
@@ -861,7 +880,15 @@
 
                                 <!-- BARCODE KHUSUS KEMASAN INI -->
                                 <div class="md:col-span-3 space-y-1">
-                                    <label class="block font-extrabold text-slate-800">Barcode Kemasan Ini</label>
+                                    <div class="flex items-center justify-between">
+                                        <label class="block font-extrabold text-slate-800">Barcode Kemasan Ini</label>
+                                        <button type="button"
+                                                @click="generateRandomBarcode(index)"
+                                                title="Buat barcode standar acak otomatis jika belum ada"
+                                                class="text-[10.5px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer">
+                                            <span>🎲 Acak Barcode</span>
+                                        </button>
+                                    </div>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-400 font-mono text-xs">🏷️</span>
                                         <input type="text"
@@ -907,66 +934,148 @@
                                     </span>
                                 </div>
 
-                                <!-- GRID 6 LEVEL KARTU -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                                    @php
-                                        $tierColorMap = [
-                                            'RETAIL' => ['border' => 'border-indigo-200 hover:border-indigo-400', 'badge' => 'bg-indigo-100 text-indigo-800', 'icon' => '🛒'],
-                                            'GROSIR' => ['border' => 'border-emerald-200 hover:border-emerald-400', 'badge' => 'bg-emerald-100 text-emerald-800', 'icon' => '🏬'],
-                                            'AGEN' => ['border' => 'border-blue-200 hover:border-blue-400', 'badge' => 'bg-blue-100 text-blue-800', 'icon' => '🤝'],
-                                            'DISTRIBUTOR' => ['border' => 'border-purple-200 hover:border-purple-400', 'badge' => 'bg-purple-100 text-purple-800', 'icon' => '🚚'],
-                                            'MEMBER' => ['border' => 'border-amber-200 hover:border-amber-400', 'badge' => 'bg-amber-100 text-amber-900', 'icon' => '👑'],
-                                            'KHUSUS' => ['border' => 'border-rose-200 hover:border-rose-400', 'badge' => 'bg-rose-100 text-rose-800', 'icon' => '📑'],
-                                        ];
-                                    @endphp
-                                    @foreach($customerTiers as $t)
-                                        @php
-                                            $cStyle = $tierColorMap[$t->code] ?? ['border' => 'border-slate-200', 'badge' => 'bg-slate-100 text-slate-800', 'icon' => '🏷️'];
-                                        @endphp
-                                        <div class="bg-white border-2 {{ $cStyle['border'] }} rounded-2xl p-3.5 shadow-2xs space-y-2.5 transition-all">
-                                            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                                                <div class="flex items-center gap-1.5">
-                                                    <span>{{ $cStyle['icon'] }}</span>
-                                                    <span class="font-extrabold text-xs text-slate-900">{{ $t->name }}</span>
+                                <!-- HARGA UTAMA: LEVEL 1 (UMUM / ECERAN) -->
+                                @if($defaultTier)
+                                    <div class="bg-white border-2 border-indigo-300 rounded-2xl p-4 shadow-xs space-y-3">
+                                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-indigo-100 pb-2.5">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-base">🛒</span>
+                                                <div>
+                                                    <span class="font-black text-xs text-indigo-950 uppercase tracking-wide">{{ $defaultTier->name }}</span>
+                                                    <span class="ml-1 px-2 py-0.5 rounded-md font-mono text-[9.5px] font-black bg-indigo-100 text-indigo-800">HARGA UTAMA (ECERAN)</span>
                                                 </div>
-                                                <span class="px-2 py-0.5 rounded-md font-mono text-[9.5px] font-black {{ $cStyle['badge'] }}">{{ $t->code }}</span>
+                                            </div>
+                                            <!-- MARGIN PRESET QUICK BUTTONS -->
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-[10.5px] text-slate-500 font-bold mr-1">Markup Cepat:</span>
+                                                @foreach([10, 15, 20, 25, 30, 50] as $presetMargin)
+                                                    <button type="button"
+                                                            @click="u.tier_prices['{{ $defaultTier->id }}'].margin = {{ $presetMargin }}; updateTierPriceByMargin(index, '{{ $defaultTier->id }}')"
+                                                            class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 rounded-md font-mono text-[10.5px] font-black transition-colors cursor-pointer">
+                                                        +{{ $presetMargin }}%
+                                                    </button>
+                                                @endforeach
+                                            </div>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center text-xs">
+                                            <!-- MARGIN % -->
+                                            <div class="sm:col-span-4 space-y-1">
+                                                <label class="block text-[11px] font-bold text-slate-600">Margin Keuntungan (%)</label>
+                                                <div class="relative">
+                                                    <input type="number"
+                                                           step="0.1"
+                                                           :name="'units[' + index + '][tier_prices][{{ $defaultTier->id }}][margin]'"
+                                                           x-model.number="u.tier_prices['{{ $defaultTier->id }}'].margin"
+                                                           @input="updateTierPriceByMargin(index, '{{ $defaultTier->id }}')"
+                                                           class="w-full px-3 py-2 border-2 border-indigo-200 rounded-xl text-xs font-mono font-bold text-indigo-700 text-center focus:border-indigo-600 bg-white">
+                                                </div>
                                             </div>
 
-                                            <div class="grid grid-cols-12 gap-2 text-xs items-center">
-                                                <!-- MARGIN % -->
-                                                <div class="col-span-5 space-y-1">
-                                                    <label class="block text-[10.5px] font-bold text-slate-500">Margin %</label>
-                                                    <div class="relative">
+                                            <!-- HARGA JUAL SATUAN -->
+                                            <div class="sm:col-span-5 space-y-1">
+                                                <label class="block text-[11px] font-bold text-slate-600">Harga Jual Satuan (Rp) <span class="text-rose-500">*</span></label>
+                                                <div class="relative">
+                                                    <span class="absolute left-3 top-2 text-slate-400 font-mono text-xs font-bold">Rp</span>
+                                                    <input type="number"
+                                                           step="any"
+                                                           :name="'units[' + index + '][tier_prices][{{ $defaultTier->id }}][price]'"
+                                                           x-model.number="u.tier_prices['{{ $defaultTier->id }}'].price"
+                                                           @input="updateTierMarginByPrice(index, '{{ $defaultTier->id }}')"
+                                                           required
+                                                           placeholder="0"
+                                                           class="w-full pl-9 pr-3 py-2 border-2 border-indigo-400 rounded-xl text-sm font-mono font-black text-slate-900 text-right focus:border-indigo-600 bg-white shadow-2xs">
+                                                </div>
+                                            </div>
+
+                                            <!-- PROFIT PREVIEW CHIP -->
+                                            <div class="sm:col-span-3 space-y-1">
+                                                <label class="block text-[11px] font-bold text-slate-600">Estimasi Laba Bersih</label>
+                                                <div class="px-3 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-xs font-mono font-black text-emerald-800 text-right">
+                                                    <span x-text="formatRupiah((u.tier_prices['{{ $defaultTier->id }}'].price || 0) - (costPrice * (u.conversion_factor || 1)))"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                <!-- TOMBOL EXPAND LEVEL HARGA LAINNYA -->
+                                @if($otherTiers->count() > 0)
+                                    <div class="flex items-center justify-between pt-1">
+                                        <button type="button"
+                                                @click="u.showMoreTiers = !u.showMoreTiers"
+                                                class="px-4 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+                                                :class="u.showMoreTiers ? 'bg-indigo-100 text-indigo-900 border-indigo-300' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'">
+                                            <span x-text="u.showMoreTiers ? '▲ Sembunyikan Level Harga Tambahan' : '➕ Atur Level Harga Tambahan (Grosir, Agen, Distributor, Member, dll.)'"></span>
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full font-black"
+                                                  :class="u.showMoreTiers ? 'bg-indigo-200 text-indigo-900' : 'bg-slate-200 text-slate-700'"
+                                                  x-text="'{{ $otherTiers->count() }} Level'"></span>
+                                        </button>
+                                        <span class="text-[11px] text-slate-400 italic hidden sm:inline" x-show="!u.showMoreTiers">
+                                            (Klik jika produk ini memiliki harga khusus pedagang grosir / agen)
+                                        </span>
+                                    </div>
+
+                                    <!-- GRID LEVEL HARGA LAINNYA (TOGGLE MODULAR) -->
+                                    <div x-show="u.showMoreTiers" x-cloak class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2 animate-in fade-in duration-150">
+                                        @php
+                                            $tierColorMap = [
+                                                'GROSIR' => ['border' => 'border-emerald-200 hover:border-emerald-400', 'badge' => 'bg-emerald-100 text-emerald-800', 'icon' => '🏬'],
+                                                'AGEN' => ['border' => 'border-blue-200 hover:border-blue-400', 'badge' => 'bg-blue-100 text-blue-800', 'icon' => '🤝'],
+                                                'DISTRIBUTOR' => ['border' => 'border-purple-200 hover:border-purple-400', 'badge' => 'bg-purple-100 text-purple-800', 'icon' => '🚚'],
+                                                'MEMBER' => ['border' => 'border-amber-200 hover:border-amber-400', 'badge' => 'bg-amber-100 text-amber-900', 'icon' => '👑'],
+                                                'KHUSUS' => ['border' => 'border-rose-200 hover:border-rose-400', 'badge' => 'bg-rose-100 text-rose-800', 'icon' => '📑'],
+                                            ];
+                                        @endphp
+                                        @foreach($otherTiers as $t)
+                                            @php
+                                                $cStyle = $tierColorMap[$t->code] ?? ['border' => 'border-slate-200', 'badge' => 'bg-slate-100 text-slate-800', 'icon' => '🏷️'];
+                                            @endphp
+                                            <div class="bg-white border-2 {{ $cStyle['border'] }} rounded-2xl p-3.5 shadow-2xs space-y-2.5 transition-all">
+                                                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span>{{ $cStyle['icon'] }}</span>
+                                                        <span class="font-extrabold text-xs text-slate-900">{{ $t->name }}</span>
+                                                    </div>
+                                                    <span class="px-2 py-0.5 rounded-md font-mono text-[9.5px] font-black {{ $cStyle['badge'] }}">{{ $t->code }}</span>
+                                                </div>
+
+                                                <div class="grid grid-cols-12 gap-2 text-xs items-center">
+                                                    <!-- MARGIN % -->
+                                                    <div class="col-span-5 space-y-1">
+                                                        <label class="block text-[10.5px] font-bold text-slate-500">Margin %</label>
+                                                        <div class="relative">
+                                                            <input type="number"
+                                                                   step="0.1"
+                                                                   :name="'units[' + index + '][tier_prices][{{ $t->id }}][margin]'"
+                                                                   x-model.number="u.tier_prices['{{ $t->id }}'].margin"
+                                                                   @input="updateTierPriceByMargin(index, '{{ $t->id }}')"
+                                                                   class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-700 text-center focus:ring-2 focus:ring-blue-500 bg-white">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- HARGA JUAL SATUAN -->
+                                                    <div class="col-span-7 space-y-1">
+                                                        <label class="block text-[10.5px] font-bold text-slate-500">Harga Jual (Rp)</label>
                                                         <input type="number"
-                                                               step="0.1"
-                                                               :name="'units[' + index + '][tier_prices][{{ $t->id }}][margin]'"
-                                                               x-model.number="u.tier_prices['{{ $t->id }}'].margin"
-                                                               @input="updateTierPriceByMargin(index, '{{ $t->id }}')"
-                                                               class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-700 text-center focus:ring-2 focus:ring-blue-500">
+                                                               step="any"
+                                                               :name="'units[' + index + '][tier_prices][{{ $t->id }}][price]'"
+                                                               x-model.number="u.tier_prices['{{ $t->id }}'].price"
+                                                               @input="updateTierMarginByPrice(index, '{{ $t->id }}')"
+                                                               class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-black text-slate-900 text-right focus:ring-2 focus:ring-blue-500 bg-white">
                                                     </div>
                                                 </div>
 
-                                                <!-- HARGA JUAL SATUAN -->
-                                                <div class="col-span-7 space-y-1">
-                                                    <label class="block text-[10.5px] font-bold text-slate-500">Harga Jual (Rp)</label>
-                                                    <input type="number"
-                                                           step="any"
-                                                           :name="'units[' + index + '][tier_prices][{{ $t->id }}][price]'"
-                                                           x-model.number="u.tier_prices['{{ $t->id }}'].price"
-                                                           @input="updateTierMarginByPrice(index, '{{ $t->id }}')"
-                                                           class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-black text-slate-900 text-right focus:ring-2 focus:ring-blue-500">
+                                                <!-- PROFIT PER ITEM PREVIEW CHIP -->
+                                                <div class="flex items-center justify-between text-[10.5px] font-mono pt-1 text-slate-500 border-t border-slate-50">
+                                                    <span>Laba:</span>
+                                                    <span class="font-extrabold text-emerald-700"
+                                                          x-text="formatRupiah((u.tier_prices['{{ $t->id }}'].price || 0) - (costPrice * (u.conversion_factor || 1)))"></span>
                                                 </div>
                                             </div>
-
-                                            <!-- PROFIT PER ITEM PREVIEW CHIP -->
-                                            <div class="flex items-center justify-between text-[10.5px] font-mono pt-1 text-slate-500 border-t border-slate-50">
-                                                <span>Laba:</span>
-                                                <span class="font-extrabold text-emerald-700"
-                                                      x-text="formatRupiah((u.tier_prices['{{ $t->id }}'].price || 0) - (costPrice * (u.conversion_factor || 1)))"></span>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
 
                             <!-- ROW 3: SETTING HARGA BERDASARKAN JUMLAH PEMBELIAN (TIERED QTY / GROSIR BERTINGKAT) -->
@@ -988,8 +1097,16 @@
                                     </button>
                                 </div>
 
+                                <!-- KONDISI KOSONG -->
+                                <template x-if="!u.tiered_prices || u.tiered_prices.length === 0">
+                                    <div class="p-4 bg-white/80 border border-amber-200 rounded-xl text-center text-xs text-amber-900 space-y-1">
+                                        <p class="font-bold">Belum ada harga grosir bertingkat (harga sama untuk semua jumlah pembelian).</p>
+                                        <p class="text-[11px] text-slate-500">Klik tombol <strong>"➕ Tambah Rentang Jumlah (Qty)"</strong> di atas jika Anda ingin memberikan harga khusus partai / lusinan.</p>
+                                    </div>
+                                </template>
+
                                 <!-- TABLE RENTANG JUMLAH PEMBELIAN -->
-                                <div class="bg-white border border-amber-200 rounded-2xl overflow-hidden shadow-2xs">
+                                <div x-show="u.tiered_prices && u.tiered_prices.length > 0" class="bg-white border border-amber-200 rounded-2xl overflow-hidden shadow-2xs">
                                     <table class="w-full text-left text-xs divide-y divide-slate-200">
                                         <thead class="bg-amber-100/70 text-amber-950 font-black text-[10.5px] uppercase">
                                             <tr>
@@ -1622,6 +1739,11 @@ function itemForm(config) {
                     }
                 });
             }
+        },
+
+        generateRandomBarcode(index) {
+            const randomPart = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+            this.units[index].barcode = '899' + randomPart;
         },
 
         updateTierPriceByMargin(unitIndex, tierId) {
