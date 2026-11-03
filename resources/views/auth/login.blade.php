@@ -94,11 +94,14 @@
         <!-- ========================================== -->
         <div class="w-full lg:w-[54%] flex flex-col justify-center space-y-6 sm:space-y-7 text-left">
             
-            <!-- A. Logo Resmi SIGMA PROJECTS Asli Bersih -->
-            <div class="flex items-center">
-                <img src="{{ asset('images/sigma-projects-logo-v3.png') }}" 
+            <!-- A. Lambang Resmi 3D "S" SIGMA Master Brand Mark (Opsi 1: Murni, Elegan & Anti-Tabrakan) -->
+            <div class="relative inline-flex items-center group">
+                <!-- Soft ambient halo glow di belakang emblem S agar terpisah sempurna dari garis laser background -->
+                <div class="absolute -inset-6 bg-gradient-to-r from-blue-900/70 via-cyan-900/50 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+                
+                <img src="{{ asset('images/sigma-emblem-clean.png') }}" 
                      alt="SIGMA PROJECTS" 
-                     class="h-16 sm:h-20 lg:h-22 w-auto object-contain drop-shadow-[0_12px_28px_rgba(0,180,255,0.4)]"
+                     class="relative h-20 sm:h-24 lg:h-28 w-auto object-contain drop-shadow-[0_16px_36px_rgba(0,180,255,0.45)] group-hover:scale-105 transition-transform duration-300"
                      onerror="this.onerror=null; this.src='{{ asset('logo-icon.png') }}'">
             </div>
 
