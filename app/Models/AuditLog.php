@@ -57,7 +57,7 @@ class AuditLog extends Model
         ?string $companyId = null
     ): self {
         $actor = $user ?? Auth::user();
-        $targetCompanyId = $companyId ?? ($actor?->company_id ?? Company::where('code', 'SIGMA-HO')->value('id') ?? Company::value('id'));
+        $targetCompanyId = $companyId ?? ($actor?->company_id ?? session('active_company_id') ?? Company::where('is_active', true)->value('id') ?? Company::value('id'));
 
         return static::create([
             'company_id' => $targetCompanyId,

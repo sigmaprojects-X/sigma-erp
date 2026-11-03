@@ -21,14 +21,108 @@ use App\Models\Unit;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MasterDataController extends Controller
 {
+    /**
+     * Dapatkan instance Company dan Store aktif berdasarkan user yang login / request.
+     * Mendukung multi-cabang (multi-store) dan multi-tenancy dinamis.
+     *
+     * @return array{0: Company, 1: Store}
+     */
+    protected function resolveCompanyAndStore(Request $request): array
+    {
+        $companyService = app(\App\Services\CompanyService::class);
+        $user = $request->user() ?? Auth::user();
+
+        if ($user && $user->store && $user->store->company && $user->role !== 'owner') {
+            $company = $user->store->company;
+            $store = $user->store;
+        } else {
+            $company = $companyService->getActiveCompany();
+            if ($user && $user->store && $user->store->company_id === $company->id) {
+                $store = $user->store;
+            } elseif ($request->filled('store_id')) {
+                $store = Store::where('company_id', $company->id)->find($request->store_id)
+                    ?? Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+                    ?? Store::where('company_id', $company->id)->first()
+                    ?? Store::firstOrFail();
+            } else {
+                $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
+                    ?? Store::where('company_id', $company->id)->first()
+                    ?? Store::firstOrFail();
+            }
+        }
+
+        return [$company, $store];
+    }
+
+    /**
+     * Hasilkan kode pelanggan unik berikutnya secara otomatis (CUST-0001, CUST-0002, dst).
+     */
+    public function generateNextCustomerCode(Company $company): string
+    {
+        $existingCodes = Customer::where('company_id', $company->id)
+            ->where('code', 'LIKE', 'CUST-%')
+            ->pluck('code');
+
+        $maxSeq = 0;
+        foreach ($existingCodes as $c) {
+            if (preg_match('/^CUST-(\d+)$/i', $c, $matches)) {
+                $seq = (int) $matches[1];
+                if ($seq > $maxSeq) {
+                    $maxSeq = $seq;
+                }
+            }
+        }
+
+        $nextSeq = $maxSeq + 1;
+        $candidate = 'CUST-' . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
+
+        while (Customer::where('company_id', $company->id)->where('code', $candidate)->exists()) {
+            $nextSeq++;
+            $candidate = 'CUST-' . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
+        }
+
+        return $candidate;
+    }
+
+    /**
+     * Hasilkan kode supplier unik berikutnya secara otomatis (SUP-0001, SUP-0002, dst).
+     */
+    public function generateNextSupplierCode(Company $company): string
+    {
+        $existingCodes = Supplier::where('company_id', $company->id)
+            ->where('code', 'LIKE', 'SUP-%')
+            ->pluck('code');
+
+        $maxSeq = 0;
+        foreach ($existingCodes as $c) {
+            if (preg_match('/^SUP-(\d+)$/i', $c, $matches)) {
+                $seq = (int) $matches[1];
+                if ($seq > $maxSeq) {
+                    $maxSeq = $seq;
+                }
+            }
+        }
+
+        $nextSeq = $maxSeq + 1;
+        $candidate = 'SUP-' . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
+
+        while (Supplier::where('company_id', $company->id)->where('code', $candidate)->exists()) {
+            $nextSeq++;
+            $candidate = 'SUP-' . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
+        }
+
+        return $candidate;
+    }
     /**
      * Master Data Produk & Harga 3D.
      */
@@ -66,10 +160,12 @@ class MasterDataController extends Controller
      */
     public function createProduct(Request $request): View
     {
-        $categories = ProductCategory::where('is_active', true)->orderBy('name')->get();
-        $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
-        $units = Unit::where('is_active', true)->orderBy('code')->get();
-        $customerTiers = CustomerTier::where('is_active', true)
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
+        $categories = ProductCategory::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+        $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+        $units = Unit::where('company_id', $company->id)->where('is_active', true)->orderBy('code')->get();
+        $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)
             ->orderByRaw("CASE 
                 WHEN code = 'RETAIL' THEN 1 
                 WHEN code = 'GROSIR' THEN 2 
@@ -79,8 +175,26 @@ class MasterDataController extends Controller
                 WHEN code = 'KHUSUS' THEN 6 
                 ELSE 7 END")
             ->get();
+
+        if ($categories->isEmpty() || $units->isEmpty() || $customerTiers->isEmpty()) {
+            app(\App\Services\CompanyService::class)->seedCompanyDefaults($company);
+            $categories = ProductCategory::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+            $units = Unit::where('company_id', $company->id)->where('is_active', true)->orderBy('code')->get();
+            $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)
+                ->orderByRaw("CASE 
+                    WHEN code = 'RETAIL' THEN 1 
+                    WHEN code = 'GROSIR' THEN 2 
+                    WHEN code = 'AGEN' THEN 3 
+                    WHEN code = 'DISTRIBUTOR' THEN 4 
+                    WHEN code = 'MEMBER' THEN 5 
+                    WHEN code = 'KHUSUS' THEN 6 
+                    ELSE 7 END")
+                ->get();
+        }
+
         $autoSku = 'PRD-'.date('ymd').'-'.strtoupper(Str::random(4));
-        $componentProducts = Product::where('is_active', true)
+        $componentProducts = Product::where('company_id', $company->id)
+            ->where('is_active', true)
             ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with('units')
             ->orderBy('name')
@@ -103,10 +217,13 @@ class MasterDataController extends Controller
             'boms.componentProduct',
             'boms.componentUnit',
         ])->findOrFail($id);
-        $categories = ProductCategory::where('is_active', true)->orderBy('name')->get();
-        $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
-        $units = Unit::where('is_active', true)->orderBy('code')->get();
-        $customerTiers = CustomerTier::where('is_active', true)
+
+        $company = Company::find($product->company_id) ?? app(\App\Services\CompanyService::class)->getActiveCompany();
+
+        $categories = ProductCategory::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+        $suppliers = Supplier::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+        $units = Unit::where('company_id', $company->id)->where('is_active', true)->orderBy('code')->get();
+        $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)
             ->orderByRaw("CASE 
                 WHEN code = 'RETAIL' THEN 1 
                 WHEN code = 'GROSIR' THEN 2 
@@ -116,7 +233,25 @@ class MasterDataController extends Controller
                 WHEN code = 'KHUSUS' THEN 6 
                 ELSE 7 END")
             ->get();
-        $componentProducts = Product::where('is_active', true)
+
+        if ($categories->isEmpty() || $units->isEmpty() || $customerTiers->isEmpty()) {
+            app(\App\Services\CompanyService::class)->seedCompanyDefaults($company);
+            $categories = ProductCategory::where('company_id', $company->id)->where('is_active', true)->orderBy('name')->get();
+            $units = Unit::where('company_id', $company->id)->where('is_active', true)->orderBy('code')->get();
+            $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)
+                ->orderByRaw("CASE 
+                    WHEN code = 'RETAIL' THEN 1 
+                    WHEN code = 'GROSIR' THEN 2 
+                    WHEN code = 'AGEN' THEN 3 
+                    WHEN code = 'DISTRIBUTOR' THEN 4 
+                    WHEN code = 'MEMBER' THEN 5 
+                    WHEN code = 'KHUSUS' THEN 6 
+                    ELSE 7 END")
+                ->get();
+        }
+
+        $componentProducts = Product::where('company_id', $company->id)
+            ->where('is_active', true)
             ->where('id', '!=', $product->id)
             ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with('units')
@@ -131,30 +266,38 @@ class MasterDataController extends Controller
      */
     public function storeProduct(Request $request): RedirectResponse
     {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
+        // Auto-generate SKU jika dikosongkan
+        if (!$request->filled('sku')) {
+            $request->merge(['sku' => 'PRD-'.date('ymd').'-'.strtoupper(Str::random(4))]);
+        }
+
         $isMultiUnit = $request->has('units') && is_array($request->input('units'));
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
         if ($isMultiUnit) {
             $request->validate([
                 'name' => 'required|string|max:255',
-                'sku' => 'required|string|max:100|unique:products,sku',
+                'sku' => ['required', 'string', 'max:100', Rule::unique('products', 'sku')->where('company_id', $company->id)],
                 'type' => "nullable|string|in:{$allowedTypes}",
                 'cost_price' => 'required|numeric|min:0',
                 'units' => 'required|array|min:1',
                 'units.0.unit_code' => 'required|string|max:30',
+                'units.*.barcode' => ['nullable', 'string', 'max:50', Rule::unique('product_barcodes', 'barcode')->where('company_id', $company->id)],
                 'image' => 'nullable|image|max:2048',
                 'additional_images.*' => 'nullable|image|max:2048',
             ]);
         } else {
             $request->validate([
                 'name' => 'required|string|max:255',
-                'sku' => 'required|string|max:100|unique:products,sku',
+                'sku' => ['required', 'string', 'max:100', Rule::unique('products', 'sku')->where('company_id', $company->id)],
                 'type' => "nullable|string|in:{$allowedTypes}",
                 'category' => 'nullable|string|max:100',
                 'cost_price' => 'required|numeric|min:0',
                 'unit_code' => 'required|string|max:30',
                 'unit_name' => 'nullable|string|max:50',
-                'barcode' => 'nullable|string|max:50|unique:product_barcodes,barcode',
+                'barcode' => ['nullable', 'string', 'max:50', Rule::unique('product_barcodes', 'barcode')->where('company_id', $company->id)],
                 'price_retail' => 'required|numeric|min:0',
                 'price_grosir' => 'nullable|numeric|min:0',
                 'image' => 'nullable|image|max:2048',
@@ -164,6 +307,7 @@ class MasterDataController extends Controller
 
         if ($isMultiUnit && $request->has('units') && is_array($request->input('units'))) {
             $seenCodes = [];
+            $seenBarcodes = [];
             foreach ($request->input('units') as $idx => $uData) {
                 $code = strtoupper(trim($uData['unit_code'] ?? ''));
                 if ($code !== '') {
@@ -172,13 +316,18 @@ class MasterDataController extends Controller
                     }
                     $seenCodes[$code] = $idx;
                 }
+                $barcode = trim($uData['barcode'] ?? '');
+                if ($barcode !== '') {
+                    if (isset($seenBarcodes[$barcode])) {
+                        return back()->with('error', "Barcode [{$barcode}] duplikat di beberapa baris kemasan produk ini.")->withInput();
+                    }
+                    $seenBarcodes[$barcode] = $idx;
+                }
             }
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
-        $store = Store::where('code', 'STR-001')->firstOrFail();
-        $tierRetail = CustomerTier::where('code', 'RETAIL')->first();
-        $tierGrosir = CustomerTier::where('code', 'GROSIR')->first();
+        $tierRetail = CustomerTier::where('company_id', $company->id)->where('code', 'RETAIL')->first() ?? CustomerTier::where('company_id', $company->id)->first();
+        $tierGrosir = CustomerTier::where('company_id', $company->id)->where('code', 'GROSIR')->first();
 
         DB::transaction(function () use ($request, $company, $store, $tierRetail, $tierGrosir, $isMultiUnit) {
             // 1. Tentukan Kategori
@@ -466,11 +615,12 @@ class MasterDataController extends Controller
     public function updateProduct(Request $request, string $id): RedirectResponse
     {
         $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->findOrFail($id);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'sku' => 'required|string|max:100|unique:products,sku,'.$product->id,
+            'sku' => ['required', 'string', 'max:100', Rule::unique('products', 'sku')->where('company_id', $company->id)->ignore($product->id)],
             'type' => "nullable|string|in:{$allowedTypes}",
             'cost_price' => 'required|numeric|min:0',
             'image' => 'nullable|image|max:2048',
@@ -496,9 +646,10 @@ class MasterDataController extends Controller
             }
         }
 
-        // Validasi duplikasi unit_code pada payload form
+        // Validasi duplikasi unit_code & barcode pada payload form
         if ($request->has('units') && is_array($request->input('units'))) {
             $seenCodes = [];
+            $seenBarcodes = [];
             foreach ($request->input('units') as $idx => $uData) {
                 $code = strtoupper(trim($uData['unit_code'] ?? ''));
                 if ($code !== '') {
@@ -507,13 +658,27 @@ class MasterDataController extends Controller
                     }
                     $seenCodes[$code] = $idx;
                 }
+                $barcode = trim($uData['barcode'] ?? '');
+                if ($barcode !== '') {
+                    if (isset($seenBarcodes[$barcode])) {
+                        return back()->with('error', "Barcode [{$barcode}] duplikat di beberapa baris kemasan produk ini.")->withInput();
+                    }
+                    $seenBarcodes[$barcode] = $idx;
+
+                    // Cek apakah barcode sudah dipakai oleh barang lain di perusahaan yang sama
+                    $barcodeTaken = ProductBarcode::where('company_id', $company->id)
+                        ->where('barcode', $barcode)
+                        ->where('product_id', '!=', $product->id)
+                        ->exists();
+                    if ($barcodeTaken) {
+                        return back()->with('error', "Barcode [{$barcode}] sudah digunakan oleh barang lain di perusahaan ini.")->withInput();
+                    }
+                }
             }
         }
 
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
-        $store = Store::where('code', 'STR-001')->firstOrFail();
-        $tierRetail = CustomerTier::where('code', 'RETAIL')->first();
-        $tierGrosir = CustomerTier::where('code', 'GROSIR')->first();
+        $tierRetail = CustomerTier::where('company_id', $company->id)->where('code', 'RETAIL')->first() ?? CustomerTier::where('company_id', $company->id)->first();
+        $tierGrosir = CustomerTier::where('company_id', $company->id)->where('code', 'GROSIR')->first();
 
         DB::transaction(function () use ($request, $product, $company, $store, $tierRetail, $tierGrosir, $newSaleStatus, $productType, $tracksInventory) {
             $categoryId = $request->category_id;
@@ -942,8 +1107,14 @@ class MasterDataController extends Controller
 
         $customers = $query->orderBy('name')->paginate(20)->withQueryString();
         $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();
+        if ($customerTiers->isEmpty()) {
+            app(\App\Services\CompanyService::class)->seedCompanyDefaults($company);
+            $customerTiers = CustomerTier::where('company_id', $company->id)->where('is_active', true)->get();
+        }
 
-        return view('master.customers', compact('customers', 'customerTiers'));
+        $nextCustomerCode = $this->generateNextCustomerCode($company);
+
+        return view('master.customers', compact('customers', 'customerTiers', 'nextCustomerCode'));
     }
 
     /**
@@ -951,8 +1122,15 @@ class MasterDataController extends Controller
      */
     public function storeCustomer(Request $request): RedirectResponse
     {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
+        // Auto-generate Kode Pelanggan jika tidak diisi
+        if (!$request->filled('code')) {
+            $request->merge(['code' => $this->generateNextCustomerCode($company)]);
+        }
+
         $request->validate([
-            'code' => 'required|string|max:50|unique:customers,code',
+            'code' => ['required', 'string', 'max:50', Rule::unique('customers', 'code')->where('company_id', $company->id)],
             'name' => 'required|string|max:255',
             'customer_tier_id' => 'required|uuid',
             'phone' => 'nullable|string|max:30',
@@ -960,9 +1138,6 @@ class MasterDataController extends Controller
             'credit_limit' => 'nullable|numeric|min:0',
             'credit_term_days' => 'nullable|integer|min:0',
         ]);
-
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
-        $store = Store::where('code', 'STR-001')->firstOrFail();
 
         Customer::create([
             'company_id' => $company->id,
@@ -978,7 +1153,7 @@ class MasterDataController extends Controller
             'is_active' => true,
         ]);
 
-        return redirect()->route('master.customers')->with('success', "Alhamdulillah, data pelanggan [{$request->name}] berhasil disimpan.");
+        return redirect()->route('master.customers')->with('success', "Alhamdulillah, data pelanggan [{$request->name}] ({$request->code}) berhasil disimpan.");
     }
 
     /**
@@ -987,9 +1162,10 @@ class MasterDataController extends Controller
     public function updateCustomer(Request $request, string $id): RedirectResponse
     {
         $customer = Customer::findOrFail($id);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         $request->validate([
-            'code' => 'required|string|max:50|unique:customers,code,' . $customer->id,
+            'code' => ['required', 'string', 'max:50', Rule::unique('customers', 'code')->where('company_id', $company->id)->ignore($customer->id)],
             'name' => 'required|string|max:255',
             'customer_tier_id' => 'required|uuid',
             'phone' => 'nullable|string|max:30',
@@ -1042,8 +1218,9 @@ class MasterDataController extends Controller
         }
 
         $suppliers = $query->orderBy('name')->paginate(20)->withQueryString();
+        $nextSupplierCode = $this->generateNextSupplierCode($company);
 
-        return view('master.suppliers', compact('suppliers'));
+        return view('master.suppliers', compact('suppliers', 'nextSupplierCode'));
     }
 
     /**
@@ -1051,8 +1228,15 @@ class MasterDataController extends Controller
      */
     public function storeSupplier(Request $request): RedirectResponse
     {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
+        // Auto-generate Kode Supplier jika tidak diisi
+        if (!$request->filled('code')) {
+            $request->merge(['code' => $this->generateNextSupplierCode($company)]);
+        }
+
         $request->validate([
-            'code' => 'required|string|max:50|unique:suppliers,code',
+            'code' => ['required', 'string', 'max:50', Rule::unique('suppliers', 'code')->where('company_id', $company->id)],
             'name' => 'required|string|max:150',
             'is_pkp' => 'nullable|boolean',
             'npwp' => 'nullable|string|max:50',
@@ -1066,8 +1250,6 @@ class MasterDataController extends Controller
             'bank_account_no' => 'nullable|string|max:50',
             'bank_account_holder' => 'nullable|string|max:100',
         ]);
-
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
 
         Supplier::create([
             'company_id' => $company->id,
@@ -1087,7 +1269,7 @@ class MasterDataController extends Controller
             'is_active' => true,
         ]);
 
-        return redirect()->route('master.suppliers')->with('success', "Alhamdulillah, data supplier [{$request->name}] berhasil disimpan.");
+        return redirect()->route('master.suppliers')->with('success', "Alhamdulillah, data supplier [{$request->name}] ({$request->code}) berhasil disimpan.");
     }
 
     /**
@@ -1096,9 +1278,10 @@ class MasterDataController extends Controller
     public function updateSupplier(Request $request, string $id): RedirectResponse
     {
         $supplier = Supplier::findOrFail($id);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
 
         $request->validate([
-            'code' => 'required|string|max:50|unique:suppliers,code,' . $supplier->id,
+            'code' => ['required', 'string', 'max:50', Rule::unique('suppliers', 'code')->where('company_id', $company->id)->ignore($supplier->id)],
             'name' => 'required|string|max:150',
             'is_pkp' => 'nullable|boolean',
             'npwp' => 'nullable|string|max:50',
@@ -1149,7 +1332,8 @@ class MasterDataController extends Controller
      */
     public function categories(Request $request): View
     {
-        $query = ProductCategory::withCount('products');
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = ProductCategory::where('company_id', $company->id)->withCount('products');
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -1168,13 +1352,17 @@ class MasterDataController extends Controller
      */
     public function storeCategory(Request $request): RedirectResponse
     {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+
+        if (!$request->filled('code')) {
+            $request->merge(['code' => 'KAT-' . strtoupper(Str::slug($request->name, ''))]);
+        }
+
         $request->validate([
-            'code' => 'required|string|max:50|unique:product_categories,code',
+            'code' => ['required', 'string', 'max:50', Rule::unique('product_categories', 'code')->where('company_id', $company->id)],
             'name' => 'required|string|max:150',
             'description' => 'nullable|string',
         ]);
-
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
 
         ProductCategory::create([
             'company_id' => $company->id,
@@ -1193,9 +1381,10 @@ class MasterDataController extends Controller
     public function updateCategory(Request $request, string $id): RedirectResponse
     {
         $category = ProductCategory::findOrFail($id);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $request->validate([
-            'code' => 'required|string|max:50|unique:product_categories,code,' . $category->id,
+            'code' => ['required', 'string', 'max:50', Rule::unique('product_categories', 'code')->where('company_id', $company->id)->ignore($category->id)],
             'name' => 'required|string|max:150',
             'description' => 'nullable|string',
         ]);
@@ -1226,7 +1415,8 @@ class MasterDataController extends Controller
      */
     public function units(Request $request): View
     {
-        $query = Unit::query();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = Unit::where('company_id', $company->id);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -1245,13 +1435,13 @@ class MasterDataController extends Controller
      */
     public function storeUnit(Request $request): RedirectResponse
     {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+
         $request->validate([
-            'code' => 'required|string|max:20|unique:units,code',
+            'code' => ['required', 'string', 'max:20', Rule::unique('units', 'code')->where('company_id', $company->id)],
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
         ]);
-
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
 
         Unit::create([
             'company_id' => $company->id,
@@ -1270,9 +1460,10 @@ class MasterDataController extends Controller
     public function updateUnit(Request $request, string $id): RedirectResponse
     {
         $unit = Unit::findOrFail($id);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $request->validate([
-            'code' => 'required|string|max:20|unique:units,code,' . $unit->id,
+            'code' => ['required', 'string', 'max:20', Rule::unique('units', 'code')->where('company_id', $company->id)->ignore($unit->id)],
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
         ]);
@@ -1303,7 +1494,8 @@ class MasterDataController extends Controller
      */
     public function bankAccounts(Request $request): View
     {
-        $bankAccounts = BankAccount::orderBy('bank_code')->get();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $bankAccounts = BankAccount::where('company_id', $company->id)->orderBy('bank_code')->get();
 
         return view('master.bank_accounts', compact('bankAccounts'));
     }
@@ -1321,7 +1513,7 @@ class MasterDataController extends Controller
             'branch' => 'nullable|string|max:100',
         ]);
 
-        $company = Company::where('code', 'SIGMA-HO')->firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         BankAccount::create([
             'company_id' => $company->id,
@@ -1379,7 +1571,9 @@ class MasterDataController extends Controller
      */
     public function stockCard(Request $request): View
     {
-        $products = Product::where('is_active', true)
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $products = Product::where('company_id', $company->id)
+            ->where('is_active', true)
             ->whereIn('type', [Product::TYPE_BARANG, Product::TYPE_RAKITAN_PROSES])
             ->with(['category', 'baseUnit', 'barcodes', 'stocks'])
             ->orderBy('name')
@@ -1849,10 +2043,9 @@ class MasterDataController extends Controller
             'file' => 'required|file|max:10240',
         ]);
 
-        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $store = Store::where('code', 'STR-001')->first() ?? Store::firstOrFail();
-        $tierRetail = CustomerTier::where('code', 'RETAIL')->first();
-        $tierGrosir = CustomerTier::where('code', 'GROSIR')->first();
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $tierRetail = CustomerTier::where('company_id', $company->id)->where('code', 'RETAIL')->first() ?? CustomerTier::where('company_id', $company->id)->first();
+        $tierGrosir = CustomerTier::where('company_id', $company->id)->where('code', 'GROSIR')->first();
 
         $file = $request->file('file');
         $filePath = $file->getRealPath();

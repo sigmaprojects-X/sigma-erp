@@ -5,9 +5,12 @@ namespace App\Services;
 use App\Models\AccountingSetting;
 use App\Models\ChartOfAccount;
 use App\Models\Company;
+use App\Models\Customer;
 use App\Models\CustomerTier;
+use App\Models\ProductCategory;
 use App\Models\Store;
 use App\Models\TaxConfiguration;
+use App\Models\Unit;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -176,6 +179,73 @@ class CompanyService
                     'name' => $tier['name'],
                     'default_margin_percentage' => $tier['margin'],
                     'is_default' => $tier['default'],
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        // 2b. Kategori Produk Standar Bawaan Toko
+        $categories = [
+            ['code' => 'UMUM', 'name' => 'Umum / Aneka Barang', 'description' => 'Kategori umum dan aneka produk'],
+            ['code' => 'SEMBAKO', 'name' => 'Sembako & Bahan Pokok', 'description' => 'Beras, minyak, gula, tepung dan kebutuhan pokok'],
+            ['code' => 'MINUMAN', 'name' => 'Minuman & Kemasan', 'description' => 'Air mineral, teh, kopi, jus dan minuman kemasan'],
+            ['code' => 'SNACK', 'name' => 'Makanan Ringan & Biskuit', 'description' => 'Camilan, keripik, wafer dan makanan ringan'],
+        ];
+        foreach ($categories as $cat) {
+            ProductCategory::firstOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'code' => $cat['code'],
+                ],
+                [
+                    'name' => $cat['name'],
+                    'description' => $cat['description'],
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        // 2c. Satuan Produk Standar Bawaan Toko (Units)
+        $units = [
+            ['code' => 'PCS', 'name' => 'Pieces / Satuan', 'description' => 'Satuan eceran terkecil barang'],
+            ['code' => 'DUS', 'name' => 'Dus / Karton', 'description' => 'Kemasan karton / kardus besar'],
+            ['code' => 'PACK', 'name' => 'Pack / Bungkus', 'description' => 'Kemasan pack / plastik / pak'],
+            ['code' => 'KG', 'name' => 'Kilogram', 'description' => 'Satuan berat kilogram'],
+            ['code' => 'LITER', 'name' => 'Liter', 'description' => 'Satuan volume cairan liter'],
+            ['code' => 'SAK', 'name' => 'Sak / Karung', 'description' => 'Karung / sak beras atau semen'],
+            ['code' => 'BOX', 'name' => 'Box / Kotak', 'description' => 'Kemasan kotak / boks'],
+            ['code' => 'RENCENG', 'name' => 'Renceng', 'description' => 'Kemasan gantungan / renceng'],
+        ];
+        foreach ($units as $u) {
+            Unit::firstOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'code' => $u['code'],
+                ],
+                [
+                    'name' => $u['name'],
+                    'description' => $u['description'],
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        // 2d. Pelanggan Umum Bawaan Kasir POS
+        $defaultTier = CustomerTier::where('company_id', $company->id)->where('code', 'RETAIL')->first();
+        if ($defaultTier) {
+            Customer::firstOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'code' => 'CUST-UMUM',
+                ],
+                [
+                    'name' => 'UMUM (Pelanggan Umum / Eceran)',
+                    'customer_tier_id' => $defaultTier->id,
+                    'phone' => '-',
+                    'address' => '-',
+                    'credit_limit' => 0.00,
+                    'current_credit_balance' => 0.00,
+                    'credit_term_days' => 0,
                     'is_active' => true,
                 ]
             );

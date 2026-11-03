@@ -225,10 +225,13 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">Kode Supplier: <span class="text-rose-500">*</span></label>
+                        <label class="block font-bold text-slate-700 mb-1">
+                            Kode Supplier: <span class="text-xs text-indigo-600 font-normal">(Otomatis / Bisa Diedit)</span> <span class="text-rose-500">*</span>
+                        </label>
                         <input type="text"
                                name="code"
-                               placeholder="Contoh: SUP-004, SUP-MAYORA"
+                               value="{{ $nextSupplierCode ?? '' }}"
+                               placeholder="Contoh: SUP-0001"
                                required
                                class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold uppercase focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 focus:outline-hidden">
                     </div>

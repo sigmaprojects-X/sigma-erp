@@ -226,8 +226,10 @@
                     
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1">Kode Pelanggan * :</label>
-                            <input type="text" name="code" required placeholder="Contoh: CUST-003" class="w-full p-2 border border-slate-300 rounded uppercase font-mono font-bold focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
+                            <label class="block font-bold text-slate-700 mb-1">
+                                Kode Pelanggan <span class="text-xs text-blue-600 font-normal">(Otomatis / Bisa Diedit)</span> * :
+                            </label>
+                            <input type="text" name="code" value="{{ $nextCustomerCode ?? '' }}" required placeholder="Contoh: CUST-0001" class="w-full p-2 border border-slate-300 rounded uppercase font-mono font-bold focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
                         </div>
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Level Tier Pelanggan * :</label>
