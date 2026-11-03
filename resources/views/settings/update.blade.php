@@ -127,7 +127,13 @@
                         <code class="text-[11px] font-mono font-bold text-[#0B1F4D] dark:text-[#18BDEB] bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded mt-0.5 break-all">
                             {{ $info['database_storage_path'] }}
                         </code>
-                        <span class="text-[9.5px] text-slate-400 mt-0.5">*Dapat dipindah ke Drive D:\ atau folder eksternal kapan saja.</span>
+                        <span class="text-[9.5px] text-slate-400 mt-0.5">
+                            @if(!empty($info['is_windows']))
+                                *Dapat dipindah ke Drive D:\ atau folder eksternal kapan saja.
+                            @else
+                                *Dapat dipindah ke partisi storage / mount NVMe terpisah kapan saja.
+                            @endif
+                        </span>
                     </div>
                     <div class="flex justify-between items-center pt-1">
                         <span class="text-[#64748B] dark:text-slate-400">Ukuran Database:</span>
@@ -148,36 +154,58 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-[#E2E8F0] dark:border-slate-700 shadow-xs flex flex-col justify-between">
             <div>
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400">Drive &amp; Kapasitas Disk</span>
-                    <span class="text-xs font-mono font-bold text-[#125BCE]">Drive {{ $info['install_drive'] }}</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400">Drive &amp; Kapasitas Server</span>
+                    <span class="text-xs font-mono font-bold text-[#125BCE]">{{ $info['install_drive'] }}</span>
                 </div>
-                <div class="flex items-center gap-3 mb-4">
+                <div class="flex items-center gap-3 mb-3">
                     <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#15803D] dark:text-emerald-400 flex items-center justify-center text-lg font-bold">
                         💽
                     </div>
                     <div>
                         <div class="text-xs font-bold text-[#0B1F4D] dark:text-white">Ruang Penyimpanan Server</div>
-                        <div class="text-[11px] text-[#64748B] dark:text-slate-400">Sisa Bebas: <strong class="text-emerald-600 dark:text-emerald-400">{{ $info['disk_free_space'] }}</strong></div>
+                        <div class="text-[11px] text-[#64748B] dark:text-slate-400">
+                            Sisa Bebas: <strong class="text-emerald-600 dark:text-emerald-400">{{ $info['disk_free_space'] }}</strong>
+                        </div>
                     </div>
                 </div>
 
-                <div class="space-y-2.5 text-xs pt-2 border-t border-slate-100 dark:border-slate-700">
-                    <div class="flex justify-between items-center">
-                        <span class="text-[#64748B] dark:text-slate-400">Total Kapasitas Drive:</span>
-                        <span class="font-bold text-slate-800 dark:text-white font-mono">{{ $info['disk_total_space'] }}</span>
+                <div class="space-y-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-700">
+                    <!-- Progress Bar Storage Disk -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-[10.5px]">
+                            <span class="text-[#64748B] dark:text-slate-400">Storage Disk:</span>
+                            <span class="font-bold text-slate-800 dark:text-white font-mono">{{ $info['disk_used_space'] }} / {{ $info['disk_total_space'] }} ({{ $info['disk_used_percentage'] }}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden flex">
+                            <div class="bg-gradient-to-r from-blue-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style="width: {{ $info['disk_used_percentage'] }}%"></div>
+                        </div>
                     </div>
-                    <div class="flex justify-between items-center">
+
+                    <!-- RAM / Memory Server -->
+                    @if($info['ram_total'] !== 'N/A')
+                        <div class="space-y-1 pt-1">
+                            <div class="flex justify-between items-center text-[10.5px]">
+                                <span class="text-[#64748B] dark:text-slate-400">RAM Server:</span>
+                                <span class="font-bold text-slate-800 dark:text-white font-mono">{{ $info['ram_used'] }} / {{ $info['ram_total'] }} ({{ $info['ram_percentage'] }}%)</span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden flex">
+                                <div class="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full" style="width: {{ $info['ram_percentage'] }}%"></div>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="flex justify-between items-center pt-1">
                         <span class="text-[#64748B] dark:text-slate-400">Sistem Operasi:</span>
                         <span class="font-bold text-slate-800 dark:text-white truncate max-w-[150px]">{{ $info['server_os'] }}</span>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-[#64748B] dark:text-slate-400">Waktu Server:</span>
-                        <span class="font-mono text-[10.5px] text-slate-600 dark:text-slate-300">{{ now()->format('H:i:s T') }}</span>
+                        <span class="font-mono text-[10.5px] text-slate-600 dark:text-slate-300 font-bold">{{ now()->translatedFormat('H:i:s T') }}</span>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                     <span>✓</span> Ruang penyimpanan sangat aman untuk database ritel
                 </span>

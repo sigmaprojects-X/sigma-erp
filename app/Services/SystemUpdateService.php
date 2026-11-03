@@ -111,31 +111,90 @@ class SystemUpdateService
             Log::warning('Gagal membaca info PostgreSQL: ' . $e->getMessage());
         }
 
-        // Deteksi sisa kapasitas harddisk
-        $drive = substr(base_path(), 0, 3);
-        $freeSpace = @disk_free_space($drive);
-        $totalSpace = @disk_total_space($drive);
+        // Deteksi sisa kapasitas harddisk (Kompatibel Linux & Windows)
+        $isWindows = PHP_OS_FAMILY === 'Windows';
+        $diskPath = $isWindows ? (substr(base_path(), 0, 2) . '\\') : base_path();
 
-        $freeSpaceFormatted = $freeSpace ? round($freeSpace / (1024 * 1024 * 1024), 2) . ' GB' : 'N/A';
-        $totalSpaceFormatted = $totalSpace ? round($totalSpace / (1024 * 1024 * 1024), 2) . ' GB' : 'N/A';
+        $freeBytes = @disk_free_space($diskPath);
+        if ($freeBytes === false && ! $isWindows) {
+            $freeBytes = @disk_free_space('/');
+        }
+
+        $totalBytes = @disk_total_space($diskPath);
+        if ($totalBytes === false && ! $isWindows) {
+            $totalBytes = @disk_total_space('/');
+        }
+
+        $freeSpaceFormatted = $freeBytes ? round($freeBytes / (1024 * 1024 * 1024), 2) . ' GB' : 'N/A';
+        $totalSpaceFormatted = $totalBytes ? round($totalBytes / (1024 * 1024 * 1024), 2) . ' GB' : 'N/A';
+        $usedBytes = ($totalBytes && $freeBytes) ? ($totalBytes - $freeBytes) : 0;
+        $usedSpaceFormatted = $usedBytes ? round($usedBytes / (1024 * 1024 * 1024), 2) . ' GB' : '0 GB';
+        $usedPercentage = ($totalBytes && $totalBytes > 0) ? round(($usedBytes / $totalBytes) * 100, 1) : 0;
+
+        $driveLabel = $isWindows 
+            ? substr(base_path(), 0, 2) 
+            : 'Root (/)';
+
+        // Deteksi Penggunaan RAM / Memory Server
+        $ramInfo = $this->getServerRamInfo();
 
         return [
             'app_name' => config('version.app_name', 'SIGMA ERP & POS Enterprise'),
             'current_version' => $this->getCurrentVersion(),
             'latest_version' => $this->getLatestVersion(),
             'update_available' => $this->isUpdateAvailable(),
-            'release_date' => config('version.release_date', '2026-10-30'),
+            'release_date' => config('version.release_date', '2026-11-02'),
             'php_version' => PHP_VERSION,
             'laravel_version' => app()->version(),
             'database_engine' => 'PostgreSQL 16+',
             'database_name' => config('database.connections.pgsql.database', 'sigma_erp'),
             'database_storage_path' => $dataDir,
             'database_size' => $dbSize,
-            'install_drive' => $drive,
+            'install_drive' => $driveLabel,
             'disk_free_space' => $freeSpaceFormatted,
             'disk_total_space' => $totalSpaceFormatted,
+            'disk_used_space' => $usedSpaceFormatted,
+            'disk_used_percentage' => $usedPercentage,
+            'ram_used' => $ramInfo['used'],
+            'ram_total' => $ramInfo['total'],
+            'ram_percentage' => $ramInfo['percentage'],
             'server_os' => PHP_OS_FAMILY . ' (' . php_uname('s') . ')',
             'server_time' => now()->translatedFormat('l, d F Y - H:i:s T'),
+            'is_windows' => $isWindows,
+        ];
+    }
+
+    /**
+     * Dapatkan informasi RAM server secara aman (Linux & Windows).
+     */
+    protected function getServerRamInfo(): array
+    {
+        $total = 'N/A';
+        $used = 'N/A';
+        $percentage = 0;
+
+        try {
+            if (PHP_OS_FAMILY === 'Linux' && is_readable('/proc/meminfo')) {
+                $meminfo = file_get_contents('/proc/meminfo');
+                preg_match('/MemTotal:\s+(\d+)\s+kB/i', $meminfo, $totalMatch);
+                preg_match('/MemAvailable:\s+(\d+)\s+kB/i', $meminfo, $availMatch);
+
+                if (!empty($totalMatch[1]) && !empty($availMatch[1])) {
+                    $totalKb = (float) $totalMatch[1];
+                    $availKb = (float) $availMatch[1];
+                    $usedKb = $totalKb - $availKb;
+
+                    $total = round($totalKb / (1024 * 1024), 2) . ' GB';
+                    $used = round($usedKb / (1024 * 1024), 2) . ' GB';
+                    $percentage = round(($usedKb / $totalKb) * 100, 1);
+                }
+            }
+        } catch (\Throwable) {}
+
+        return [
+            'total' => $total,
+            'used' => $used,
+            'percentage' => $percentage,
         ];
     }
 
