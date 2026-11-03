@@ -388,13 +388,13 @@ class WarehouseService
      * Petugas Toko Menginput Hitungan Fisik Buta (Blind Count Submission).
      * Angka ekspektasi sistem dirahasiakan / tidak boleh dilihat oleh staf toko.
      */
-    public function submitBlindCounts(StockOpname $opname, array $actualCounts, User $counter): StockOpname
+    public function submitBlindCounts(StockOpname $opname, array $actualCounts, User $counter, array $actualNotes = []): StockOpname
     {
         if ($opname->status !== 'IN_PROGRESS') {
             throw new \DomainException("Penginputan fisik hanya dapat dilakukan saat opname berstatus IN_PROGRESS. Status saat ini: {$opname->status}");
         }
 
-        return DB::transaction(function () use ($opname, $actualCounts) {
+        return DB::transaction(function () use ($opname, $actualCounts, $actualNotes) {
             $totalActualQty = 0.0;
             $totalDiscrepancyQty = 0.0;
             $totalDiscrepancyVal = 0.0;
@@ -402,6 +402,7 @@ class WarehouseService
             foreach ($opname->items as $item) {
                 $productId = $item->product_id;
                 $actualQty = isset($actualCounts[$productId]) ? (float) $actualCounts[$productId] : (float) $item->actual_quantity;
+                $note = isset($actualNotes[$productId]) ? trim((string) $actualNotes[$productId]) : $item->notes;
 
                 $sysQty = (float) $item->system_quantity;
                 $discrepancyQty = $actualQty - $sysQty;
@@ -416,6 +417,7 @@ class WarehouseService
                     'actual_quantity' => $actualQty,
                     'discrepancy_quantity' => $discrepancyQty,
                     'discrepancy_value' => $discrepancyVal,
+                    'notes' => $note,
                 ]);
             }
 

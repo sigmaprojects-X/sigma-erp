@@ -116,6 +116,12 @@
                                     {{ $it['category_name'] }}
                                 </span>
                             </div>
+
+                            <!-- BADGE RINCIAN MULTI-SATUAN (JIKA ADA DUS/PACK/BKS) -->
+                            <div id="notes-badge-{{ $it['product_id'] }}" class="{{ empty($it['notes']) ? 'hidden ' : '' }}mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/90 dark:border-blue-800">
+                                <span>📦 Rincian:</span>
+                                <span id="notes-text-{{ $it['product_id'] }}" class="font-semibold">{{ $it['notes'] }}</span>
+                            </div>
                         </div>
 
                         <!-- STATUS BADGE -->
@@ -129,20 +135,21 @@
                 </div>
 
                 <!-- TOUCH NUMPAD & QUICK BUTTONS -->
-                <div class="pt-3 mt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-between gap-2">
-                    <!-- Tombol Cepat Tambah (+1, +5, +10) -->
-                    <div class="flex items-center gap-1">
+                <div class="pt-3 mt-3 border-t border-slate-100 dark:border-slate-700/80 flex flex-wrap items-center justify-between gap-2">
+                    <!-- Tombol Cepat Satuan & Tambah (+1, +5, +10) -->
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="openMultiUnitModal('{{ $it['product_id'] }}')"
+                                class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 text-white text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-all hover:scale-[1.02]">
+                            <span>📦</span>
+                            <span>Hitung Satuan</span>
+                        </button>
                         <button type="button" onclick="quickAdd('{{ $it['product_id'] }}', 1)"
-                                class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-600 transition-colors">
+                                class="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-600 transition-colors">
                             +1
                         </button>
                         <button type="button" onclick="quickAdd('{{ $it['product_id'] }}', 5)"
-                                class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-600 transition-colors">
+                                class="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-600 transition-colors">
                             +5
-                        </button>
-                        <button type="button" onclick="quickAdd('{{ $it['product_id'] }}', 10)"
-                                class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-600 transition-colors">
-                            +10
                         </button>
                     </div>
 
@@ -153,10 +160,12 @@
                             -
                         </button>
 
-                        <button type="button" onclick="openNumpadModal('{{ $it['product_id'] }}', '{{ addslashes($it['name']) }}')"
+                        <button type="button" onclick="openMultiUnitModal('{{ $it['product_id'] }}')"
                                 id="display-{{ $it['product_id'] }}"
-                                class="w-16 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 font-mono font-extrabold text-sm text-center text-slate-900 dark:text-white flex items-center justify-center shadow-inner hover:border-blue-500 cursor-pointer transition-colors">
-                            {{ $it['actual_quantity'] }}
+                                class="px-2.5 h-8 min-w-[4.5rem] rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 font-mono font-extrabold text-xs sm:text-sm text-center text-slate-900 dark:text-white flex items-center justify-center gap-1 shadow-inner hover:border-blue-500 cursor-pointer transition-colors"
+                                title="Klik untuk membuka kalkulator / numpad">
+                            <span id="qty-val-{{ $it['product_id'] }}">{{ (float)$it['actual_quantity'] }}</span>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase">{{ $it['base_unit'] }}</span>
                         </button>
 
                         <button type="button" onclick="stepCount('{{ $it['product_id'] }}', 1)"
@@ -225,44 +234,103 @@
 </div>
 
 <!-- ============================================================== -->
-<!-- MODAL TOUCH NUMPAD VIRTUAL UNTUK INPUT ANGKA BESAR -->
+<!-- MODAL HYBRID KALKULATOR MULTI-SATUAN & TOUCH NUMPAD -->
 <!-- ============================================================== -->
-<div id="numpadModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-xs" style="display: none;">
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl animate-in slide-in-from-bottom duration-150 transition-colors">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+<div id="multiUnitModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/75 backdrop-blur-xs" style="display: none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl animate-in slide-in-from-bottom duration-150 transition-colors max-h-[92vh] flex flex-col">
+        
+        <!-- MODAL HEADER -->
+        <div class="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3 shrink-0">
             <div>
-                <h3 class="text-xs font-bold text-slate-900 dark:text-white line-clamp-1" id="numpadProductName">Nama Produk</h3>
-                <span class="text-[11px] text-slate-500 dark:text-slate-400">Input Kuantitas Fisik Riil</span>
+                <div class="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-blue-600 dark:text-blue-400">
+                    <span>📦 Kalkulator Hitungan Fisik</span>
+                </div>
+                <h3 class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white line-clamp-1 mt-0.5" id="calcProductName">
+                    Nama Produk
+                </h3>
+                <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span id="calcProductSku" class="font-mono font-bold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">SKU</span>
+                    <span>•</span>
+                    <span id="calcProductRack">Rak: -</span>
+                </div>
             </div>
-            <button type="button" onclick="closeNumpadModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-lg cursor-pointer">&times;</button>
+            <button type="button" onclick="closeMultiUnitModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:white flex items-center justify-center font-bold text-lg cursor-pointer transition-colors">&times;</button>
         </div>
 
-        <!-- Input Display -->
-        <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 text-center mb-4">
-            <div class="text-3xl font-mono font-black text-slate-900 dark:text-white" id="numpadValueDisplay">0</div>
-        </div>
-
-        <!-- Numpad Grid -->
-        <div class="grid grid-cols-3 gap-2 font-mono font-bold text-base">
-            <button type="button" onclick="numpadPress('1')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">1</button>
-            <button type="button" onclick="numpadPress('2')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">2</button>
-            <button type="button" onclick="numpadPress('3')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">3</button>
-            <button type="button" onclick="numpadPress('4')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">4</button>
-            <button type="button" onclick="numpadPress('5')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">5</button>
-            <button type="button" onclick="numpadPress('6')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">6</button>
-            <button type="button" onclick="numpadPress('7')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">7</button>
-            <button type="button" onclick="numpadPress('8')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">8</button>
-            <button type="button" onclick="numpadPress('9')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">9</button>
-            <button type="button" onclick="numpadClear()" class="py-3 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-black transition-colors cursor-pointer">C</button>
-            <button type="button" onclick="numpadPress('0')" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">0</button>
-            <button type="button" onclick="numpadBackspace()" class="py-3 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-600 dark:text-slate-300 transition-colors cursor-pointer">⌫</button>
-        </div>
-
-        <!-- Tombol Simpan Numpad -->
-        <div class="mt-4">
-            <button type="button" onclick="saveNumpadValue()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 font-extrabold text-xs sm:text-sm text-white rounded-xl shadow-md transition-colors cursor-pointer">
-                Simpan Hitungan
+        <!-- TABS MODE: KALKULATOR KEMASAN vs NUMPAD LANGSUNG -->
+        <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl mb-3 shrink-0 text-xs font-bold">
+            <button type="button" onclick="setCalcTab('units')" id="btnTabUnits" class="flex-1 py-2 rounded-xl text-center bg-blue-600 text-white shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <span>📦</span>
+                <span>Satuan Kemasan (Dus, Pack, Pcs)</span>
             </button>
+            <button type="button" onclick="setCalcTab('numpad')" id="btnTabNumpad" class="flex-1 py-2 rounded-xl text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <span>🔢</span>
+                <span>Numpad Langsung</span>
+            </button>
+        </div>
+
+        <!-- TAB CONTENT 1: KALKULATOR MULTI-SATUAN (SCROLLABLE JIKA KEMASAN BANYAK) -->
+        <div id="contentTabUnits" class="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div class="p-2.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/60 rounded-xl text-[11px] text-blue-700 dark:text-blue-300 leading-snug">
+                💡 Masukkan jumlah kemasan fisik yang ditemukan di rak/gudang. Sistem otomatis mengalikan faktor konversi ke satuan dasar.
+            </div>
+
+            <!-- CONTAINER LIST SATUAN DINAMIS -->
+            <div id="unitsInputsContainer" class="space-y-2.5">
+                <!-- Diisi via JS: baris per satuan (Dus, Bal, Renteng, Pcs) -->
+            </div>
+        </div>
+
+        <!-- TAB CONTENT 2: NUMPAD VIRTUAL LANGSUNG -->
+        <div id="contentTabNumpad" class="flex-1 overflow-y-auto space-y-3" style="display: none;">
+            <div class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 text-center">
+                <div class="text-xs text-slate-400 font-semibold mb-1">Total Satuan Dasar Langsung:</div>
+                <div class="text-3xl font-mono font-black text-slate-900 dark:text-white" id="numpadDirectDisplay">0</div>
+                <div class="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase mt-0.5" id="numpadBaseUnitLabel">PCS</div>
+            </div>
+
+            <!-- Numpad Grid -->
+            <div class="grid grid-cols-3 gap-2 font-mono font-bold text-base">
+                <button type="button" onclick="calcNumpadPress('1')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">1</button>
+                <button type="button" onclick="calcNumpadPress('2')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">2</button>
+                <button type="button" onclick="calcNumpadPress('3')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">3</button>
+                <button type="button" onclick="calcNumpadPress('4')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">4</button>
+                <button type="button" onclick="calcNumpadPress('5')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">5</button>
+                <button type="button" onclick="calcNumpadPress('6')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">6</button>
+                <button type="button" onclick="calcNumpadPress('7')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">7</button>
+                <button type="button" onclick="calcNumpadPress('8')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">8</button>
+                <button type="button" onclick="calcNumpadPress('9')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">9</button>
+                <button type="button" onclick="calcNumpadClear()" class="py-2.5 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 rounded-2xl text-sm font-black transition-colors cursor-pointer">C</button>
+                <button type="button" onclick="calcNumpadPress('0')" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-900 dark:text-white transition-colors cursor-pointer">0</button>
+                <button type="button" onclick="calcNumpadBackspace()" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-blue-600 active:text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-600 dark:text-slate-300 transition-colors cursor-pointer">⌫</button>
+            </div>
+        </div>
+
+        <!-- TOTAL CALCULATION FOOTER CARD (STICKY BOTTOM IN MODAL) -->
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0 space-y-3">
+            <div class="bg-gradient-to-r from-blue-900/90 to-indigo-900/90 border border-blue-500/30 rounded-2xl p-3 text-white flex items-center justify-between">
+                <div>
+                    <div class="text-[10px] text-blue-200 font-bold uppercase tracking-wider">Total Hitungan Fisik Riil</div>
+                    <div class="text-xs text-blue-100 line-clamp-1 mt-0.5" id="calcFormulaBreakdown">0 Satuan</div>
+                </div>
+                <div class="text-right">
+                    <span class="text-2xl sm:text-3xl font-mono font-black text-cyan-300" id="calcTotalDisplay">0</span>
+                    <span class="text-xs font-bold text-blue-200 ml-1 uppercase" id="calcBaseUnitLabel">PCS</span>
+                </div>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="closeMultiUnitModal()"
+                        class="px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition-colors">
+                    Batal
+                </button>
+                <button type="button" onclick="saveMultiUnitCalculation()"
+                        class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/25 cursor-pointer transition-all flex items-center justify-center gap-2">
+                    <span>💾</span>
+                    <span id="btnSaveCalcText">Simpan Hitungan Fisik</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -298,10 +366,18 @@
 @push('scripts')
 <script>
 const OPNAME_ID = '{{ $stockOpname->id }}';
+const PWA_ITEMS = @json($items->keyBy('product_id'));
+
 let activeTab = 'all'; // all, uncounted, counted
-let activeNumpadProductId = null;
-let numpadBuffer = '0';
 let html5QrCode = null;
+
+// Multi-Unit Calculator State
+let activeCalcProductId = null;
+let calcActiveTab = 'units'; // 'units' or 'numpad'
+let calcUnitCounts = {};
+let calcNumpadBuffer = '0';
+let currentCalcTotal = 0;
+let currentCalcNotes = '';
 
 // Audio Beep
 function playBeep() {
@@ -316,17 +392,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const storageKey = 'sigma_opname_{{ $stockOpname->id }}';
         const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
         Object.keys(saved).forEach(pId => {
+            const entry = saved[pId];
+            const qty = typeof entry === 'object' && entry !== null ? parseFloat(entry.qty || 0) : parseFloat(entry || 0);
+            const notes = typeof entry === 'object' && entry !== null ? (entry.notes || '') : '';
+
             const card = document.getElementById(`card-${pId}`);
-            const display = document.getElementById(`display-${pId}`);
+            const qtyVal = document.getElementById(`qty-val-${pId}`);
             const badge = document.getElementById(`badge-${pId}`);
-            if (card && display && parseFloat(display.innerText || 0) === 0 && saved[pId] > 0) {
-                display.innerText = saved[pId];
+            const notesBadge = document.getElementById(`notes-badge-${pId}`);
+            const notesText = document.getElementById(`notes-text-${pId}`);
+
+            if (card && qtyVal && parseFloat(qtyVal.innerText || 0) === 0 && qty > 0) {
+                qtyVal.innerText = qty;
                 card.dataset.counted = '1';
                 card.classList.add('border-emerald-500/80', 'bg-emerald-50/40', 'dark:bg-emerald-950/20');
                 card.classList.remove('border-slate-200', 'dark:border-slate-700/80');
                 if (badge) {
                     badge.className = 'status-indicator px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700';
                     badge.innerText = '✓ Terhitung';
+                }
+                if (notes && notesBadge && notesText) {
+                    notesText.innerText = notes;
+                    notesBadge.classList.remove('hidden');
+                }
+                if (PWA_ITEMS[pId]) {
+                    PWA_ITEMS[pId].actual_quantity = qty;
+                    PWA_ITEMS[pId].notes = notes;
                 }
             }
         });
@@ -395,34 +486,56 @@ function setStatusTab(tab) {
 }
 
 function quickAdd(productId, delta) {
-    const display = document.getElementById(`display-${productId}`);
-    let current = parseFloat(display?.innerText || 0);
+    const item = PWA_ITEMS[productId];
+    let current = parseFloat(item?.actual_quantity || 0);
     current = Math.max(0, current + delta);
-    saveItemCount(productId, current);
+    saveItemCount(productId, current, item?.notes || null);
 }
 
 function stepCount(productId, step) {
     quickAdd(productId, step);
 }
 
-function saveItemCount(productId, count) {
-    const display = document.getElementById(`display-${productId}`);
+function saveItemCount(productId, count, notes = null) {
     const card = document.getElementById(`card-${productId}`);
+    const qtyVal = document.getElementById(`qty-val-${productId}`);
     const badge = document.getElementById(`badge-${productId}`);
+    const notesBadge = document.getElementById(`notes-badge-${productId}`);
+    const notesText = document.getElementById(`notes-text-${productId}`);
 
-    display.innerText = count;
-    card.dataset.counted = count > 0 ? '1' : '0';
+    if (qtyVal) qtyVal.innerText = count;
+    if (card) card.dataset.counted = count > 0 ? '1' : '0';
 
     if (count > 0) {
-        card.classList.add('border-emerald-500/80', 'bg-emerald-50/40', 'dark:bg-emerald-950/20');
-        card.classList.remove('border-slate-200', 'dark:border-slate-700/80');
-        badge.className = 'status-indicator px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700';
-        badge.innerText = '✓ Terhitung';
+        if (card) {
+            card.classList.add('border-emerald-500/80', 'bg-emerald-50/40', 'dark:bg-emerald-950/20');
+            card.classList.remove('border-slate-200', 'dark:border-slate-700/80');
+        }
+        if (badge) {
+            badge.className = 'status-indicator px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700';
+            badge.innerText = '✓ Terhitung';
+        }
     } else {
-        card.classList.remove('border-emerald-500/80', 'bg-emerald-50/40', 'dark:bg-emerald-950/20');
-        card.classList.add('border-slate-200', 'dark:border-slate-700/80');
-        badge.className = 'status-indicator px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600';
-        badge.innerText = 'Belum';
+        if (card) {
+            card.classList.remove('border-emerald-500/80', 'bg-emerald-50/40', 'dark:bg-emerald-950/20');
+            card.classList.add('border-slate-200', 'dark:border-slate-700/80');
+        }
+        if (badge) {
+            badge.className = 'status-indicator px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600';
+            badge.innerText = 'Belum';
+        }
+    }
+
+    if (notes && notes.trim() !== '') {
+        if (notesBadge) notesBadge.classList.remove('hidden');
+        if (notesText) notesText.innerText = notes;
+    } else {
+        if (notesBadge) notesBadge.classList.add('hidden');
+    }
+
+    if (PWA_ITEMS[productId]) {
+        PWA_ITEMS[productId].actual_quantity = count;
+        PWA_ITEMS[productId].notes = notes;
     }
 
     playBeep();
@@ -432,7 +545,7 @@ function saveItemCount(productId, count) {
     try {
         const storageKey = 'sigma_opname_{{ $stockOpname->id }}';
         const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        saved[productId] = count;
+        saved[productId] = { qty: count, notes: notes };
         localStorage.setItem(storageKey, JSON.stringify(saved));
     } catch(e) {}
 
@@ -447,7 +560,8 @@ function saveItemCount(productId, count) {
         },
         body: JSON.stringify({
             product_id: productId,
-            actual_quantity: count
+            actual_quantity: count,
+            notes: notes
         })
     }).catch(err => {
         console.error('Save offline fallback', err);
@@ -474,45 +588,208 @@ function updateProgressCounters() {
 }
 
 // ==========================================
-// NUMPAD VIRTUAL TOUCH
+// HYBRID MULTI-UNIT & NUMPAD MODAL
 // ==========================================
-function openNumpadModal(productId, productName) {
-    activeNumpadProductId = productId;
-    const display = document.getElementById(`display-${productId}`);
-    numpadBuffer = display ? display.innerText.trim() : '0';
-    if (numpadBuffer === '0') numpadBuffer = '';
+function openMultiUnitModal(productId) {
+    activeCalcProductId = productId;
+    const prod = PWA_ITEMS[productId];
+    if (!prod) return;
 
-    document.getElementById('numpadProductName').innerText = productName;
-    document.getElementById('numpadValueDisplay').innerText = numpadBuffer || '0';
-    document.getElementById('numpadModal').style.display = 'flex';
-}
+    document.getElementById('calcProductName').innerText = prod.name;
+    document.getElementById('calcProductSku').innerText = prod.sku;
+    document.getElementById('calcProductRack').innerText = `Rak: ${prod.rack_location}`;
+    document.getElementById('calcBaseUnitLabel').innerText = prod.base_unit;
+    document.getElementById('numpadBaseUnitLabel').innerText = prod.base_unit;
 
-function closeNumpadModal() {
-    document.getElementById('numpadModal').style.display = 'none';
-}
+    // Reset buffer numpad
+    const curQty = parseFloat(prod.actual_quantity || 0);
+    calcNumpadBuffer = curQty > 0 ? curQty.toString() : '0';
+    document.getElementById('numpadDirectDisplay').innerText = calcNumpadBuffer;
 
-function numpadPress(digit) {
-    if (numpadBuffer === '0') numpadBuffer = '';
-    numpadBuffer += digit;
-    document.getElementById('numpadValueDisplay').innerText = numpadBuffer;
-}
+    // Render multi-unit container
+    const container = document.getElementById('unitsInputsContainer');
+    container.innerHTML = '';
+    calcUnitCounts = {};
 
-function numpadClear() {
-    numpadBuffer = '';
-    document.getElementById('numpadValueDisplay').innerText = '0';
-}
+    prod.units.forEach(u => {
+        calcUnitCounts[u.unit_code] = 0;
 
-function numpadBackspace() {
-    numpadBuffer = numpadBuffer.slice(0, -1);
-    document.getElementById('numpadValueDisplay').innerText = numpadBuffer || '0';
-}
+        const row = document.createElement('div');
+        row.className = 'bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 flex items-center justify-between gap-3';
+        
+        const isBase = u.is_base_unit || u.conversion_factor === 1;
+        const convLabel = isBase 
+            ? `<span class="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase">Satuan Dasar</span>`
+            : `<span class="text-[10px] text-slate-400">1 ${u.unit_code} = ${u.conversion_factor} ${prod.base_unit}</span>`;
 
-function saveNumpadValue() {
-    const val = parseFloat(numpadBuffer || 0);
-    if (activeNumpadProductId) {
-        saveItemCount(activeNumpadProductId, val);
+        row.innerHTML = `
+            <div class="flex-1">
+                <div class="font-extrabold text-xs text-slate-900 dark:text-white">${u.unit_name} (${u.unit_code})</div>
+                <div>${convLabel}</div>
+                <div class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 mt-0.5" id="subtotal_${u.unit_code}">
+                    = 0 ${prod.base_unit}
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" onclick="stepUnitCalc('${u.unit_code}', -1)"
+                        class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-rose-100 hover:text-rose-600 dark:bg-slate-700 dark:hover:bg-rose-950 font-black text-sm flex items-center justify-center cursor-pointer transition-colors">-</button>
+                <input type="number" step="any" min="0" id="unit_input_${u.unit_code}"
+                       value="0" oninput="onUnitCalcInput('${u.unit_code}')"
+                       class="w-16 h-9 px-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-center font-mono font-black text-sm focus:ring-2 focus:ring-blue-500">
+                <button type="button" onclick="stepUnitCalc('${u.unit_code}', 1)"
+                        class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-emerald-100 hover:text-emerald-600 dark:bg-slate-700 dark:hover:bg-emerald-950 font-black text-sm flex items-center justify-center cursor-pointer transition-colors">+</button>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+
+    // Coba parse rincian existing dari notes jika ada (misal: "2 DUS, 1 PCS")
+    const existingNotes = (prod.notes || '').trim();
+    if (existingNotes) {
+        parseNotesIntoUnitCounts(existingNotes, prod);
+    } else if (curQty > 0 && prod.units.length === 1) {
+        const u = prod.units[0];
+        calcUnitCounts[u.unit_code] = curQty;
+        const el = document.getElementById('unit_input_' + u.unit_code);
+        if (el) el.value = curQty;
     }
-    closeNumpadModal();
+
+    // Default tab: jika produk punya multi-satuan (>1), buka tab kemasan; jika cuma 1 satuan (hanya PCS), buka numpad
+    if (prod.units.length > 1) {
+        setCalcTab('units');
+    } else {
+        setCalcTab('numpad');
+    }
+
+    recalcMultiUnits();
+    document.getElementById('multiUnitModal').style.display = 'flex';
+}
+
+function parseNotesIntoUnitCounts(notes, prod) {
+    const parts = notes.split(',');
+    parts.forEach(p => {
+        const trimmed = p.trim();
+        const match = trimmed.match(/^([\d\.]+)\s*(.+)$/i);
+        if (match) {
+            const qty = parseFloat(match[1]);
+            const code = match[2].trim().toUpperCase();
+            if (calcUnitCounts.hasOwnProperty(code)) {
+                calcUnitCounts[code] = qty;
+                const el = document.getElementById('unit_input_' + code);
+                if (el) el.value = qty;
+            }
+        }
+    });
+}
+
+function setCalcTab(tab) {
+    calcActiveTab = tab;
+    const btnUnits = document.getElementById('btnTabUnits');
+    const btnNumpad = document.getElementById('btnTabNumpad');
+    const contentUnits = document.getElementById('contentTabUnits');
+    const contentNumpad = document.getElementById('contentTabNumpad');
+
+    if (tab === 'units') {
+        btnUnits.className = 'flex-1 py-2 rounded-xl text-center bg-blue-600 text-white shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5';
+        btnNumpad.className = 'flex-1 py-2 rounded-xl text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1.5';
+        contentUnits.style.display = 'block';
+        contentNumpad.style.display = 'none';
+        recalcMultiUnits();
+    } else {
+        btnNumpad.className = 'flex-1 py-2 rounded-xl text-center bg-blue-600 text-white shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5';
+        btnUnits.className = 'flex-1 py-2 rounded-xl text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1.5';
+        contentUnits.style.display = 'none';
+        contentNumpad.style.display = 'block';
+        recalcDirectNumpad();
+    }
+}
+
+function stepUnitCalc(code, step) {
+    const el = document.getElementById('unit_input_' + code);
+    let val = parseFloat(el?.value || 0) + step;
+    val = Math.max(0, val);
+    if (el) el.value = val;
+    calcUnitCounts[code] = val;
+    recalcMultiUnits();
+}
+
+function onUnitCalcInput(code) {
+    const el = document.getElementById('unit_input_' + code);
+    let val = Math.max(0, parseFloat(el?.value || 0));
+    calcUnitCounts[code] = val;
+    recalcMultiUnits();
+}
+
+function recalcMultiUnits() {
+    if (!activeCalcProductId) return;
+    const prod = PWA_ITEMS[activeCalcProductId];
+    let total = 0;
+    let parts = [];
+
+    prod.units.forEach(u => {
+        const count = parseFloat(calcUnitCounts[u.unit_code] || 0);
+        const sub = count * u.conversion_factor;
+        total += sub;
+
+        const subEl = document.getElementById(`subtotal_${u.unit_code}`);
+        if (subEl) {
+            subEl.innerText = `= ${sub} ${prod.base_unit}`;
+        }
+
+        if (count > 0) {
+            parts.push(`${count} ${u.unit_code}`);
+        }
+    });
+
+    currentCalcTotal = total;
+    currentCalcNotes = parts.join(', ');
+
+    document.getElementById('calcTotalDisplay').innerText = total;
+    document.getElementById('calcFormulaBreakdown').innerText = parts.length > 0 ? parts.join(' + ') : '0 Kemasan';
+    document.getElementById('btnSaveCalcText').innerText = `Simpan (${total} ${prod.base_unit})`;
+}
+
+// Numpad Direct logic
+function calcNumpadPress(digit) {
+    if (calcNumpadBuffer === '0') calcNumpadBuffer = '';
+    calcNumpadBuffer += digit;
+    recalcDirectNumpad();
+}
+
+function calcNumpadClear() {
+    calcNumpadBuffer = '0';
+    recalcDirectNumpad();
+}
+
+function calcNumpadBackspace() {
+    calcNumpadBuffer = calcNumpadBuffer.slice(0, -1);
+    if (!calcNumpadBuffer) calcNumpadBuffer = '0';
+    recalcDirectNumpad();
+}
+
+function recalcDirectNumpad() {
+    if (!activeCalcProductId) return;
+    const prod = PWA_ITEMS[activeCalcProductId];
+    const total = parseFloat(calcNumpadBuffer || 0);
+
+    currentCalcTotal = total;
+    currentCalcNotes = ''; // Numpad langsung tidak menyimpan breakdown satuan kemasan
+
+    document.getElementById('numpadDirectDisplay').innerText = calcNumpadBuffer;
+    document.getElementById('calcTotalDisplay').innerText = total;
+    document.getElementById('calcFormulaBreakdown').innerText = `Input Langsung: ${total} ${prod.base_unit}`;
+    document.getElementById('btnSaveCalcText').innerText = `Simpan (${total} ${prod.base_unit})`;
+}
+
+function saveMultiUnitCalculation() {
+    if (!activeCalcProductId) return;
+    saveItemCount(activeCalcProductId, currentCalcTotal, currentCalcNotes);
+    closeMultiUnitModal();
+}
+
+function closeMultiUnitModal() {
+    document.getElementById('multiUnitModal').style.display = 'none';
+    activeCalcProductId = null;
 }
 
 // ==========================================
@@ -567,8 +844,8 @@ function handleBarcodeScanned(code) {
         targetCard.classList.add('ring-4', 'ring-blue-500');
         setTimeout(() => targetCard.classList.remove('ring-4', 'ring-blue-500'), 1500);
 
-        // Auto increment count by +1
-        quickAdd(pId, 1);
+        // Buka langsung modal hitung satuan untuk produk yang discan!
+        openMultiUnitModal(pId);
     } else {
         alert(`Barcode "${code}" tidak ditemukan pada daftar barang sesi opname ini.`);
     }

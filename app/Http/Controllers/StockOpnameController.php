@@ -101,7 +101,7 @@ class StockOpnameController extends Controller
      */
     public function show(string $id): View|JsonResponse
     {
-        $opname = StockOpname::with(['store', 'creator', 'approver', 'items.product'])->findOrFail($id);
+        $opname = StockOpname::with(['store', 'creator', 'approver', 'items.product.category', 'items.product.barcodes', 'items.product.units', 'items.product.baseUnit'])->findOrFail($id);
         $user = Auth::user();
 
         // Cek wewenang: apakah user adalah Manager / Owner
@@ -116,6 +116,7 @@ class StockOpnameController extends Controller
                     'product_name' => $it->product->name,
                     'sku' => $it->product->sku,
                     'actual_quantity' => (float) $it->actual_quantity,
+                    'notes' => $it->notes,
                     // system_quantity & discrepancy_quantity disembunyikan (MASKED)
                     'system_quantity' => null,
                     'discrepancy_quantity' => null,
@@ -143,15 +144,17 @@ class StockOpnameController extends Controller
      */
     public function submitCount(Request $request, string $id): JsonResponse|RedirectResponse
     {
-        $request->validate([
-            'counts' => 'required|array|min:1',
-            'counts.*' => 'numeric|min:0',
-        ]);
+        $counts = $request->input('counts') ?: $request->input('actual_counts', []);
+        $notes = $request->input('notes') ?: $request->input('actual_notes', []);
+
+        if (empty($counts) || ! is_array($counts)) {
+            return back()->withErrors(['counts' => 'Kuantitas hitungan fisik harus diisi.']);
+        }
 
         $opname = StockOpname::with('items')->findOrFail($id);
 
         try {
-            $updatedOpname = $this->warehouseService->submitBlindCounts($opname, $request->counts, Auth::user());
+            $updatedOpname = $this->warehouseService->submitBlindCounts($opname, $counts, Auth::user(), $notes);
 
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([

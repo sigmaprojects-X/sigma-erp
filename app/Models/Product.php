@@ -154,6 +154,18 @@ class Product extends Model
     }
 
     /**
+     * Get the base unit name or code attribute.
+     */
+    public function getBaseUnitAttribute(): string
+    {
+        $unit = $this->relationLoaded('baseUnit')
+            ? $this->getRelation('baseUnit')
+            : $this->baseUnit()->first();
+
+        return $unit?->unit_name ?: ($unit?->unit_code ?: 'PCS');
+    }
+
+    /**
      * Get all barcodes for this product.
      */
     public function barcodes(): HasMany

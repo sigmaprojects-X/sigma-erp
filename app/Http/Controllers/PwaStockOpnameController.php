@@ -153,7 +153,7 @@ class PwaStockOpnameController extends Controller
         $user = Auth::user();
         $isManager = in_array($user?->role, ['owner', 'manager', 'store_head'], true);
 
-        $stockOpname->load(['store', 'creator', 'items.product.category', 'items.product.barcodes']);
+        $stockOpname->load(['store', 'creator', 'items.product.category', 'items.product.barcodes', 'items.product.units', 'items.product.baseUnit']);
 
         // Data barang dengan proteksi Blind Count (system_quantity disembunyikan sesuai AGENTS.md)
         $items = $stockOpname->items->map(function ($it) {
@@ -161,6 +161,31 @@ class PwaStockOpnameController extends Controller
             $barcodes = $product?->barcodes ? $product->barcodes->pluck('barcode')->toArray() : [];
             if ($product && !in_array($product->sku, $barcodes)) {
                 $barcodes[] = $product->sku;
+            }
+
+            // Ambil daftar satuan kemasan produk diurutkan dari konversi terbesar ke terkecil
+            $rawUnits = $product?->units ? $product->units->where('is_active', true)->sortByDesc('conversion_factor')->values() : collect();
+            $units = $rawUnits->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'unit_code' => $u->unit_code,
+                    'unit_name' => $u->unit_name ?: $u->unit_code,
+                    'conversion_factor' => (float) $u->conversion_factor,
+                    'is_base_unit' => (bool) $u->is_base_unit,
+                ];
+            })->toArray();
+
+            $baseUnitName = $product?->base_unit ?? 'PCS';
+            if (empty($units)) {
+                $units = [
+                    [
+                        'id' => null,
+                        'unit_code' => $baseUnitName,
+                        'unit_name' => $baseUnitName,
+                        'conversion_factor' => 1.0,
+                        'is_base_unit' => true,
+                    ]
+                ];
             }
 
             return [
@@ -174,6 +199,9 @@ class PwaStockOpnameController extends Controller
                 'category_id' => $product?->category_id,
                 'rack_location' => $product?->rack_location ?: 'Tanpa Rak',
                 'actual_quantity' => (float) $it->actual_quantity,
+                'notes' => $it->notes,
+                'units' => $units,
+                'base_unit' => $baseUnitName,
                 'is_counted' => (float) $it->actual_quantity > 0,
                 // STRICT BLIND OPNAME: System quantity tidak pernah dikirim ke mobile PWA
                 'system_quantity' => null,
@@ -212,6 +240,7 @@ class PwaStockOpnameController extends Controller
                 'item_id' => $item->id,
                 'product_id' => $item->product_id,
                 'actual_quantity' => (float) $item->actual_quantity,
+                'notes' => $item->notes,
             ]);
         } catch (\Throwable $e) {
             return response()->json([
@@ -232,11 +261,16 @@ class PwaStockOpnameController extends Controller
             if (empty($counts)) {
                 $counts = $stockOpname->items->pluck('actual_quantity', 'product_id')->toArray();
             }
+            $notes = $request->input('notes', []);
+            if (empty($notes)) {
+                $notes = $stockOpname->items->pluck('notes', 'product_id')->toArray();
+            }
 
             $updated = $this->warehouseService->submitBlindCounts(
                 opname: $stockOpname,
                 actualCounts: $counts,
-                counter: Auth::user()
+                counter: Auth::user(),
+                actualNotes: $notes
             );
 
             if ($request->expectsJson() || $request->ajax()) {
