@@ -94,21 +94,43 @@
         <!-- ========================================== -->
         <div class="w-full lg:w-[54%] flex flex-col justify-center space-y-6 sm:space-y-7 text-left">
             
-            <!-- A. Lambang Resmi 3D "S" SIGMA Master Brand Mark (Opsi 1: Murni, Elegan & Anti-Tabrakan) -->
+            <!-- A. Logo Lockup Resmi SIGMA PROJECTS (Emblem 3D + Divider + Teks Resmi Vektor) -->
             <div class="relative inline-flex items-center group">
-                <!-- Soft ambient halo glow di belakang emblem S agar terpisah sempurna dari garis laser background -->
-                <div class="absolute -inset-6 bg-gradient-to-r from-blue-900/70 via-cyan-900/50 to-transparent rounded-full blur-2xl pointer-events-none"></div>
-                
-                <img src="{{ asset('images/sigma-emblem-clean.png') }}" 
-                     alt="SIGMA PROJECTS" 
-                     class="relative h-20 sm:h-24 lg:h-28 w-auto object-contain drop-shadow-[0_16px_36px_rgba(0,180,255,0.45)] group-hover:scale-105 transition-transform duration-300"
-                     onerror="this.onerror=null; this.src='{{ asset('logo-icon.png') }}'">
+                <div class="inline-flex items-center gap-3 sm:gap-4.5">
+                    <!-- Lambang 3D "S" SIGMA Master Mark -->
+                    <img src="{{ asset('images/sigma-emblem-clean.png') }}" 
+                         alt="SIGMA Projects" 
+                         class="h-16 sm:h-20 lg:h-22 w-auto object-contain drop-shadow-[0_12px_32px_rgba(0,180,255,0.5)] group-hover:scale-105 transition-transform duration-300">
+                    
+                    <!-- Golden Angled Divider Line -->
+                    <div class="h-14 sm:h-16 w-[2.5px] bg-gradient-to-b from-transparent via-[#f59e0b] to-transparent transform -skew-x-12 opacity-95 shadow-[0_0_10px_rgba(245,158,11,0.7)]"></div>
+
+                    <!-- Teks Resmi SIGMA PROJECTS (Crisp Vector Typography) -->
+                    <div class="flex flex-col justify-center select-none pt-0.5">
+                        <div class="text-3xl sm:text-4xl lg:text-[44px] font-black text-white tracking-[0.06em] flex items-center leading-none font-sans drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+                            <span>SIGM</span>
+                            <span class="relative inline-flex items-center justify-center">
+                                <span>A</span>
+                                <!-- Aksen Segitiga Emas Khas SIGMA di Huruf A -->
+                                <span class="absolute inset-x-0 bottom-[14%] flex justify-center pointer-events-none">
+                                    <span class="w-0 h-0 border-l-[4px] border-r-[4px] border-b-[8px] sm:border-l-[5.5px] sm:border-r-[5.5px] sm:border-b-[11px] border-l-transparent border-r-transparent border-b-[#f59e0b] drop-shadow-[0_0_6px_rgba(245,158,11,0.9)]"></span>
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="flex items-center justify-between text-[10px] sm:text-[11.5px] font-black text-[#f59e0b] tracking-[0.34em] uppercase mt-1.5 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]">
+                            <span class="w-5 sm:w-7 h-[2px] bg-gradient-to-r from-transparent to-[#f59e0b] rounded-full"></span>
+                            <span class="px-1.5 font-bold">PROJECTS</span>
+                            <span class="w-5 sm:w-7 h-[2px] bg-gradient-to-l from-transparent to-[#f59e0b] rounded-full"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- B & C. Judul Utama & Slogan -->
             <div class="space-y-2.5">
-                <h1 class="text-3xl sm:text-5xl lg:text-[54px] font-black tracking-tight text-white leading-[1.1]">
-                    SIGMA <span class="text-[#00e5ff] drop-shadow-[0_0_25px_rgba(0,229,255,0.55)]">ERP &amp; POS</span>
+                <h1 class="text-3xl sm:text-5xl lg:text-[56px] font-black tracking-tight text-white leading-[1.08]">
+                    SIGMA <span class="text-[#00e5ff] drop-shadow-[0_0_28px_rgba(0,229,255,0.65)]">ERP &amp; POS</span>
                 </h1>
                 
                 <p class="text-lg sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
@@ -116,8 +138,8 @@
                 </p>
 
                 <!-- D. Garis Aksen Horizontal Cyan dengan Highlight Emas -->
-                <div class="pt-1">
-                    <div class="h-1.5 w-44 rounded-full bg-gradient-to-r from-[#00e5ff] via-[#38bdf8] to-[#f59e0b] shadow-[0_0_14px_rgba(0,229,255,0.8)]"></div>
+                <div class="pt-1.5">
+                    <div class="h-1.5 w-48 rounded-full bg-gradient-to-r from-[#00e5ff] via-[#38bdf8] to-[#f59e0b] shadow-[0_0_16px_rgba(0,229,255,0.85)]"></div>
                 </div>
 
                 <!-- E. Deskripsi -->
@@ -180,11 +202,12 @@
             <div class="bg-white rounded-[32px] p-7 sm:p-9 lg:p-10 shadow-[0_25px_70px_rgba(0,18,60,0.65)] border border-slate-100 ring-8 ring-blue-500/10 w-full max-w-[460px] text-slate-900 relative">
                 
                 <!-- A. Ikon Pengguna Dalam Lingkaran Biru -->
-                <div class="flex justify-center mb-3">
-                    <div class="w-20 h-20 rounded-full bg-gradient-to-b from-[#e0f2fe] to-[#bae6fd] p-1.5 shadow-md shadow-blue-500/20 flex items-center justify-center">
-                        <div class="w-full h-full rounded-full bg-gradient-to-tr from-[#0066ff] to-[#00d2ff] flex items-center justify-center text-white shadow-inner">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                <div class="flex justify-center mb-3.5">
+                    <div class="w-20 h-20 rounded-full bg-gradient-to-b from-[#e0f2fe] to-[#bae6fd] p-1.5 shadow-lg shadow-blue-500/25 flex items-center justify-center ring-4 ring-blue-100/60">
+                        <div class="w-full h-full rounded-full bg-gradient-to-tr from-[#0066ff] via-[#0088ff] to-[#00d2ff] flex items-center justify-center text-white shadow-inner">
+                            <svg class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                <path d="M18 10c1.66 0 3-1.34 3-3s-1.34-3-3-3c-.35 0-.68.06-.99.17 1.23.95 2.01 2.45 2.01 4.14s-.78 3.19-2.01 4.14c.31.11.64.17.99.17zm1.5 4.5c.98.63 1.5 1.5 1.5 2.5v2h3v-2c0-1.63-2.67-2.68-4.5-2.5z" opacity="0.8"/>
                             </svg>
                         </div>
                     </div>
@@ -334,8 +357,6 @@
         <!-- Hak Cipta & Info Keamanan (Identitas Resmi SIGMA PROJECTION) -->
         <div class="flex items-center gap-2 text-center sm:text-left">
             <span>&copy; {{ date('Y') }} SIGMA PROJECTION</span>
-            <span class="text-slate-600 hidden sm:inline">&bull;</span>
-            <span class="text-slate-400 hidden sm:inline">Didukung Keamanan Enkripsi Tingkat Tinggi</span>
         </div>
 
         <!-- Status Koneksi & Support -->
