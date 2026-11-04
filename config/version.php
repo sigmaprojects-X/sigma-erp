@@ -2,15 +2,32 @@
 
 return [
     'app_name' => 'SIGMA ERP & POS Enterprise',
-    'version' => '1.0.3',
-    'build_number' => '20261102',
-    'release_date' => '2026-11-02',
+    'version' => '1.0.4',
+    'build_number' => '20261104',
+    'release_date' => '2026-11-04',
     'channel' => 'stable',
     'min_php_version' => '8.3.0',
     'min_postgres_version' => '15.0',
-    'latest_version' => '1.0.3',
+    'latest_version' => '1.0.4',
     'update_available' => false,
     'changelog' => [
+        'v1.0.4' => [
+            'release_date' => '2026-11-04',
+            'title' => 'Multi-Tenancy Security Scoping, Dashboard Sales Filter, Decimal Precision & Auto-Deploy CI/CD',
+            'features' => [
+                'GitHub Actions CI/CD Pipeline: Otomasi deployment langsung ke server VPS Biznet Gio setiap push branch main dengan migrasi database dan pembersihan cache otomatis',
+                'Isolasi Ketat Multi-Company Dashboard: Seluruh widget Analisis Penjualan (Tren 7 Hari, Top 5 Produk, Kinerja Kasir, Riwayat Transaksi) dikunci ketat per company_id aktif',
+                'Scoping Multi-Tenancy Modul Operasional: Penerapan filter isolasi perusahaan menyeluruh pada Kasir POS (shift & produk), Pembelian PO, Penerimaan Barang (Goods Receipt), dan Piutang Pelanggan (Kartu Piutang & Nota Tempo)',
+                'Presisi Desimal Kalkulasi HPP: Mempertahankan angka desimal moving average dan harga beli barang pada kalkulasi penerimaan barang dan kartu stok',
+                'Multi-Company Auto-Binding: Otomasi pengikatan store default perusahaan baru dan auto-generate kode master CUST-xxxx dan SUPP-xxxx',
+                'Corporate Login UI: Pembaruan tampilan antarmuka login corporate modern berbasis visual branding SIGMA Enterprise',
+                'AI Fail-Safe Handoff & Auto-Sync: Dokumentasi serah terima AI (HANDOFF-AI.md) dan skrip 1-klik backup-github.bat'
+            ],
+            'fixes' => [
+                'Pencegahan kebocoran data penjualan antar-perusahaan (angka transaksi perusahaan pusat tidak lagi muncul pada dashboard cabang)',
+                'Perbaikan permission storage & bootstrap/cache serta reload otomatis service PHP-FPM di VPS produksi',
+            ]
+        ],
         'v1.0.3' => [
             'release_date' => '2026-11-02',
             'title' => 'Bundled Portable PHP 8.3 Runtime, Smart PostgreSQL Auto-Detection & Zero-Config Installer',
