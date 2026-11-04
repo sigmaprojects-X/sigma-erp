@@ -54,16 +54,20 @@ class SalesController extends Controller
         $todayReturnsCount = PosReturn::where('company_id', $company->id)->whereDate('created_at', $today)->count();
         $todayReturnsAmount = (float) PosReturn::where('company_id', $company->id)->whereDate('created_at', $today)->sum('total_refund_amount');
 
-        // Top 5 Produk Terlaris (Best Sellers)
-        $topProducts = PosTransactionItem::with('product')
+        // Top 5 Produk Terlaris (Best Sellers) - Filter per Perusahaan Aktif
+        $topProducts = PosTransactionItem::whereHas('transaction', function ($q) use ($company) {
+                $q->where('company_id', $company->id);
+            })
+            ->with('product')
             ->selectRaw('product_id, SUM(quantity) as total_qty, SUM(subtotal) as total_revenue')
             ->groupBy('product_id')
             ->orderByDesc('total_qty')
             ->limit(5)
             ->get();
 
-        // Kinerja Penjualan per Kasir / Sales Person
-        $salesByCashier = PosTransaction::with('cashier')
+        // Kinerja Penjualan per Kasir / Sales Person - Filter per Perusahaan Aktif
+        $salesByCashier = PosTransaction::where('company_id', $company->id)
+            ->with('cashier')
             ->selectRaw('cashier_id, COUNT(*) as tx_count, SUM(grand_total) as total_revenue')
             ->whereNotNull('cashier_id')
             ->groupBy('cashier_id')
@@ -71,13 +75,13 @@ class SalesController extends Controller
             ->limit(5)
             ->get();
 
-        // Transaksi terakhir
-        $recentTransactions = PosTransaction::with(['customer', 'customerTier'])
+        // Transaksi terakhir - Filter per Perusahaan Aktif
+        $recentTransactions = PosTransaction::where('company_id', $company->id)
+            ->with(['customer', 'customerTier'])
             ->orderByDesc('created_at')
             ->limit(10)
             ->get();
 
-        $company = $store ? $store->company : Company::first();
         $wallpaperUrl = $company ? $company->wallpaper_url : asset('images/banner.jpg');
 
         $initialTrendData = $this->getTrendAnalytics('7_days');
@@ -145,7 +149,9 @@ class SalesController extends Controller
                 break;
         }
 
-        $query = PosTransaction::where('status', '!=', 'VOID')
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $query = PosTransaction::where('company_id', $company->id)
+            ->where('status', '!=', 'VOID')
             ->whereBetween('created_at', [$startDate, $endDate]);
 
         if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales']) && $user->store_id) {
