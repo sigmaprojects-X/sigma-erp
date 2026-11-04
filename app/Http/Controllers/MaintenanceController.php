@@ -73,7 +73,7 @@ class MaintenanceController extends Controller
      */
     public function index(): View
     {
-        $company = Company::firstOrFail();
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         // 1. Dapatkan Ukuran Database PostgreSQL
         $dbSize = '0 MB';
@@ -94,9 +94,9 @@ class MaintenanceController extends Controller
 
         // 2. Statistik Volume Data Transaksi
         $stats = [
-            'sales_count' => PosTransaction::count(),
-            'journal_entries_count' => JournalEntry::count(),
-            'stock_mutations_count' => StockMutation::count(),
+            'sales_count' => PosTransaction::where('company_id', $company->id)->count(),
+            'journal_entries_count' => JournalEntry::where('company_id', $company->id)->count(),
+            'stock_mutations_count' => StockMutation::where('company_id', $company->id)->count(),
             'db_size' => $dbSize,
             'db_version' => $dbVersion,
             'php_version' => PHP_VERSION,
