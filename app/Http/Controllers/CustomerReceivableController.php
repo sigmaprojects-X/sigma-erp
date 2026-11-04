@@ -63,7 +63,8 @@ class CustomerReceivableController extends Controller
      */
     public function ledger(string $customerId): View|JsonResponse
     {
-        $customer = Customer::with(['customerTier', 'store'])->findOrFail($customerId);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $customer = Customer::with(['customerTier', 'store'])->where('company_id', $companyId)->findOrFail($customerId);
         $ledgerEntries = $this->receivableService->getCustomerLedger($customer);
         $outstandingInvoices = $this->receivableService->getOutstandingInvoices($customer);
 
@@ -75,7 +76,8 @@ class CustomerReceivableController extends Controller
      */
     public function createPayment(string $customerId): View
     {
-        $customer = Customer::with(['customerTier', 'store'])->findOrFail($customerId);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $customer = Customer::with(['customerTier', 'store'])->where('company_id', $companyId)->findOrFail($customerId);
         $outstandingInvoices = $this->receivableService->getOutstandingInvoices($customer);
         $bankAccounts = BankAccount::where('company_id', $customer->company_id)->where('is_active', true)->get();
         $stores = Store::where('company_id', $customer->company_id)->where('is_active', true)->get();
@@ -88,7 +90,8 @@ class CustomerReceivableController extends Controller
      */
     public function storePayment(Request $request, string $customerId): JsonResponse|RedirectResponse
     {
-        $customer = Customer::findOrFail($customerId);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $customer = Customer::where('company_id', $companyId)->findOrFail($customerId);
 
         $request->validate([
             'payment_date' => 'required|date',
@@ -136,7 +139,8 @@ class CustomerReceivableController extends Controller
      */
     public function showReceipt(string $paymentId): View
     {
-        $payment = CustomerPayment::with(['customer', 'store', 'receiver', 'items.transaction'])->findOrFail($paymentId);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $payment = CustomerPayment::with(['customer', 'store', 'receiver', 'items.transaction'])->where('company_id', $companyId)->findOrFail($paymentId);
 
         return view('customers.receivables.receipt', compact('payment'));
     }

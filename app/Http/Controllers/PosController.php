@@ -687,7 +687,8 @@ class PosController extends Controller
      */
     protected function authorizeShiftAccess(Request $request, string $shiftId): CashierShift
     {
-        $shift = CashierShift::findOrFail($shiftId);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $shift = CashierShift::where('company_id', $company->id)->findOrFail($shiftId);
         $user = $request->user() ?? Auth::user();
 
         if (! $user) {
@@ -951,7 +952,8 @@ class PosController extends Controller
             'subtotal' => 'required|numeric|min:0',
         ]);
 
-        $customer = Customer::findOrFail($request->customer_id);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $customer = Customer::where('company_id', $company->id)->findOrFail($request->customer_id);
 
         try {
             $discount = $this->loyaltyPointService->calculateRedemptionDiscount(
@@ -1011,6 +1013,8 @@ class PosController extends Controller
      */
     public function printReceipt(Request $request, string $id): View
     {
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+
         $transaction = PosTransaction::with([
             'items.product',
             'items.unit',
@@ -1020,9 +1024,8 @@ class PosController extends Controller
             'company',
             'cashier',
             'shift.cashier',
-        ])->findOrFail($id);
+        ])->where('company_id', $company->id)->findOrFail($id);
 
-        $company = $transaction->company ?? Company::first();
         $paperSize = $request->query('paper', $company->receipt_paper_size ?? '58');
 
         return view('pos.receipt', [
@@ -1212,7 +1215,8 @@ class PosController extends Controller
             'notes' => 'required|string|max:500',
         ]);
 
-        $shift = CashierShift::findOrFail($id);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $shift = CashierShift::where('company_id', $company->id)->findOrFail($id);
         $user = $request->user();
 
         if (! in_array($user?->role, ['owner', 'manager', 'store_head'], true)) {

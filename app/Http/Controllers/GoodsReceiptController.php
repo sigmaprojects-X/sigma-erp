@@ -72,13 +72,14 @@ class GoodsReceiptController extends Controller
      */
     public function create(string $poId): View
     {
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
         $purchaseOrder = PurchaseOrder::with([
             'supplier',
             'store',
             'company',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($poId);
+        ])->where('company_id', $companyId)->findOrFail($poId);
 
         if (! in_array($purchaseOrder->status, ['ORDERED', 'PARTIALLY_RECEIVED'], true)) {
             return redirect()->route('purchases.orders.show', $purchaseOrder->id)
@@ -109,7 +110,8 @@ class GoodsReceiptController extends Controller
             'items.*.notes' => 'nullable|string|max:255',
         ]);
 
-        $po = PurchaseOrder::findOrFail($request->purchase_order_id);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $po = PurchaseOrder::where('company_id', $companyId)->findOrFail($request->purchase_order_id);
 
         try {
             $itemsForService = [];
@@ -172,7 +174,7 @@ class GoodsReceiptController extends Controller
             'items.unit',
             'items.purchaseOrderItem',
             'purchase.items',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return view('purchases.receipts.show', compact('receipt'));
     }
@@ -190,7 +192,7 @@ class GoodsReceiptController extends Controller
             'receiver',
             'items.product',
             'items.unit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return view('purchases.receipts.print', compact('receipt'));
     }
@@ -208,7 +210,7 @@ class GoodsReceiptController extends Controller
             'receiver',
             'items.product',
             'items.purchaseOrderItem',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if ($receipt->status === 'MATCHED') {
             return redirect()->route('purchases.show', $receipt->purchase_id)
@@ -228,7 +230,7 @@ class GoodsReceiptController extends Controller
      */
     public function processMatching(Request $request, string $id): RedirectResponse|JsonResponse
     {
-        $receipt = GoodsReceipt::findOrFail($id);
+        $receipt = GoodsReceipt::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $request->validate([
             'invoice_number' => 'required|string|max:100',

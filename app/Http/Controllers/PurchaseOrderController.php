@@ -117,7 +117,7 @@ class PurchaseOrderController extends Controller
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->firstOrFail();
-        $supplier = Supplier::findOrFail($request->supplier_id);
+        $supplier = Supplier::where('company_id', $company->id)->findOrFail($request->supplier_id);
 
         $po = $this->purchasingService->createPurchaseOrder(
             company: $company,
@@ -158,7 +158,7 @@ class PurchaseOrderController extends Controller
             'receipts.items',
             'goodsReceipts.items',
             'goodsReceipts.purchase',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return view('purchases.orders.show', compact('purchaseOrder'));
     }
@@ -168,7 +168,7 @@ class PurchaseOrderController extends Controller
      */
     public function approve(string $id): JsonResponse|RedirectResponse
     {
-        $po = PurchaseOrder::findOrFail($id);
+        $po = PurchaseOrder::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
         $user = Auth::user();
 
         if (! in_array($user?->role, ['owner', 'manager'], true)) {
@@ -205,7 +205,7 @@ class PurchaseOrderController extends Controller
             'items.*.unit_price' => 'nullable|numeric|min:0',
         ]);
 
-        $po = PurchaseOrder::with(['items.product', 'company', 'store', 'supplier'])->findOrFail($id);
+        $po = PurchaseOrder::with(['items.product', 'company', 'store', 'supplier'])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         try {
             $purchase = $this->purchasingService->receiveGoodsFromPo(
@@ -250,7 +250,7 @@ class PurchaseOrderController extends Controller
      */
     public function cancel(Request $request, string $id): JsonResponse|RedirectResponse
     {
-        $po = PurchaseOrder::findOrFail($id);
+        $po = PurchaseOrder::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
         $user = Auth::user();
 
         if (! in_array($user?->role, ['owner', 'manager', 'purchasing'], true)) {
@@ -331,7 +331,7 @@ class PurchaseOrderController extends Controller
             'approver',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $terbilang = SalesController::terbilang((float) $purchaseOrder->grand_total) . ' Rupiah';
 
@@ -350,7 +350,7 @@ class PurchaseOrderController extends Controller
             'bankAccount',
             'creator',
             'items.purchase',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $terbilang = SalesController::terbilang((float) $payment->total_amount) . ' Rupiah';
 
@@ -377,9 +377,9 @@ class PurchaseOrderController extends Controller
         $store = Store::where('company_id', $company->id)->firstOrFail();
         $supplierId = $request->supplier_id;
         if (! $supplierId && ! empty($request->invoices[0]['purchase_id'])) {
-            $supplierId = Purchase::findOrFail($request->invoices[0]['purchase_id'])->supplier_id;
+            $supplierId = Purchase::where('company_id', $company->id)->findOrFail($request->invoices[0]['purchase_id'])->supplier_id;
         }
-        $supplier = Supplier::findOrFail($supplierId);
+        $supplier = Supplier::where('company_id', $company->id)->findOrFail($supplierId);
 
         try {
             $payment = $this->purchasingService->recordSupplierPayment(
