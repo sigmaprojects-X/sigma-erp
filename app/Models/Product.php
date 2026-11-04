@@ -82,6 +82,29 @@ class Product extends Model
     ];
 
     /**
+     * Format harga / HPP dengan presisi desimal dinamis tanpa trailing zero berlebih.
+     * Contoh: 14.7 -> "14,7", 14.75 -> "14,75", 15.00 -> "15", 15000 -> "15.000"
+     */
+    public static function formatDecimalCurrency($amount, int $maxDecimals = 4): string
+    {
+        $val = (float) ($amount ?? 0);
+        if (fmod($val, 1) == 0.0) {
+            return number_format($val, 0, ',', '.');
+        }
+
+        $formatted = number_format($val, $maxDecimals, ',', '.');
+        return rtrim(rtrim($formatted, '0'), ',');
+    }
+
+    /**
+     * Accessor untuk HPP yang sudah diformat rapi sesuai desimal.
+     */
+    public function getFormattedCostPriceAttribute(): string
+    {
+        return self::formatDecimalCurrency($this->cost_price);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

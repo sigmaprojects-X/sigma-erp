@@ -160,7 +160,7 @@
                     <p class="text-[11px] text-slate-300 mt-0.5">
                         Satuan Dasar: <strong class="text-white">{{ $selectedProduct->baseUnit?->unit_code ?? 'PCS' }}</strong> |
                         Min. Alert: <strong class="text-amber-300">{{ number_format($selectedProduct->min_stock_alert, 0) }}</strong> |
-                        HPP Saat Ini: <strong class="text-emerald-300">Rp {{ number_format($selectedProduct->cost_price, 0, ',', '.') }}</strong>
+                        HPP Saat Ini: <strong class="text-emerald-300">Rp {{ \App\Models\Product::formatDecimalCurrency($selectedProduct->cost_price) }}</strong>
                     </p>
                 </div>
             </div>
@@ -210,7 +210,7 @@
             <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-2xs col-span-2 sm:col-span-1">
                 <span class="text-[10.5px] font-bold text-slate-400 block uppercase">HPP (Moving Avg)</span>
                 <span class="font-mono font-black text-base text-slate-900">
-                    Rp {{ number_format($selectedProduct->cost_price, 0, ',', '.') }}
+                    Rp {{ \App\Models\Product::formatDecimalCurrency($selectedProduct->cost_price) }}
                 </span>
                 <span class="text-[10px] text-slate-400 block font-semibold">Valuasi Resmi Sistem</span>
             </div>

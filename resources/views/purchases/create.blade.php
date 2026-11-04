@@ -636,10 +636,10 @@
                         </span>
                     </td>
                     <td class="p-2.5 text-right font-black font-mono text-slate-700 dark:text-slate-300">
-                        Rp ${Math.round(p.cost_price || 0).toLocaleString('id-ID')}
+                        Rp ${parseFloat(p.cost_price || 0).toLocaleString('id-ID', { maximumFractionDigits: 4 })}
                     </td>
                     <td class="p-2.5 text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
-                        Rp ${Math.round(p.retail_selling_price || 0).toLocaleString('id-ID')}
+                        Rp ${parseFloat(p.retail_selling_price || 0).toLocaleString('id-ID', { maximumFractionDigits: 4 })}
                     </td>
                     <td class="p-2.5 text-center text-slate-500">${p.rack_location || '-'}</td>
                     <td class="p-2.5 text-center">
@@ -1112,15 +1112,15 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
                         <div>
                             <div class="text-slate-400 text-[10px] uppercase font-bold">Modal Lama (HPP)</div>
-                            <div class="font-mono font-bold text-slate-700 dark:text-slate-300 text-xs">Rp ${Math.round(item.old_cost_price).toLocaleString('id-ID')} / ${item.base_unit_code}</div>
+                            <div class="font-mono font-bold text-slate-700 dark:text-slate-300 text-xs">Rp ${parseFloat(item.old_cost_price || 0).toLocaleString('id-ID', { maximumFractionDigits: 4 })} / ${item.base_unit_code}</div>
                         </div>
                         <div>
                             <div class="text-rose-600 text-[10px] uppercase font-bold">Modal Faktur Baru</div>
-                            <div class="font-mono font-extrabold text-rose-700 dark:text-rose-400 text-xs">Rp ${Math.round(baseUnitPrice).toLocaleString('id-ID')} / ${item.base_unit_code}</div>
+                            <div class="font-mono font-extrabold text-rose-700 dark:text-rose-400 text-xs">Rp ${parseFloat(baseUnitPrice || 0).toLocaleString('id-ID', { maximumFractionDigits: 4 })} / ${item.base_unit_code}</div>
                         </div>
                         <div>
                             <div class="text-emerald-700 dark:text-emerald-400 text-[10px] uppercase font-bold">Estimasi HPP Moving Avg</div>
-                            <div class="font-mono font-bold text-emerald-800 dark:text-emerald-300 text-xs">Rp ${Math.round(estHpp).toLocaleString('id-ID')} / ${item.base_unit_code}</div>
+                            <div class="font-mono font-bold text-emerald-800 dark:text-emerald-300 text-xs">Rp ${parseFloat(estHpp || 0).toLocaleString('id-ID', { maximumFractionDigits: 4 })} / ${item.base_unit_code}</div>
                         </div>
                     </div>
 

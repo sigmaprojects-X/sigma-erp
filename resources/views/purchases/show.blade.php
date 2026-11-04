@@ -184,10 +184,10 @@
                             </td>
                             <td class="py-3 px-3 text-right">
                                 <div class="font-mono text-slate-600 text-[11px]">
-                                    Lama: Rp {{ number_format($it->old_cost_price, 0, ',', '.') }}
+                                    Lama: Rp {{ \App\Models\Product::formatDecimalCurrency($it->old_cost_price) }}
                                 </div>
                                 <div class="font-mono font-extrabold text-emerald-700">
-                                    Baru: Rp {{ number_format($it->new_cost_price, 0, ',', '.') }}
+                                    Baru: Rp {{ \App\Models\Product::formatDecimalCurrency($it->new_cost_price) }}
                                 </div>
                             </td>
                             <td class="py-3 px-3 text-center">

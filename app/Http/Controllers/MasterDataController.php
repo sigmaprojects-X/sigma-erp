@@ -273,6 +273,17 @@ class MasterDataController extends Controller
             $request->merge(['sku' => 'PRD-'.date('ymd').'-'.strtoupper(Str::random(4))]);
         }
 
+        // Normalisasi angka desimal Indonesia (mengubah koma ',' menjadi titik '.')
+        if ($request->has('cost_price')) {
+            $request->merge(['cost_price' => str_replace(',', '.', trim((string) $request->cost_price))]);
+        }
+        if ($request->has('price_retail')) {
+            $request->merge(['price_retail' => str_replace(',', '.', trim((string) $request->price_retail))]);
+        }
+        if ($request->has('price_grosir') && $request->filled('price_grosir')) {
+            $request->merge(['price_grosir' => str_replace(',', '.', trim((string) $request->price_grosir))]);
+        }
+
         $isMultiUnit = $request->has('units') && is_array($request->input('units'));
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
@@ -617,6 +628,11 @@ class MasterDataController extends Controller
         $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->findOrFail($id);
         [$company, $store] = $this->resolveCompanyAndStore($request);
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
+
+        // Normalisasi angka desimal Indonesia (mengubah koma ',' menjadi titik '.')
+        if ($request->has('cost_price')) {
+            $request->merge(['cost_price' => str_replace(',', '.', trim((string) $request->cost_price))]);
+        }
 
         $request->validate([
             'name' => 'required|string|max:255',

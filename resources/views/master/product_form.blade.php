@@ -1783,7 +1783,7 @@ function itemForm(config) {
         },
 
         formatRupiah(amount) {
-            return 'Rp ' + Number(amount || 0).toLocaleString('id-ID');
+            return 'Rp ' + Number(amount || 0).toLocaleString('id-ID', { maximumFractionDigits: 4 });
         },
 
         previewMainImage(event) {

@@ -142,19 +142,19 @@
                             </td>
                             @can('view-hpp')
                                 <td class="px-3 py-2.5 text-right font-bold text-slate-600">
-                                    Rp {{ number_format((float) $prod->cost_price, 0, ',', '.') }}
+                                    Rp {{ \App\Models\Product::formatDecimalCurrency($prod->cost_price) }}
                                 </td>
                             @endcan
                             <td class="px-3 py-2.5 text-right font-bold text-slate-900">
                                 @if($retailPrice)
-                                    Rp {{ number_format((float) $retailPrice, 0, ',', '.') }}
+                                    Rp {{ \App\Models\Product::formatDecimalCurrency($retailPrice) }}
                                 @else
                                     <span class="text-slate-400 font-normal">-</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-right font-bold text-emerald-700">
                                 @if($grosirPrice)
-                                    Rp {{ number_format((float) $grosirPrice, 0, ',', '.') }}
+                                    Rp {{ \App\Models\Product::formatDecimalCurrency($grosirPrice) }}
                                 @else
                                     <span class="text-slate-400 font-normal">-</span>
                                 @endif
@@ -303,15 +303,15 @@
                         <div class="grid grid-cols-3 gap-2">
                             <div>
                                 <label class="block font-bold text-slate-600 text-[11px] mb-1">HPP Awal (Rp) * :</label>
-                                <input type="number" name="cost_price" required min="0" placeholder="0" class="w-full p-1.5 border border-slate-300 rounded text-right font-mono font-bold focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
+                                <input type="number" step="any" name="cost_price" required min="0" placeholder="0" class="w-full p-1.5 border border-slate-300 rounded text-right font-mono font-bold focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-600 text-[11px] mb-1">Jual Retail (Rp) * :</label>
-                                <input type="number" name="price_retail" required min="0" placeholder="0" class="w-full p-1.5 border border-slate-300 rounded text-right font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
+                                <input type="number" step="any" name="price_retail" required min="0" placeholder="0" class="w-full p-1.5 border border-slate-300 rounded text-right font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
                             </div>
                             <div>
                                 <label class="block font-bold text-slate-600 text-[11px] mb-1">Jual Grosir (Rp) :</label>
-                                <input type="number" name="price_grosir" min="0" placeholder="0" class="w-full p-1.5 border border-slate-300 rounded text-right font-mono font-bold text-emerald-700 focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
+                                <input type="number" step="any" name="price_grosir" min="0" placeholder="0" class="w-full p-1.5 border border-slate-300 rounded text-right font-mono font-bold text-emerald-700 focus:ring-2 focus:ring-blue-200 focus:outline-hidden">
                             </div>
                         </div>
                     </div>
