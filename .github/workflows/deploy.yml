@@ -26,3 +26,8 @@ jobs:
             git reset --hard origin/main
             php artisan migrate --force
             php artisan optimize:clear
+            sudo chmod -R 777 storage bootstrap/cache || chmod -R 777 storage bootstrap/cache || true
+            sudo chown -R www-data:www-data storage bootstrap/cache || true
+            sudo systemctl reload php8.3-fpm || sudo systemctl reload php8.2-fpm || sudo systemctl reload php-fpm || true
+            echo "=== LAST LARAVEL LOG ==="
+            tail -n 30 storage/logs/laravel.log || true
