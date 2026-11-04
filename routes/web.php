@@ -55,7 +55,7 @@ Route::prefix('store')->name('pwa.')->group(function () {
     Route::get('/manifest.json', [PwaStorefrontController::class, 'manifest'])->name('manifest');
     Route::get('/products/{id}', [PwaStorefrontController::class, 'productDetail'])->name('product');
     Route::post('/checkout', [PwaStorefrontController::class, 'checkout'])->middleware('throttle:10,1')->name('checkout');
-    Route::get('/orders/{orderNumber}', [PwaStorefrontController::class, 'orderStatus'])->name('order-status');
+    Route::get('/orders/{orderNumber}', [PwaStorefrontController::class, 'orderStatus'])->middleware('throttle:20,1')->name('order-status');
 });
 Route::get('/toko/{company_code}', [PwaStorefrontController::class, 'index'])->name('pwa.toko');
 Route::get('/cabang/{branch_code}', [PwaStorefrontController::class, 'index'])->name('pwa.cabang');

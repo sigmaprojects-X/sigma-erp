@@ -445,10 +445,10 @@ class PosController extends Controller
             'quantity' => 'required|numeric|min:0.01',
         ]);
 
-        $product = Product::findOrFail($request->product_id);
-        $unit = ProductUnit::findOrFail($request->product_unit_id);
-        $tier = CustomerTier::findOrFail($request->customer_tier_id);
         [$company, $store] = $this->resolveCompanyAndStore($request);
+        $product = Product::where('company_id', $company->id)->findOrFail($request->product_id);
+        $unit = ProductUnit::where('company_id', $company->id)->where('product_id', $product->id)->findOrFail($request->product_unit_id);
+        $tier = CustomerTier::where('company_id', $company->id)->findOrFail($request->customer_tier_id);
 
         try {
             $unitPrice = $this->pricingEngine->calculatePrice(
@@ -488,17 +488,17 @@ class PosController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
         ]);
 
-        $tier = CustomerTier::findOrFail($request->customer_tier_id);
         [$company, $store] = $this->resolveCompanyAndStore($request);
+        $tier = CustomerTier::where('company_id', $company->id)->findOrFail($request->customer_tier_id);
 
         try {
             $recalculated = [];
             foreach ($request->items as $index => $item) {
-                $product = Product::findOrFail($item['product_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($item['product_id']);
                 if ($product->sale_status === 'DISCONTINUED' || ! $product->is_active || ! $product->is_point_of_sale) {
                     throw new \RuntimeException("Produk [{$product->name}] berstatus Discontinue / Non-aktif dan tidak dapat diperjualbelikan.");
                 }
-                $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                $unit = ProductUnit::where('company_id', $company->id)->where('product_id', $product->id)->findOrFail($item['product_unit_id']);
                 $qty = (float) $item['quantity'];
 
                 $unitPrice = $this->pricingEngine->calculatePrice(
@@ -1044,8 +1044,8 @@ class PosController extends Controller
             'paper' => 'nullable|string',
         ]);
 
-        $transaction = PosTransaction::findOrFail($id);
         $shift = $this->authorizeShiftAccess($request, $request->shift_id);
+        $transaction = PosTransaction::where('company_id', $shift->company_id)->findOrFail($id);
 
         try {
             $result = $this->posService->reprintReceipt(
@@ -1119,7 +1119,10 @@ class PosController extends Controller
             'manager_pin' => 'nullable|string',
         ]);
 
-        $transaction = PosTransaction::with(['items.product', 'items.unit', 'store', 'company'])->findOrFail($id);
+        [$company, $store] = $this->resolveCompanyAndStore($request);
+        $transaction = PosTransaction::with(['items.product', 'items.unit', 'store', 'company'])
+            ->where('company_id', $company->id)
+            ->findOrFail($id);
         $user = $request->user();
 
         // Otorisasi: jika bukan manager/owner/store_head, periksa PIN Manager

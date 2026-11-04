@@ -342,7 +342,7 @@ class SalesController extends Controller
             'items.productUnit',
             'returns.items',
             'store',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         foreach ($transaction->items as $item) {
             $alreadyReturned = (float) PosReturnItem::where('pos_transaction_item_id', $item->id)
@@ -488,9 +488,25 @@ class SalesController extends Controller
         ]);
 
         try {
-            $store = Store::findOrFail($validated['store_id']);
-            $company = $store->company;
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+            $store = Store::where('company_id', $company->id)->findOrFail($validated['store_id']);
             $user = Auth::user();
+
+            // Pastikan produk, satuan & pelanggan milik perusahaan aktif (anti lintas-perusahaan)
+            foreach ($validated['items'] as $item) {
+                $productOk = Product::where('company_id', $company->id)->whereKey($item['product_id'])->exists();
+                $unitOk = \App\Models\ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $item['product_id'])
+                    ->whereKey($item['product_unit_id'])
+                    ->exists();
+                if (! $productOk || ! $unitOk) {
+                    throw new \RuntimeException('Barang atau satuan tidak valid untuk perusahaan aktif.');
+                }
+            }
+            if (! empty($validated['customer_id'])
+                && ! Customer::where('company_id', $company->id)->whereKey($validated['customer_id'])->exists()) {
+                throw new \RuntimeException('Pelanggan tidak valid untuk perusahaan aktif.');
+            }
 
             // Cari atau buka shift kasir/operasional otomatis untuk pencatatan
             $shift = CashierShift::where('store_id', $store->id)
@@ -509,9 +525,9 @@ class SalesController extends Controller
 
             // Tentukan tier harga pelanggan
             if (! empty($validated['customer_tier_id'])) {
-                $tier = CustomerTier::findOrFail($validated['customer_tier_id']);
+                $tier = CustomerTier::where('company_id', $company->id)->findOrFail($validated['customer_tier_id']);
             } elseif (! empty($validated['customer_id'])) {
-                $cust = Customer::with('tier')->find($validated['customer_id']);
+                $cust = Customer::with('tier')->where('company_id', $company->id)->find($validated['customer_id']);
                 $tier = $cust?->tier ?? CustomerTier::where('company_id', $company->id)->where('is_default', true)->firstOrFail();
             } else {
                 $tier = CustomerTier::where('company_id', $company->id)->where('is_default', true)->firstOrFail();
@@ -577,7 +593,7 @@ class SalesController extends Controller
             'items.product',
             'items.productUnit',
             'voucher',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $terbilang = self::terbilang($transaction->grand_total).' Rupiah';
 
@@ -595,7 +611,7 @@ class SalesController extends Controller
             'store.company',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return view('sales.print_delivery_order', compact('transaction'));
     }
@@ -612,7 +628,7 @@ class SalesController extends Controller
             'salesPerson',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $bankAccounts = BankAccount::where('company_id', $transaction->company_id)
             ->where('is_active', true)
@@ -713,7 +729,7 @@ class SalesController extends Controller
             'manager_pin' => 'nullable|string',
         ]);
 
-        $transaction = PosTransaction::with(['items.product', 'items.unit', 'store', 'company'])->findOrFail($validated['pos_transaction_id']);
+        $transaction = PosTransaction::with(['items.product', 'items.unit', 'store', 'company'])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($validated['pos_transaction_id']);
         $user = Auth::user();
 
         // Otorisasi: jika bukan manager/owner/store_head, periksa PIN Manager
@@ -782,7 +798,7 @@ class SalesController extends Controller
             'approver',
             'items.product',
             'items.unit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $terbilang = self::terbilang($return->total_refund_amount).' Rupiah';
 

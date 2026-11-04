@@ -335,7 +335,7 @@ class PosService
             // 1. Proses Setiap Baris Item Keranjang Belanja
             foreach ($cartItems as $item) {
                 /** @var Product $product */
-                $product = Product::findOrFail($item['product_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($item['product_id']);
 
                 if (
                     ! $product->is_active
@@ -348,6 +348,7 @@ class PosService
 
                 /** @var ProductUnit $unit */
                 $unit = ProductUnit::where('id', $item['product_unit_id'])
+                    ->where('company_id', $company->id)
                     ->where('product_id', $product->id)
                     ->firstOrFail();
 

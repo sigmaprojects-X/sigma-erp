@@ -276,18 +276,20 @@ class PwaStorefrontController extends Controller
                 );
 
                 $tier = $customer->customerTier ?? $defaultTier;
-                $orderNumber = 'ORD-PWA-'.date('Ymd').'-'.strtoupper(Str::random(4));
+                $orderNumber = 'ORD-PWA-'.date('Ymd').'-'.strtoupper(Str::random(12));
                 $preparedItems = [];
 
                 // 2. Hitung harga satuan resmi di server (Zero Manual Price Override)
                 foreach ($validated['items'] as $itemData) {
                     $product = Product::where('id', $itemData['product_id'])
+                        ->where('company_id', $company->id)
                         ->where('is_active', true)
                         ->where('type', '!=', Product::TYPE_BIAYA)
                         ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
                         ->firstOrFail();
 
                     $unit = ProductUnit::where('id', $itemData['product_unit_id'])
+                        ->where('company_id', $company->id)
                         ->where('product_id', $product->id)
                         ->where('is_active', true)
                         ->firstOrFail();

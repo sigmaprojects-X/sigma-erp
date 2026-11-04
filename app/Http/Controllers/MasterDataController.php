@@ -65,6 +65,15 @@ class MasterDataController extends Controller
     }
 
     /**
+     * UUID perusahaan aktif; dipakai untuk membatasi pencarian record per ID
+     * agar tidak bisa mengakses data perusahaan lain (multi-tenancy).
+     */
+    protected function activeCompanyId(): string
+    {
+        return app(\App\Services\CompanyService::class)->getActiveCompanyId();
+    }
+
+    /**
      * Hasilkan kode pelanggan unik berikutnya secara otomatis (CUST-0001, CUST-0002, dst).
      */
     public function generateNextCustomerCode(Company $company): string
@@ -216,7 +225,7 @@ class MasterDataController extends Controller
             'stocks',
             'boms.componentProduct',
             'boms.componentUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', $this->activeCompanyId())->findOrFail($id);
 
         $company = Company::find($product->company_id) ?? app(\App\Services\CompanyService::class)->getActiveCompany();
 
@@ -293,6 +302,8 @@ class MasterDataController extends Controller
                 'sku' => ['required', 'string', 'max:100', Rule::unique('products', 'sku')->where('company_id', $company->id)],
                 'type' => "nullable|string|in:{$allowedTypes}",
                 'cost_price' => 'required|numeric|min:0',
+                'category_id' => ['nullable', 'uuid', Rule::exists('product_categories', 'id')->where('company_id', $company->id)],
+                'supplier_id' => ['nullable', 'uuid', Rule::exists('suppliers', 'id')->where('company_id', $company->id)],
                 'units' => 'required|array|min:1',
                 'units.0.unit_code' => 'required|string|max:30',
                 'units.*.barcode' => ['nullable', 'string', 'max:50', Rule::unique('product_barcodes', 'barcode')->where('company_id', $company->id)],
@@ -306,6 +317,8 @@ class MasterDataController extends Controller
                 'type' => "nullable|string|in:{$allowedTypes}",
                 'category' => 'nullable|string|max:100',
                 'cost_price' => 'required|numeric|min:0',
+                'category_id' => ['nullable', 'uuid', Rule::exists('product_categories', 'id')->where('company_id', $company->id)],
+                'supplier_id' => ['nullable', 'uuid', Rule::exists('suppliers', 'id')->where('company_id', $company->id)],
                 'unit_code' => 'required|string|max:30',
                 'unit_name' => 'nullable|string|max:50',
                 'barcode' => ['nullable', 'string', 'max:50', Rule::unique('product_barcodes', 'barcode')->where('company_id', $company->id)],
@@ -458,6 +471,9 @@ class MasterDataController extends Controller
                     // 1. Simpan Harga per Level Pelanggan (Customer Tier: Level 1 s/d Level 6)
                     if (! empty($uData['tier_prices']) && is_array($uData['tier_prices'])) {
                         foreach ($uData['tier_prices'] as $tierId => $tData) {
+                            if (! CustomerTier::where('company_id', $company->id)->whereKey($tierId)->exists()) {
+                                continue;
+                            }
                             if (isset($tData['price']) && $tData['price'] !== '' && (float) $tData['price'] > 0) {
                                 ProductPrice::create([
                                     'company_id' => $company->id,
@@ -625,7 +641,7 @@ class MasterDataController extends Controller
      */
     public function updateProduct(Request $request, string $id): RedirectResponse
     {
-        $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->findOrFail($id);
+        $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->where('company_id', $this->activeCompanyId())->findOrFail($id);
         [$company, $store] = $this->resolveCompanyAndStore($request);
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
@@ -639,6 +655,8 @@ class MasterDataController extends Controller
             'sku' => ['required', 'string', 'max:100', Rule::unique('products', 'sku')->where('company_id', $company->id)->ignore($product->id)],
             'type' => "nullable|string|in:{$allowedTypes}",
             'cost_price' => 'required|numeric|min:0',
+                'category_id' => ['nullable', 'uuid', Rule::exists('product_categories', 'id')->where('company_id', $company->id)],
+                'supplier_id' => ['nullable', 'uuid', Rule::exists('suppliers', 'id')->where('company_id', $company->id)],
             'image' => 'nullable|image|max:2048',
             'additional_images.*' => 'nullable|image|max:2048',
         ]);
@@ -854,6 +872,9 @@ class MasterDataController extends Controller
                     // 1. Simpan Harga per Level Pelanggan (Customer Tier: Level 1 s/d Level 6)
                     if (! empty($uData['tier_prices']) && is_array($uData['tier_prices'])) {
                         foreach ($uData['tier_prices'] as $tierId => $tData) {
+                            if (! CustomerTier::where('company_id', $company->id)->whereKey($tierId)->exists()) {
+                                continue;
+                            }
                             if (isset($tData['price']) && $tData['price'] !== '' && (float) $tData['price'] > 0) {
                                 ProductPrice::updateOrCreate(
                                     [
@@ -996,7 +1017,7 @@ class MasterDataController extends Controller
      */
     public function destroyProduct(string $id): RedirectResponse
     {
-        $product = Product::with(['stocks', 'units', 'barcodes', 'prices'])->findOrFail($id);
+        $product = Product::with(['stocks', 'units', 'barcodes', 'prices'])->where('company_id', $this->activeCompanyId())->findOrFail($id);
 
         // 1. Cek Saldo Stok Fisik
         $physicalStock = (float) $product->stocks->sum('physical_quantity');
@@ -1148,7 +1169,7 @@ class MasterDataController extends Controller
         $request->validate([
             'code' => ['required', 'string', 'max:50', Rule::unique('customers', 'code')->where('company_id', $company->id)],
             'name' => 'required|string|max:255',
-            'customer_tier_id' => 'required|uuid',
+            'customer_tier_id' => ['required', 'uuid', Rule::exists('customer_tiers', 'id')->where('company_id', $company->id)],
             'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string',
             'credit_limit' => 'nullable|numeric|min:0',
@@ -1177,13 +1198,13 @@ class MasterDataController extends Controller
      */
     public function updateCustomer(Request $request, string $id): RedirectResponse
     {
-        $customer = Customer::findOrFail($id);
+        $customer = Customer::where('company_id', $this->activeCompanyId())->findOrFail($id);
         [$company, $store] = $this->resolveCompanyAndStore($request);
 
         $request->validate([
             'code' => ['required', 'string', 'max:50', Rule::unique('customers', 'code')->where('company_id', $company->id)->ignore($customer->id)],
             'name' => 'required|string|max:255',
-            'customer_tier_id' => 'required|uuid',
+            'customer_tier_id' => ['required', 'uuid', Rule::exists('customer_tiers', 'id')->where('company_id', $company->id)],
             'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string',
             'credit_limit' => 'nullable|numeric|min:0',
@@ -1208,7 +1229,7 @@ class MasterDataController extends Controller
      */
     public function toggleCustomerStatus(string $id): RedirectResponse
     {
-        $customer = Customer::findOrFail($id);
+        $customer = Customer::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $customer->update(['is_active' => !$customer->is_active]);
 
         $statusStr = $customer->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -1293,7 +1314,7 @@ class MasterDataController extends Controller
      */
     public function updateSupplier(Request $request, string $id): RedirectResponse
     {
-        $supplier = Supplier::findOrFail($id);
+        $supplier = Supplier::where('company_id', $this->activeCompanyId())->findOrFail($id);
         [$company, $store] = $this->resolveCompanyAndStore($request);
 
         $request->validate([
@@ -1336,7 +1357,7 @@ class MasterDataController extends Controller
      */
     public function toggleSupplierStatus(string $id): RedirectResponse
     {
-        $supplier = Supplier::findOrFail($id);
+        $supplier = Supplier::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $supplier->update(['is_active' => !$supplier->is_active]);
 
         $statusStr = $supplier->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -1396,7 +1417,7 @@ class MasterDataController extends Controller
      */
     public function updateCategory(Request $request, string $id): RedirectResponse
     {
-        $category = ProductCategory::findOrFail($id);
+        $category = ProductCategory::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $request->validate([
@@ -1419,7 +1440,7 @@ class MasterDataController extends Controller
      */
     public function toggleCategoryStatus(string $id): RedirectResponse
     {
-        $category = ProductCategory::findOrFail($id);
+        $category = ProductCategory::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $category->update(['is_active' => !$category->is_active]);
 
         $statusStr = $category->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -1475,7 +1496,7 @@ class MasterDataController extends Controller
      */
     public function updateUnit(Request $request, string $id): RedirectResponse
     {
-        $unit = Unit::findOrFail($id);
+        $unit = Unit::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         $request->validate([
@@ -1498,7 +1519,7 @@ class MasterDataController extends Controller
      */
     public function toggleUnitStatus(string $id): RedirectResponse
     {
-        $unit = Unit::findOrFail($id);
+        $unit = Unit::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $unit->update(['is_active' => !$unit->is_active]);
 
         $statusStr = $unit->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -1549,7 +1570,7 @@ class MasterDataController extends Controller
      */
     public function updateBankAccount(Request $request, string $id): RedirectResponse
     {
-        $account = BankAccount::findOrFail($id);
+        $account = BankAccount::where('company_id', $this->activeCompanyId())->findOrFail($id);
 
         $request->validate([
             'bank_code' => 'required|string|max:30',
@@ -1575,7 +1596,7 @@ class MasterDataController extends Controller
      */
     public function toggleBankAccountStatus(string $id): RedirectResponse
     {
-        $account = BankAccount::findOrFail($id);
+        $account = BankAccount::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $account->update(['is_active' => !$account->is_active]);
 
         $statusStr = $account->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -1720,7 +1741,7 @@ class MasterDataController extends Controller
      */
     public function updateStore(Request $request, string $id): RedirectResponse
     {
-        $store = Store::findOrFail($id);
+        $store = Store::where('company_id', $this->activeCompanyId())->findOrFail($id);
 
         $request->validate([
             'code' => 'required|string|max:50|unique:stores,code,' . $store->id,
@@ -1746,7 +1767,7 @@ class MasterDataController extends Controller
      */
     public function toggleStoreStatus(string $id): RedirectResponse
     {
-        $store = Store::findOrFail($id);
+        $store = Store::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $store->update(['is_active' => !$store->is_active]);
 
         $statusStr = $store->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -1817,7 +1838,7 @@ class MasterDataController extends Controller
      */
     public function updateCustomerTier(Request $request, string $id): RedirectResponse
     {
-        $tier = CustomerTier::findOrFail($id);
+        $tier = CustomerTier::where('company_id', $this->activeCompanyId())->findOrFail($id);
 
         $request->validate([
             'code' => 'required|string|max:50|unique:customer_tiers,code,' . $tier->id,
@@ -1843,7 +1864,7 @@ class MasterDataController extends Controller
      */
     public function toggleCustomerTierStatus(string $id): RedirectResponse
     {
-        $tier = CustomerTier::findOrFail($id);
+        $tier = CustomerTier::where('company_id', $this->activeCompanyId())->findOrFail($id);
         $tier->update(['is_active' => !$tier->is_active]);
 
         $statusStr = $tier->is_active ? 'diaktifkan' : 'dinonaktifkan';

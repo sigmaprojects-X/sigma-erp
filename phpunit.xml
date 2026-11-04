@@ -28,7 +28,7 @@
         <env name="DB_PORT" value="5432"/>
         <env name="DB_DATABASE" value="sigma_erp_testing"/>
         <env name="DB_USERNAME" value="postgres"/>
-        <env name="DB_PASSWORD" value="885588"/>
+        <!-- DB_PASSWORD sengaja tidak ditulis di sini: dibaca dari .env / environment variable lokal. -->
         <env name="DB_SCHEMA" value="sigma,public"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>

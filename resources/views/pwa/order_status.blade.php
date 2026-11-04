@@ -139,7 +139,7 @@
             <h3 class="font-black uppercase tracking-wider text-slate-800 text-[11px]">Informasi Penerima</h3>
             <div class="text-slate-600">
                 <div>Nama: <strong>{{ $order->customer->name }}</strong></div>
-                <div>No. HP: <strong>{{ $order->customer->phone }}</strong></div>
+                <div>No. HP: <strong>{{ str_repeat('•', max(strlen((string) $order->customer->phone) - 3, 0)) . substr((string) $order->customer->phone, -3) }}</strong></div>
                 <div class="mt-1 text-[11px] text-slate-500 italic">{{ $order->notes }}</div>
             </div>
         </div>

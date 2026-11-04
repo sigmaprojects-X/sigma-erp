@@ -288,8 +288,8 @@ class PurchaseController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $store = Store::findOrFail($request->store_id);
-        $supplier = Supplier::findOrFail($request->supplier_id);
+        $store = Store::where('company_id', $company->id)->findOrFail($request->store_id);
+        $supplier = Supplier::where('company_id', $company->id)->findOrFail($request->supplier_id);
 
         $refNumber = trim($request->reference_number ?: '');
         if ($refNumber === '') {
@@ -321,8 +321,10 @@ class PurchaseController extends Controller
             $itemsData = [];
 
             foreach ($request->items as $itemInput) {
-                $product = Product::findOrFail($itemInput['product_id']);
-                $unit = ProductUnit::findOrFail($itemInput['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($itemInput['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $product->id)
+                    ->findOrFail($itemInput['product_unit_id']);
 
                 $qty = (float) $itemInput['quantity'];
                 $unitPrice = (float) $itemInput['unit_price'];
@@ -495,7 +497,7 @@ class PurchaseController extends Controller
             }
 
             // 4. Jurnal Akuntansi Double-Entry Seimbang (AGENTS.md Section 5)
-            $bankAcc = $request->bank_account_id ? BankAccount::find($request->bank_account_id) : null;
+            $bankAcc = $request->bank_account_id ? BankAccount::where('company_id', $company->id)->find($request->bank_account_id) : null;
             $this->accountingService->recordGoodsReceiptJournal(
                 company: $company,
                 store: $store,
@@ -536,7 +538,7 @@ class PurchaseController extends Controller
             'returns.creator',
             'returns.items.product',
             'returns.items.unit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         // Hitung kuantitas yang sudah diretur dan sisa yang dapat diretur untuk setiap item
         foreach ($purchase->items as $item) {
@@ -572,7 +574,7 @@ class PurchaseController extends Controller
             'creator',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $alreadyReturnedDebt = (float) PurchaseReturn::where('purchase_id', $purchase->id)
             ->where('status', 'COMPLETED')
@@ -663,7 +665,7 @@ class PurchaseController extends Controller
             'items.product',
             'items.unit',
             'debtAllocations.purchase',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -686,7 +688,7 @@ class PurchaseController extends Controller
             'items.product',
             'items.unit',
             'debtAllocations.purchase',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return view('purchases.returns.print', compact('return'));
     }
@@ -702,7 +704,7 @@ class PurchaseController extends Controller
             'items.product.units',
             'items.product.prices.customerTier',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         return view('purchases.shelf_tags', compact('purchase'));
     }
@@ -713,7 +715,7 @@ class PurchaseController extends Controller
      */
     public function storeReturn(Request $request, string $id): JsonResponse|RedirectResponse
     {
-        $purchase = Purchase::with(['supplier', 'items.product', 'items.productUnit'])->findOrFail($id);
+        $purchase = Purchase::with(['supplier', 'items.product', 'items.productUnit'])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         $request->validate([
             'reason' => 'required|string|max:500',
@@ -955,8 +957,8 @@ class PurchaseController extends Controller
 
         try {
             $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-            $store = $request->store_id ? Store::findOrFail($request->store_id) : Store::where('company_id', $company->id)->firstOrFail();
-            $supplier = Supplier::findOrFail($request->supplier_id);
+            $store = $request->store_id ? Store::where('company_id', $company->id)->findOrFail($request->store_id) : Store::where('company_id', $company->id)->firstOrFail();
+            $supplier = Supplier::where('company_id', $company->id)->findOrFail($request->supplier_id);
 
             if (! $supplier->is_active) {
                 throw new \InvalidArgumentException("Pemasok [{$supplier->name}] tidak aktif. Retur tidak dapat diproses.");
@@ -1278,7 +1280,7 @@ class PurchaseController extends Controller
             abort(403, 'Hanya Owner atau Manajer yang berwenang menyetujui dokumen retur pembelian.');
         }
 
-        $return = PurchaseReturn::with(['items.product', 'items.unit', 'store', 'company', 'supplier'])->findOrFail($id);
+        $return = PurchaseReturn::with(['items.product', 'items.unit', 'store', 'company', 'supplier'])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if ($return->status !== 'DRAFT') {
             $msg = "Dokumen retur {$return->return_number} tidak dapat disetujui karena statusnya sudah {$return->status}.";
@@ -1412,7 +1414,7 @@ class PurchaseController extends Controller
             abort(403, 'Anda tidak memiliki hak untuk membatalkan dokumen retur.');
         }
 
-        $return = PurchaseReturn::findOrFail($id);
+        $return = PurchaseReturn::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if ($return->status !== 'DRAFT') {
             $msg = "Dokumen retur {$return->return_number} berstatus {$return->status} tidak dapat dibatalkan.";
