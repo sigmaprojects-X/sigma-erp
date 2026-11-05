@@ -251,6 +251,9 @@ class CompanyService
             );
         }
 
+        // 2e. Supplier Umum Bawaan (dipakai otomatis bila supplier barang dikosongkan)
+        \App\Models\Supplier::generalFor($company->id);
+
         // 3. Pola Nomor Faktur Otomatis
         $this->autoNumberService->seedDefaultPatterns($company);
 

@@ -14,6 +14,7 @@
     maxDiscrepancy: {{ (float) ($company->cashier_max_discrepancy_tolerance ?? 2000) }},
     allowPending: {{ ($company->cashier_allow_pending_transaction ?? true) ? 'true' : 'false' }},
     maxPending: {{ (int) ($company->cashier_max_pending_transactions ?? 5) }},
+    minProfitPercentage: {{ (float) ($company->min_profit_percentage ?? 0.00) }},
     quickCashNominal: '{{ $company->cashier_quick_cash_nominal ?? '10000,20000,50000,100000,200000' }}'
 })">
 
@@ -286,6 +287,42 @@
                 </div>
             </div>
 
+            <!-- 5. BATAS MINIMUM KEUNTUNGAN & PROTEKSI HARGA MODAL -->
+            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-xs space-y-4">
+                <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-700">
+                    <span class="text-xl">🛡️</span>
+                    <div>
+                        <h2 class="text-sm font-black text-slate-900 dark:text-white">Batas Minimum Keuntungan Penjualan (Min Profit Margin)</h2>
+                        <p class="text-xs text-slate-500">Mencegah harga jual di bawah harga pokok modal (HPP) di seluruh sistem</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Batas Minimum Laba Penjualan (%):
+                        </label>
+                        <div class="relative">
+                            <input type="number" name="min_profit_percentage" x-model.number="minProfitPercentage" required min="0" max="1000" step="0.5"
+                                   class="w-full text-xs font-mono font-bold py-2 pl-3 pr-9 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white">
+                            <span class="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                        </div>
+                        <p class="text-[10.5px] text-slate-400 mt-1">
+                            Jika diisi <strong>0%</strong>, harga jual minimal sama dengan modal (HPP). Jika diisi misalnya <strong>5%</strong>, sistem akan menolak segala input harga jual atau diskon yang menghasilkan laba di bawah 5%.
+                        </p>
+                    </div>
+
+                    <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs space-y-1">
+                        <div class="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                            <span>✅</span> Proteksi Rahasia Dagang &amp; Anti-Jual Rugi:
+                        </div>
+                        <p class="text-[11px] text-emerald-800 dark:text-emerald-400">
+                            Validasi ini berlaku mutlak saat input/edit Master Barang, Impor CSV, Promo/Diskon, dan Layar Kasir POS. Jika harga di bawah batas, form langsung ditolak tanpa membocorkan angka modal kepada operator.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- 5. TOMBOL CEPAT PECAHAN UANG TUNAI (QUICK CASH PRESETS) -->
@@ -349,6 +386,7 @@ function cashierSettingsApp(config) {
         maxDiscrepancy: config.maxDiscrepancy,
         allowPending: config.allowPending,
         maxPending: config.maxPending,
+        minProfitPercentage: config.minProfitPercentage,
         quickCashNominal: config.quickCashNominal,
 
         getQuickCashArray() {

@@ -13,6 +13,39 @@ class Supplier extends Model
 
     protected $table = 'suppliers';
 
+    /**
+     * Kode tetap untuk Supplier Umum bawaan setiap perusahaan.
+     */
+    public const GENERAL_CODE = 'SUP-UMUM';
+
+    public const GENERAL_NAME = 'Supplier Umum';
+
+    /**
+     * Ambil (atau buat bila belum ada) Supplier Umum milik perusahaan.
+     */
+    public static function generalFor(string $companyId): self
+    {
+        return static::firstOrCreate(
+            ['company_id' => $companyId, 'code' => self::GENERAL_CODE],
+            [
+                'name' => self::GENERAL_NAME,
+                'contact_person' => '-',
+                'phone' => '-',
+                'address' => '-',
+                'term_of_payment_days' => 0,
+                'is_active' => true,
+            ]
+        );
+    }
+
+    /**
+     * Apakah supplier ini adalah Supplier Umum bawaan sistem.
+     */
+    public function isGeneral(): bool
+    {
+        return $this->code === self::GENERAL_CODE;
+    }
+
     protected $fillable = [
         'company_id',
         'code',

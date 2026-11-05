@@ -248,6 +248,11 @@ class UserGroup extends Model
                         'actions' => ['buka' => true, 'baru' => false, 'ubah' => false, 'hapus' => false, 'kunci' => false],
                     ],
                     [
+                        'key' => 'pos_override_item_price',
+                        'label' => 'Ubah Harga Jual Item Langsung di Layar Kasir POS (Saat Transaksi)',
+                        'actions' => ['buka' => true, 'baru' => false, 'ubah' => true, 'hapus' => false, 'kunci' => false],
+                    ],
+                    [
                         'key' => 'pos_sell_below_min_margin',
                         'label' => '🔒 Boleh Jual di Bawah Keuntungan Minimal (Override Margin)',
                         'actions' => ['buka' => true, 'baru' => false, 'ubah' => false, 'hapus' => false, 'kunci' => false],

@@ -42,6 +42,7 @@ class Company extends Model
         'currency_code',
         'is_tax_registered',
         'is_active',
+        'min_profit_percentage',
         'rounding_enabled',
         'rounding_step',
         'rounding_mode',
@@ -109,6 +110,7 @@ class Company extends Model
         return [
             'is_tax_registered' => 'boolean',
             'default_tax_rate' => 'decimal:2',
+            'min_profit_percentage' => 'decimal:2',
             'is_active' => 'boolean',
             'rounding_enabled' => 'boolean',
             'rounding_step' => 'integer',

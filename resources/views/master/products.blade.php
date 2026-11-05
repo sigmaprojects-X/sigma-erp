@@ -107,8 +107,8 @@
                 <tbody class="divide-y divide-slate-100 font-mono text-[11.5px]">
                     @forelse($products as $prod)
                         @php
-                            $retailPrice = $prod->prices->firstWhere('customerTier.code', 'RETAIL')?->price;
-                            $grosirPrice = $prod->prices->firstWhere('customerTier.code', 'GROSIR')?->price;
+                            $retailPrice = $prod->prices->where('is_active', true)->firstWhere('customerTier.code', 'RETAIL')?->price;
+                            $grosirPrice = $prod->prices->where('is_active', true)->firstWhere('customerTier.code', 'GROSIR')?->price;
                             $stock = $prod->stocks->first();
                             $primaryBarcode = $prod->barcodes->firstWhere('is_primary', true)?->barcode ?? $prod->barcodes->first()?->barcode;
                         @endphp
@@ -153,10 +153,10 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-right font-bold text-emerald-700">
-                                @if($grosirPrice)
+                                @if($grosirPrice && (float)$grosirPrice > 0)
                                     Rp {{ \App\Models\Product::formatDecimalCurrency($grosirPrice) }}
                                 @else
-                                    <span class="text-slate-400 font-normal">-</span>
+                                    <span class="text-[10.5px] text-slate-400 font-semibold italic">— (Ikut Retail)</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-center font-bold">

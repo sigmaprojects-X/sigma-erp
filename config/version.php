@@ -2,15 +2,31 @@
 
 return [
     'app_name' => 'SIGMA ERP & POS Enterprise',
-    'version' => '1.0.4',
-    'build_number' => '20261104',
-    'release_date' => '2026-11-04',
+    'version' => '1.0.5',
+    'build_number' => '20261105',
+    'release_date' => '2026-11-05',
     'channel' => 'stable',
     'min_php_version' => '8.3.0',
     'min_postgres_version' => '15.0',
-    'latest_version' => '1.0.4',
+    'latest_version' => '1.0.5',
     'update_available' => false,
     'changelog' => [
+        'v1.0.5' => [
+            'release_date' => '2026-11-05',
+            'title' => 'Minimum Profit Protection, General Supplier Binding, POS Price Override & Price Sanitization',
+            'features' => [
+                'Batas Minimum Keuntungan Penjualan (%): Pengaturan margin laba minimal di Pengaturan Operasional Kasir dengan validasi mutlak harga jual >= HPP modal',
+                'Proteksi Kerahasiaan HPP: Notifikasi penolakan harga di bawah batas profit tidak membocorkan nominal modal kepada kasir/operator',
+                'Otomatisasi Supplier Umum: Input barang dan impor CSV yang mengosongkan supplier otomatis diikat ke SUP-UMUM (Supplier Umum)',
+                'Tampilan Elegan Level Kosong: Level harga grosir/tier yang tidak diisi otomatis menampilkan status visual — (Ikut Retail)',
+                'Ubah Harga Khusus Transaksi POS: Petugas dengan izin pos_override_item_price dapat mengubah harga item saat transaksi tanpa mengubah master data, terkunci di atas batas aman HPP',
+                'Pembersihan Harga Warisan (Legacy Cleanup): Migrasi otomatis menonaktifkan harga tier di bawah modal (Rp 1, Rp 2) sehingga beralih aman ke harga Retail'
+            ],
+            'fixes' => [
+                'Pencegahan potensi kerugian fatal akibat harga jual grosir di bawah harga pokok modal',
+                'Proteksi Supplier Umum agar tidak dapat dinonaktifkan atau diganti kodenya'
+            ]
+        ],
         'v1.0.4' => [
             'release_date' => '2026-11-04',
             'title' => 'Multi-Tenancy Security Scoping, Dashboard Sales Filter, Decimal Precision & Auto-Deploy CI/CD',

@@ -25,7 +25,7 @@
 ---
 
 ## 3. POS, Promo, Voucher & Pricing Engine
-* **Zero Manual Price Override:** Cashiers are strictly FORBIDDEN from modifying prices manually at the POS screen. No override permission exists for cashiers.
+* **Zero Unauthorized Price Override & Minimum Profit Protection:** Cashiers cannot modify prices manually at the POS screen unless granted the explicit RBAC permission `pos_override_item_price`. Furthermore, selling prices can never drop below the minimum profit threshold: `Selling Price >= HPP * (1 + min_profit%)`. Cost prices (HPP) are strictly confidential and must never be disclosed in validation error messages.
 * **3-Dimensional Automated Pricing:** Prices are calculated automatically by the backend based on: Unit/Packaging (`unit_code`), Customer Tier (`customer_tier_id`), and Tiered Quantity (`min_qty`).
 * **Margin Automation:** Auto-Margin Markup when supplier purchase prices increase (with preview/approval), and FIFO margin protection when prices drop.
 * **Promo Engine:** Support time-based promotions (Buy X Get Y, % Discounts, Tiered Promos) validated automatically at checkout.

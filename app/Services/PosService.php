@@ -357,7 +357,7 @@ class PosService
                     throw new \InvalidArgumentException("Kuantitas produk [{$product->name}] harus lebih dari 0.");
                 }
 
-                // Kalkulasi Harga Otomatis 3 Dimensi (Kasir tidak boleh override harga)
+                // Kalkulasi Harga Otomatis 3 Dimensi
                 $unitPrice = $this->pricingEngine->calculatePrice(
                     product: $product,
                     unit: $unit,
@@ -366,6 +366,35 @@ class PosService
                     store: $shift->store
                 );
 
+                // Periksa apakah ada override harga satuan manual untuk transaksi saat ini
+                if (isset($item['custom_unit_price']) && is_numeric($item['custom_unit_price'])) {
+                    $customPrice = (float) $item['custom_unit_price'];
+                    if ($customPrice > 0 && abs($customPrice - $unitPrice) > 0.001) {
+                        $currentUser = $shift->user ?? auth()->user();
+                        $hasOverridePermission = $currentUser && (
+                            $currentUser->role === 'owner' ||
+                            $currentUser->hasPermission('pos_override_item_price.ubah') ||
+                            $currentUser->hasPermission('pos_override_item_price.buka')
+                        );
+
+                        if (! $hasOverridePermission) {
+                            throw new \InvalidArgumentException("Pengguna tidak memiliki hak akses untuk mengubah harga item pada transaksi kasir.");
+                        }
+
+                        // Validasi batas minimum laba terhadap HPP modal (tanpa membocorkan angka modal)
+                        $minProfitPct = (float) ($company->min_profit_percentage ?? 0.00);
+                        $minMultiplier = 1.0 + ($minProfitPct / 100.0);
+                        $effectiveCost = (float) $product->cost_price * (float) $unit->conversion_factor;
+                        $minAllowed = $effectiveCost * $minMultiplier;
+
+                        if ($customPrice < $minAllowed) {
+                            throw new \InvalidArgumentException("Harga produk [{$product->name}] (Rp " . number_format($customPrice, 0, ',', '.') . ") tidak dapat diproses karena berada di bawah batas minimum laba yang diizinkan perusahaan.");
+                        }
+
+                        $unitPrice = $customPrice;
+                    }
+                }
+
                 $itemSubtotal = round($quantity * $unitPrice, 2);
 
                 // Abaikan discount_amount dari klien kecuali diotorisasi oleh PIN Manajer (Gate use-manager-pin)
@@ -373,6 +402,19 @@ class PosService
                 if ($authorizedManager && isset($item['discount_amount']) && (float) $item['discount_amount'] > 0) {
                     $itemDiscount = min($itemSubtotal, round((float) $item['discount_amount'], 2));
                     $totalManualDiscount += $itemDiscount;
+                }
+
+                // Validasi bahwa setelah diskon harga tidak jatuh di bawah batas minimum laba
+                if ($itemDiscount > 0) {
+                    $netUnitPrice = ($itemSubtotal - $itemDiscount) / $quantity;
+                    $minProfitPct = (float) ($company->min_profit_percentage ?? 0.00);
+                    $minMultiplier = 1.0 + ($minProfitPct / 100.0);
+                    $effectiveCost = (float) $product->cost_price * (float) $unit->conversion_factor;
+                    $minAllowed = $effectiveCost * $minMultiplier;
+
+                    if ($netUnitPrice < $minAllowed) {
+                        throw new \InvalidArgumentException("Diskon untuk produk [{$product->name}] tidak dapat diproses karena membuat harga jual jatuh di bawah batas minimum laba perusahaan.");
+                    }
                 }
 
                 $itemTotal = max(0.0, round($itemSubtotal - $itemDiscount, 2));

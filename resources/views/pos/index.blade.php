@@ -770,8 +770,19 @@
                                 </td>
 
                                 <!-- HARGA SATUAN -->
-                                <td class="text-right font-mono font-bold text-slate-800 text-[14px] sm:text-[15px]"
-                                    x-text="formatRupiah(item.unit_price) + ',00'"></td>
+                                <td class="text-right font-mono font-bold text-slate-800 text-[14px] sm:text-[15px]">
+                                    <template x-if="canOverridePrice">
+                                        <button type="button" @click="editItemPrice(item)"
+                                                class="inline-flex items-center gap-1 hover:text-blue-600 hover:underline cursor-pointer group"
+                                                title="Klik untuk mengubah harga item pada transaksi ini (hak akses kasir)">
+                                            <span x-text="formatRupiah(item.unit_price) + ',00'"></span>
+                                            <span class="text-[10px] text-blue-500 opacity-60 group-hover:opacity-100">✏️</span>
+                                        </button>
+                                    </template>
+                                    <template x-if="!canOverridePrice">
+                                        <span x-text="formatRupiah(item.unit_price) + ',00'"></span>
+                                    </template>
+                                </td>
 
                                 <!-- POTONGAN DISKON BARIS -->
                                 <td class="text-right font-mono text-[14px] sm:text-[15px] font-bold"
@@ -3078,6 +3089,7 @@
                 paymentReference: '',
                 paidAmountFormatted: '0',
                 splitMethod: 'CASH',
+                canOverridePrice: @json(auth()->user()?->role === 'owner' || auth()->user()?->hasPermission('pos_override_item_price.ubah') || auth()->user()?->hasPermission('pos_override_item_price.buka')),
 
                 get selectedCustomer() {
                     return this.customers.find(c => c.id === this.selectedCustomerId) || null;
@@ -3647,6 +3659,24 @@
                     const gross = (item.unit_price || 0) * (item.quantity || 1);
                     if (item.discount_amount > gross) item.discount_amount = gross;
                     item.subtotal = Math.max(0, gross - item.discount_amount);
+                },
+
+                editItemPrice(item) {
+                    if (!this.canOverridePrice) {
+                        alert('Anda tidak memiliki hak akses untuk mengubah harga jual pada transaksi kasir.');
+                        return;
+                    }
+                    const input = prompt('Ubah harga satuan item [' + item.name + '] untuk transaksi ini (Rp):', item.unit_price);
+                    if (input !== null) {
+                        const val = parseFloat(input.replace(/[^0-9.]/g, ''));
+                        if (!isNaN(val) && val > 0) {
+                            item.unit_price = val;
+                            item.custom_unit_price = val;
+                            const gross = val * (item.quantity || 1);
+                            item.subtotal = Math.max(0, gross - (item.discount_amount || 0));
+                            this.recalculateTotal();
+                        }
+                    }
                 },
 
                 openEditItemModal(item) {
@@ -4527,6 +4557,7 @@
                                 product_id: i.product_id,
                                 product_unit_id: i.product_unit_id,
                                 quantity: i.quantity,
+                                custom_unit_price: i.custom_unit_price || null,
                                 discount_amount: i.discount_amount || 0,
                                 is_tebus_murah: i.is_tebus_murah || false,
                                 promotion_id: i.promotion_id || null,

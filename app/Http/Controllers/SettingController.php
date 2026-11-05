@@ -395,6 +395,7 @@ class SettingController extends Controller
             'cashier_allow_pending_transaction' => 'nullable|boolean',
             'cashier_max_pending_transactions' => 'required|integer|min:1|max:20',
             'cashier_quick_cash_nominal' => 'required|string|max:100',
+            'min_profit_percentage' => 'nullable|numeric|min:0|max:1000',
         ], [
             'cashier_default_starting_cash.required' => 'Modal awal standar wajib diisi.',
             'cashier_max_starting_cash.gte' => 'Batas maksimal modal awal harus lebih besar atau sama dengan modal awal standar.',
@@ -411,6 +412,7 @@ class SettingController extends Controller
             $company->cashier_max_discrepancy_tolerance = (float) $validated['cashier_max_discrepancy_tolerance'];
             $company->cashier_allow_pending_transaction = $request->boolean('cashier_allow_pending_transaction');
             $company->cashier_max_pending_transactions = (int) $validated['cashier_max_pending_transactions'];
+            $company->min_profit_percentage = (float) ($request->input('min_profit_percentage', 0));
 
             // Bersihkan format nominal tombol cepat
             $nominals = array_filter(array_map('trim', explode(',', $validated['cashier_quick_cash_nominal'])));

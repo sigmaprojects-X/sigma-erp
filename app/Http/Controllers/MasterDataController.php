@@ -353,6 +353,12 @@ class MasterDataController extends Controller
         $tierRetail = CustomerTier::where('company_id', $company->id)->where('code', 'RETAIL')->first() ?? CustomerTier::where('company_id', $company->id)->first();
         $tierGrosir = CustomerTier::where('company_id', $company->id)->where('code', 'GROSIR')->first();
 
+        // Validasi batas minimum harga jual terhadap HPP & min profit percentage
+        $marginError = $this->checkSellingPricesMargin($company, (float) $request->cost_price, $request);
+        if ($marginError) {
+            return back()->with('error', $marginError)->withInput();
+        }
+
         DB::transaction(function () use ($request, $company, $store, $tierRetail, $tierGrosir, $isMultiUnit) {
             // 1. Tentukan Kategori
             $categoryId = $request->category_id;
@@ -391,7 +397,7 @@ class MasterDataController extends Controller
                 'company_id' => $company->id,
                 'store_id' => $store->id,
                 'category_id' => $categoryId,
-                'supplier_id' => $request->supplier_id,
+                'supplier_id' => $request->supplier_id ?: Supplier::generalFor($company->id)->id,
                 'sku' => strtoupper(trim($request->sku)),
                 'type' => $productType,
                 'name' => trim($request->name),
@@ -714,6 +720,12 @@ class MasterDataController extends Controller
         $tierRetail = CustomerTier::where('company_id', $company->id)->where('code', 'RETAIL')->first() ?? CustomerTier::where('company_id', $company->id)->first();
         $tierGrosir = CustomerTier::where('company_id', $company->id)->where('code', 'GROSIR')->first();
 
+        // Validasi batas minimum harga jual terhadap HPP & min profit percentage
+        $marginError = $this->checkSellingPricesMargin($company, (float) $request->cost_price, $request);
+        if ($marginError) {
+            return back()->with('error', $marginError)->withInput();
+        }
+
         DB::transaction(function () use ($request, $product, $company, $store, $tierRetail, $tierGrosir, $newSaleStatus, $productType, $tracksInventory) {
             $categoryId = $request->category_id;
             $categoryName = $request->category;
@@ -733,7 +745,7 @@ class MasterDataController extends Controller
                 'type' => $productType,
                 'name' => trim($request->name),
                 'category_id' => $categoryId,
-                'supplier_id' => $request->supplier_id,
+                'supplier_id' => $request->supplier_id ?: Supplier::generalFor($product->company_id)->id,
                 'category' => $categoryName ?: $product->category,
                 'sub_category' => $request->sub_category,
                 'brand' => $request->brand,
@@ -1334,8 +1346,8 @@ class MasterDataController extends Controller
         ]);
 
         $supplier->update([
-            'code' => strtoupper(trim($request->code)),
-            'name' => trim($request->name),
+            'code' => $supplier->isGeneral() ? Supplier::GENERAL_CODE : strtoupper(trim($request->code)),
+            'name' => $supplier->isGeneral() ? Supplier::GENERAL_NAME : trim($request->name),
             'is_pkp' => $request->boolean('is_pkp'),
             'npwp' => $request->npwp ? trim($request->npwp) : null,
             'tax_name' => $request->tax_name ? trim($request->tax_name) : null,
@@ -1358,6 +1370,11 @@ class MasterDataController extends Controller
     public function toggleSupplierStatus(string $id): RedirectResponse
     {
         $supplier = Supplier::where('company_id', $this->activeCompanyId())->findOrFail($id);
+
+        if ($supplier->isGeneral() && $supplier->is_active) {
+            return redirect()->route('master.suppliers')->with('error', 'Supplier Umum adalah supplier bawaan sistem dan tidak dapat dinonaktifkan.');
+        }
+
         $supplier->update(['is_active' => !$supplier->is_active]);
 
         $statusStr = $supplier->is_active ? 'diaktifkan' : 'dinonaktifkan';
@@ -2210,6 +2227,11 @@ class MasterDataController extends Controller
                     ]
                 );
 
+                // 3b. Supplier kosong -> otomatis Supplier Umum
+                if (! $product->supplier_id) {
+                    $product->update(['supplier_id' => Supplier::generalFor($company->id)->id]);
+                }
+
                 // 4. Upsert Product Unit (Base Unit)
                 $pUnit = ProductUnit::updateOrCreate(
                     ['company_id' => $company->id, 'product_id' => $product->id, 'unit_code' => $unitCode],
@@ -2233,7 +2255,21 @@ class MasterDataController extends Controller
                     );
                 }
 
-                // 6. Upsert Harga Retail
+                // 6. Validasi Margin Minimum Impor
+                $minProfitPct = (float) ($company->min_profit_percentage ?? 0.00);
+                $minMultiplier = 1.0 + ($minProfitPct / 100.0);
+                $minAllowed = $costPrice * $minMultiplier;
+
+                if ($priceRetail > 0 && $priceRetail < $minAllowed) {
+                    $errors[] = "Baris #{$rowCount} [{$sku}]: Harga Retail tidak dapat disimpan karena berada di bawah batas minimum laba.";
+                    continue;
+                }
+                if ($priceGrosir > 0 && $priceGrosir < $minAllowed) {
+                    $errors[] = "Baris #{$rowCount} [{$sku}]: Harga Grosir berada di bawah batas minimum laba sehingga otomatis dialihkan ikut Retail.";
+                    $priceGrosir = 0;
+                }
+
+                // 6b. Upsert Harga Retail
                 if ($tierRetail && $priceRetail > 0) {
                     ProductPrice::updateOrCreate(
                         [
@@ -2287,5 +2323,86 @@ class MasterDataController extends Controller
         }
 
         return redirect()->route('master.products')->with('success', $msg);
+    }
+
+    /**
+     * Validasi bahwa harga jual tidak berada di bawah ketentuan batas laba minimum.
+     * Tidak membocorkan angka modal/HPP ke pesan error (AGENTS.md Section 6).
+     */
+    protected function checkSellingPricesMargin(Company $company, float $costPrice, Request $request): ?string
+    {
+        if ($costPrice <= 0) {
+            return null;
+        }
+
+        $minProfitPct = (float) ($company->min_profit_percentage ?? 0.00);
+        $minMultiplier = 1.0 + ($minProfitPct / 100.0);
+
+        if ($request->has('units') && is_array($request->input('units'))) {
+            foreach ($request->input('units') as $uData) {
+                if (empty($uData['unit_code'])) {
+                    continue;
+                }
+                $unitCode = strtoupper(trim($uData['unit_code']));
+                $factor = (float) ($uData['conversion_factor'] ?? 1.0);
+                if ($factor <= 0) {
+                    $factor = 1.0;
+                }
+                $minUnitAllowed = $costPrice * $factor * $minMultiplier;
+
+                if (!empty($uData['tier_prices']) && is_array($uData['tier_prices'])) {
+                    foreach ($uData['tier_prices'] as $tId => $tData) {
+                        if (isset($tData['price']) && $tData['price'] !== '' && (float)$tData['price'] > 0) {
+                            $price = (float) $tData['price'];
+                            if ($price < $minUnitAllowed) {
+                                $tier = CustomerTier::where('company_id', $company->id)->whereKey($tId)->first();
+                                $tierLabel = $tier ? $tier->name : 'Level Pelanggan';
+                                return "Harga jual [{$tierLabel}] pada satuan [{$unitCode}] (Rp " . number_format($price, 0, ',', '.') . ") tidak dapat disimpan karena berada di bawah ketentuan batas minimum keuntungan perusahaan.";
+                            }
+                        }
+                    }
+                } else {
+                    if (isset($uData['price_retail']) && $uData['price_retail'] !== '' && (float)$uData['price_retail'] > 0) {
+                        $price = (float) $uData['price_retail'];
+                        if ($price < $minUnitAllowed) {
+                            return "Harga jual Retail pada satuan [{$unitCode}] (Rp " . number_format($price, 0, ',', '.') . ") tidak dapat disimpan karena berada di bawah ketentuan batas minimum keuntungan perusahaan.";
+                        }
+                    }
+                    if (isset($uData['price_grosir']) && $uData['price_grosir'] !== '' && (float)$uData['price_grosir'] > 0) {
+                        $price = (float) $uData['price_grosir'];
+                        if ($price < $minUnitAllowed) {
+                            return "Harga jual Grosir pada satuan [{$unitCode}] (Rp " . number_format($price, 0, ',', '.') . ") tidak dapat disimpan karena berada di bawah ketentuan batas minimum keuntungan perusahaan.";
+                        }
+                    }
+                }
+
+                if (!empty($uData['tiered_prices']) && is_array($uData['tiered_prices'])) {
+                    foreach ($uData['tiered_prices'] as $tPrice) {
+                        if (isset($tPrice['price']) && $tPrice['price'] !== '' && (float)$tPrice['price'] > 0) {
+                            $price = (float) $tPrice['price'];
+                            if ($price < $minUnitAllowed) {
+                                return "Harga grosir bertingkat pada satuan [{$unitCode}] (Rp " . number_format($price, 0, ',', '.') . ") tidak dapat disimpan karena berada di bawah ketentuan batas minimum keuntungan perusahaan.";
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            $minAllowed = $costPrice * $minMultiplier;
+            if ($request->filled('price_retail') && (float)$request->price_retail > 0) {
+                $price = (float) $request->price_retail;
+                if ($price < $minAllowed) {
+                    return "Harga jual Retail (Rp " . number_format($price, 0, ',', '.') . ") tidak dapat disimpan karena berada di bawah ketentuan batas minimum keuntungan perusahaan.";
+                }
+            }
+            if ($request->filled('price_grosir') && (float)$request->price_grosir > 0) {
+                $price = (float) $request->price_grosir;
+                if ($price < $minAllowed) {
+                    return "Harga jual Grosir (Rp " . number_format($price, 0, ',', '.') . ") tidak dapat disimpan karena berada di bawah ketentuan batas minimum keuntungan perusahaan.";
+                }
+            }
+        }
+
+        return null;
     }
 }

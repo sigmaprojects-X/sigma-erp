@@ -797,6 +797,7 @@ class PosController extends Controller
             'items.*.product_id' => 'required|uuid',
             'items.*.product_unit_id' => 'required|uuid',
             'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.custom_unit_price' => 'nullable|numeric|min:0',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
             'manager_pin' => 'nullable|string',
             'payment_method' => 'required|string|in:CASH,QRIS,TRANSFER,VOUCHER,TEMPO,SPLIT',
