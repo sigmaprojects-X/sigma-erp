@@ -215,7 +215,7 @@ class MasterDataController extends Controller
     /**
      * Tampilan Formulir Edit Item / Produk.
      */
-    public function editProduct(string $id): View
+    public function editProduct(string $id)
     {
         $product = Product::with([
             'units.barcodes',
@@ -225,7 +225,12 @@ class MasterDataController extends Controller
             'stocks',
             'boms.componentProduct',
             'boms.componentUnit',
-        ])->where('company_id', $this->activeCompanyId())->findOrFail($id);
+        ])->where('company_id', $this->activeCompanyId())->find($id);
+
+        if (! $product) {
+            return redirect()->route('master.products')
+                ->with('error', 'Produk tidak ditemukan pada perusahaan aktif saat ini. Anda telah dialihkan ke daftar produk.');
+        }
 
         $company = Company::find($product->company_id) ?? app(\App\Services\CompanyService::class)->getActiveCompany();
 
@@ -647,7 +652,10 @@ class MasterDataController extends Controller
      */
     public function updateProduct(Request $request, string $id): RedirectResponse
     {
-        $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->where('company_id', $this->activeCompanyId())->findOrFail($id);
+        $product = Product::with(['units.barcodes', 'units.prices', 'stocks'])->where('company_id', $this->activeCompanyId())->find($id);
+        if (! $product) {
+            return redirect()->route('master.products')->with('error', 'Produk tidak ditemukan pada perusahaan aktif.');
+        }
         [$company, $store] = $this->resolveCompanyAndStore($request);
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
@@ -1029,7 +1037,10 @@ class MasterDataController extends Controller
      */
     public function destroyProduct(string $id): RedirectResponse
     {
-        $product = Product::with(['stocks', 'units', 'barcodes', 'prices'])->where('company_id', $this->activeCompanyId())->findOrFail($id);
+        $product = Product::with(['stocks', 'units', 'barcodes', 'prices'])->where('company_id', $this->activeCompanyId())->find($id);
+        if (! $product) {
+            return redirect()->route('master.products')->with('error', 'Produk tidak ditemukan pada perusahaan aktif.');
+        }
 
         // 1. Cek Saldo Stok Fisik
         $physicalStock = (float) $product->stocks->sum('physical_quantity');

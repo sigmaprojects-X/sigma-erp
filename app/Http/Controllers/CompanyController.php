@@ -25,6 +25,29 @@ class CompanyController extends Controller
 
         $company = $this->companyService->switchCompany($validated['company_id']);
 
+        // Periksa URL sebelumnya (referrer)
+        $previousUrl = url()->previous();
+        $path = parse_url($previousUrl, PHP_URL_PATH) ?? '';
+
+        // Jika user berpindah perusahaan saat sedang membuka halaman detail/edit entitas tertentu,
+        // redirect ke halaman daftar (index) modul tersebut agar tidak terkena 404 Not Found karena ID milik perusahaan lama.
+        if (preg_match('#/master/products/[^/]+#', $path)) {
+            return redirect()->route('master.products')->with('success', "Berhasil beralih ke perusahaan: {$company->name}");
+        }
+
+        if (preg_match('#/purchases/orders/[^/]+#', $path)) {
+            return redirect()->route('purchases.orders.index')->with('success', "Berhasil beralih ke perusahaan: {$company->name}");
+        }
+
+        if (preg_match('#/sales/transactions/[^/]+#', $path)) {
+            return redirect()->route('sales.transactions')->with('success', "Berhasil beralih ke perusahaan: {$company->name}");
+        }
+
+        // Jika URL sebelumnya mengandung pola UUID (spesifik entitas ID milik perusahaan lama)
+        if (preg_match('#/[0-9a-fA-F-]{36}#', $path)) {
+            return redirect()->route('sales.index')->with('success', "Berhasil beralih ke perusahaan: {$company->name}");
+        }
+
         return back()->with('success', "Berhasil beralih ke perusahaan: {$company->name}");
     }
 
