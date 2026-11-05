@@ -22,8 +22,10 @@
                 $tierPrices[$t->id] = [
                     'tier_name' => $t->name,
                     'tier_code' => $t->code,
-                    'margin' => $pRecord && $pRecord->margin_percentage !== null ? (float)$pRecord->margin_percentage : (float)$t->default_margin_percentage,
-                    'price' => $pRecord ? (float)$pRecord->price : 0,
+                    'is_default' => (bool) $t->is_default,
+                    'is_active' => $t->is_default ? true : (bool) ($pRecord?->is_active ?? false),
+                    'margin' => $pRecord && $pRecord->is_active && $pRecord->margin_percentage !== null ? (float)$pRecord->margin_percentage : (float)$t->default_margin_percentage,
+                    'price' => $pRecord && $pRecord->is_active ? (float)$pRecord->price : 0,
                 ];
             }
 
@@ -40,7 +42,7 @@
 
             $hasOtherTierCustom = false;
             foreach ($tierPrices as $tId => $tp) {
-                if ($defaultTier && $tId !== $defaultTier->id && ($tp['price'] ?? 0) > 0) {
+                if ($defaultTier && $tId !== $defaultTier->id && !empty($tp['is_active']) && ($tp['price'] ?? 0) > 0) {
                     $hasOtherTierCustom = true;
                     break;
                 }
@@ -76,6 +78,8 @@
             $defaultTierPrices[$t->id] = [
                 'tier_name' => $t->name,
                 'tier_code' => $t->code,
+                'is_default' => (bool)$t->is_default,
+                'is_active' => (bool)$t->is_default,
                 'margin' => (float)$t->default_margin_percentage,
                 'price' => 0,
             ];
@@ -1031,13 +1035,21 @@
                                             @php
                                                 $cStyle = $tierColorMap[$t->code] ?? ['border' => 'border-slate-200', 'badge' => 'bg-slate-100 text-slate-800', 'icon' => '🏷️'];
                                             @endphp
-                                            <div class="bg-white border-2 {{ $cStyle['border'] }} rounded-2xl p-3.5 shadow-2xs space-y-2.5 transition-all">
+                                            <div class="bg-white border-2 {{ $cStyle['border'] }} rounded-2xl p-3.5 shadow-2xs space-y-2.5 transition-all" @if($t->code === 'GROSIR') :class="u.tier_prices['{{ $t->id }}'].is_active ? 'ring-2 ring-emerald-100' : 'opacity-75'" @endif>
                                                 <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                                                     <div class="flex items-center gap-1.5">
                                                         <span>{{ $cStyle['icon'] }}</span>
                                                         <span class="font-extrabold text-xs text-slate-900">{{ $t->name }}</span>
                                                     </div>
-                                                    <span class="px-2 py-0.5 rounded-md font-mono text-[9.5px] font-black {{ $cStyle['badge'] }}">{{ $t->code }}</span>
+                                                    @if($t->code === 'GROSIR')
+                                                        <label class="inline-flex items-center gap-1.5 cursor-pointer text-[10px] font-bold" :class="u.tier_prices['{{ $t->id }}'].is_active ? 'text-emerald-700' : 'text-slate-500'">
+                                                            <input type="hidden" :name="'units[' + index + '][tier_prices][{{ $t->id }}][is_active]'" :value="u.tier_prices['{{ $t->id }}'].is_active ? 1 : 0">
+                                                            <input type="checkbox" :checked="u.tier_prices['{{ $t->id }}'].is_active" @change="u.tier_prices['{{ $t->id }}'].is_active = $event.target.checked" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                                                            <span x-text="u.tier_prices['{{ $t->id }}'].is_active ? 'Aktif' : 'Nonaktif'"></span>
+                                                        </label>
+                                                    @else
+                                                        <span class="px-2 py-0.5 rounded-md font-mono text-[9.5px] font-black {{ $cStyle['badge'] }}">{{ $t->code }}</span>
+                                                    @endif
                                                 </div>
 
                                                 <div class="grid grid-cols-12 gap-2 text-xs items-center">
@@ -1050,6 +1062,7 @@
                                                                    :name="'units[' + index + '][tier_prices][{{ $t->id }}][margin]'"
                                                                    x-model.number="u.tier_prices['{{ $t->id }}'].margin"
                                                                    @input="updateTierPriceByMargin(index, '{{ $t->id }}')"
+                                                                   @if($t->code === 'GROSIR') :disabled="!u.tier_prices['{{ $t->id }}'].is_active" @endif
                                                                    class="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-700 text-center focus:ring-2 focus:ring-blue-500 bg-white">
                                                         </div>
                                                     </div>
@@ -1062,6 +1075,7 @@
                                                                :name="'units[' + index + '][tier_prices][{{ $t->id }}][price]'"
                                                                x-model.number="u.tier_prices['{{ $t->id }}'].price"
                                                                @input="updateTierMarginByPrice(index, '{{ $t->id }}')"
+                                                               @if($t->code === 'GROSIR') :disabled="!u.tier_prices['{{ $t->id }}'].is_active" @endif
                                                                class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-black text-slate-900 text-right focus:ring-2 focus:ring-blue-500 bg-white">
                                                     </div>
                                                 </div>
@@ -1633,6 +1647,8 @@ function itemForm(config) {
                 defaultTiers[t.id] = {
                     tier_name: t.name,
                     tier_code: t.code,
+                    is_default: Boolean(t.is_default),
+                    is_active: Boolean(t.is_default),
                     margin: parseFloat(t.default_margin_percentage || 10),
                     price: 0
                 };
@@ -1718,10 +1734,10 @@ function itemForm(config) {
                 Object.keys(u.tier_prices).forEach(tierId => {
                     const tp = u.tier_prices[tierId];
                     if (effHpp > 0) {
-                        if (!tp.price || tp.price === 0) {
-                            tp.price = Math.round(effHpp * (1 + ((tp.margin || 0) / 100)));
-                        } else {
+                        if (Number(tp.price) > 0) {
                             tp.margin = parseFloat((((tp.price - effHpp) / effHpp) * 100).toFixed(1));
+                        } else if (tp.is_default) {
+                            tp.price = Math.round(effHpp * (1 + ((tp.margin || 0) / 100)));
                         }
                     }
                 });

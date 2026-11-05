@@ -145,4 +145,65 @@ class MinimumProfitAndPriceProtectionTest extends TestCase
 
         $this->assertEquals(7000.0, $finalPrice);
     }
+
+    public function test_disabling_grosir_tier_keeps_retail_price_active(): void
+    {
+        $product = Product::where('sku', 'PRD-001')->firstOrFail();
+        $unit = ProductUnit::where('product_id', $product->id)->where('unit_code', 'PCS')->firstOrFail();
+
+        ProductPrice::create([
+            'company_id' => $this->company->id,
+            'product_id' => $product->id,
+            'product_unit_id' => $unit->id,
+            'customer_tier_id' => $this->tierGrosir->id,
+            'min_quantity' => 1.00,
+            'price' => 12000,
+            'margin_percentage' => 20.00,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->owner)
+            ->get(route('master.products.edit', $product->id))
+            ->assertOk()
+            ->assertSee('Aktif');
+
+        $response = $this->actingAs($this->owner)->put(route('master.products.update', $product->id), [
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'type' => Product::TYPE_BARANG,
+            'sale_status' => 'ACTIVE',
+            'cost_price' => 10000,
+            'is_active' => 1,
+            'is_point_of_sale' => 1,
+            'units' => [[
+                'id' => $unit->id,
+                'unit_code' => 'PCS',
+                'unit_name' => 'Pieces',
+                'conversion_factor' => 1,
+                'is_base_unit' => 1,
+                'is_active' => 1,
+                'tier_prices' => [
+                    $this->tierRetail->id => ['price' => 15000, 'margin' => 50],
+                    $this->tierGrosir->id => ['is_active' => 0],
+                ],
+            ]],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('product_prices', [
+            'product_id' => $product->id,
+            'product_unit_id' => $unit->id,
+            'customer_tier_id' => $this->tierGrosir->id,
+            'min_quantity' => 1.00,
+            'is_active' => false,
+        ]);
+        $this->assertDatabaseHas('product_prices', [
+            'product_id' => $product->id,
+            'product_unit_id' => $unit->id,
+            'customer_tier_id' => $this->tierRetail->id,
+            'min_quantity' => 1.00,
+            'price' => 15000,
+            'is_active' => true,
+        ]);
+    }
 }

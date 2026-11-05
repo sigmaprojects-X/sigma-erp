@@ -482,7 +482,11 @@ class MasterDataController extends Controller
                     // 1. Simpan Harga per Level Pelanggan (Customer Tier: Level 1 s/d Level 6)
                     if (! empty($uData['tier_prices']) && is_array($uData['tier_prices'])) {
                         foreach ($uData['tier_prices'] as $tierId => $tData) {
-                            if (! CustomerTier::where('company_id', $company->id)->whereKey($tierId)->exists()) {
+                            $tier = CustomerTier::where('company_id', $company->id)->whereKey($tierId)->first();
+                            if (! $tier) {
+                                continue;
+                            }
+                            if ($tier->code === 'GROSIR' && empty($tData['is_active'])) {
                                 continue;
                             }
                             if (isset($tData['price']) && $tData['price'] !== '' && (float) $tData['price'] > 0) {
@@ -892,7 +896,19 @@ class MasterDataController extends Controller
                     // 1. Simpan Harga per Level Pelanggan (Customer Tier: Level 1 s/d Level 6)
                     if (! empty($uData['tier_prices']) && is_array($uData['tier_prices'])) {
                         foreach ($uData['tier_prices'] as $tierId => $tData) {
-                            if (! CustomerTier::where('company_id', $company->id)->whereKey($tierId)->exists()) {
+                            $tier = CustomerTier::where('company_id', $company->id)->whereKey($tierId)->first();
+                            if (! $tier) {
+                                continue;
+                            }
+                            $tierPrice = (float) ($tData['price'] ?? 0);
+                            if ($tier->code === 'GROSIR' && (empty($tData['is_active']) || $tierPrice <= 0)) {
+                                ProductPrice::where('company_id', $company->id)
+                                    ->where('product_id', $product->id)
+                                    ->where('product_unit_id', $pUnit->id)
+                                    ->where('customer_tier_id', $tierId)
+                                    ->where('min_quantity', 1.00)
+                                    ->whereNull('store_id')
+                                    ->update(['is_active' => false]);
                                 continue;
                             }
                             if (isset($tData['price']) && $tData['price'] !== '' && (float) $tData['price'] > 0) {
