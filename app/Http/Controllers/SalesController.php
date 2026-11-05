@@ -40,7 +40,9 @@ class SalesController extends Controller
             ?? Store::first();
 
         // Query transaksi hari ini (Terfilter per Perusahaan Aktif)
-        $todayTransactions = PosTransaction::where('company_id', $company->id)->whereDate('created_at', $today);
+        $todayTransactions = PosTransaction::where('company_id', $company->id)
+            ->whereDate('created_at', $today)
+            ->where('status', '!=', 'VOID');
 
         $todayRevenue = (float) (clone $todayTransactions)->sum('grand_total');
         $todayCount = (int) (clone $todayTransactions)->count();
@@ -56,7 +58,7 @@ class SalesController extends Controller
 
         // Top 5 Produk Terlaris (Best Sellers) - Filter per Perusahaan Aktif
         $topProducts = PosTransactionItem::whereHas('transaction', function ($q) use ($company) {
-                $q->where('company_id', $company->id);
+                $q->where('company_id', $company->id)->where('status', '!=', 'VOID');
             })
             ->with('product')
             ->selectRaw('product_id, SUM(quantity) as total_qty, SUM(subtotal) as total_revenue')
@@ -68,6 +70,7 @@ class SalesController extends Controller
         // Kinerja Penjualan per Kasir / Sales Person - Filter per Perusahaan Aktif
         $salesByCashier = PosTransaction::where('company_id', $company->id)
             ->with('cashier')
+            ->where('status', '!=', 'VOID')
             ->selectRaw('cashier_id, COUNT(*) as tx_count, SUM(grand_total) as total_revenue')
             ->whereNotNull('cashier_id')
             ->groupBy('cashier_id')
@@ -78,6 +81,7 @@ class SalesController extends Controller
         // Transaksi terakhir - Filter per Perusahaan Aktif
         $recentTransactions = PosTransaction::where('company_id', $company->id)
             ->with(['customer', 'customerTier'])
+            ->where('status', '!=', 'VOID')
             ->orderByDesc('created_at')
             ->limit(10)
             ->get();
