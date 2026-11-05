@@ -88,7 +88,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     });
 
     // SAKELAR MULTI-COMPANY (COMPANY SWITCHER UNTUK OWNER)
-    Route::post('/company/switch', [CompanyController::class, 'switchCompany'])->name('company.switch');
+    Route::post('/company/switch', [CompanyController::class, 'switchCompany'])
+        ->middleware('role:owner')
+        ->name('company.switch');
 
     // Cetak Nota Retur Penjualan (Dapat diakses oleh Kasir POS dan Manajemen)
     Route::get('/sales/returns/{id}/print', [SalesController::class, 'printReturnNote'])

@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Customer;
 use App\Models\CustomerPointMutation;
 use App\Models\Store;
+use App\Services\CompanyService;
 use App\Services\LoyaltyPointService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,8 @@ use Illuminate\View\View;
 class CustomerPointController extends Controller
 {
     public function __construct(
-        protected LoyaltyPointService $loyaltyPointService
+        protected LoyaltyPointService $loyaltyPointService,
+        protected CompanyService $companyService
     ) {}
 
     /**
@@ -24,7 +26,7 @@ class CustomerPointController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $program = $this->loyaltyPointService->getActiveProgram($company);
 
         $search = trim($request->input('q', ''));
@@ -105,7 +107,7 @@ class CustomerPointController extends Controller
     public function lookup(string $customerId): JsonResponse
     {
         $customer = Customer::with('tier')->findOrFail($customerId);
-        $company = $customer->company ?? Company::first();
+        $company = $customer->company ?? $this->companyService->getActiveCompany();
         $program = $this->loyaltyPointService->getActiveProgram($company);
 
         $mutations = CustomerPointMutation::where('customer_id', $customer->id)

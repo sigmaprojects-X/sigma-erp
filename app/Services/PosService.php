@@ -250,6 +250,10 @@ class PosService
             $cleanPin = trim((string) $managerPin);
             $candidates = User::where('is_active', true)
                 ->whereNotNull('manager_pin')
+                ->where(function ($query) use ($shift) {
+                    $query->where('role', 'owner')
+                        ->orWhereHas('store', fn ($q) => $q->where('company_id', $shift->company_id));
+                })
                 ->get()
                 ->filter(fn (User $u) => Gate::forUser($u)->allows('use-manager-pin'));
 
@@ -1005,6 +1009,10 @@ class PosService
             $managers = User::whereIn('role', ['owner', 'manager', 'store_head'])
                 ->where('is_active', true)
                 ->whereNotNull('manager_pin')
+                ->where(function ($query) use ($activeShift) {
+                    $query->where('role', 'owner')
+                        ->orWhereHas('store', fn ($q) => $q->where('company_id', $activeShift->company_id));
+                })
                 ->get();
 
             foreach ($managers as $mgr) {

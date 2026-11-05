@@ -19,7 +19,7 @@ class AutoNumberService
         ?\DateTimeInterface $date = null
     ): string {
         $now = $date ? Carbon::instance($date) : now();
-        $targetCompany = $company ?? Company::first();
+        $targetCompany = $company ?? app(CompanyService::class)->getActiveCompany();
 
         if (! $targetCompany) {
             return strtoupper($documentType) . '-' . $now->format('Ymd') . '-0001';

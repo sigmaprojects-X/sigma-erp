@@ -7,6 +7,7 @@ use App\Models\CustomerPointMutation;
 use App\Models\PosTransaction;
 use App\Models\Store;
 use App\Models\Voucher;
+use App\Services\CompanyService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,12 +15,16 @@ use Illuminate\View\View;
 
 class PromotionReportController extends Controller
 {
+    public function __construct(
+        protected CompanyService $companyService
+    ) {}
+
     /**
      * Tampilkan Laporan Promosi, Voucher, Poin Loyalitas & Diskon Penjualan.
      */
     public function index(Request $request): View
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
@@ -125,7 +130,7 @@ class PromotionReportController extends Controller
      */
     public function printReport(Request $request): View
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
         $storeId = $request->input('store_id');

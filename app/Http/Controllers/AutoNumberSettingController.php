@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Models\TransactionNumberPattern;
 use App\Services\AutoNumberService;
+use App\Services\CompanyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -12,7 +13,8 @@ use Illuminate\View\View;
 class AutoNumberSettingController extends Controller
 {
     public function __construct(
-        protected AutoNumberService $autoNumberService
+        protected AutoNumberService $autoNumberService,
+        protected CompanyService $companyService
     ) {}
 
     /**
@@ -20,7 +22,7 @@ class AutoNumberSettingController extends Controller
      */
     public function index(): View
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
 
         // Pastikan default patterns selalu ada
         $this->autoNumberService->seedDefaultPatterns($company);
@@ -118,7 +120,7 @@ class AutoNumberSettingController extends Controller
      */
     public function restoreDefaults(): RedirectResponse
     {
-        $company = Company::firstOrFail();
+        $company = $this->companyService->getActiveCompany();
         $defaults = TransactionNumberPattern::getDefaultPatterns();
 
         foreach ($defaults as $docType => $d) {

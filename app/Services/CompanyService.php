@@ -108,7 +108,7 @@ class CompanyService
             return collect([$user->store->company]);
         }
 
-        return Company::where('is_active', true)->orderBy('name')->get();
+        return collect([$this->getActiveCompany()]);
     }
 
     /**

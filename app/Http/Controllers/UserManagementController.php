@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\UserGroup;
+use App\Services\CompanyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -49,9 +50,13 @@ class UserManagementController extends Controller
         'cashier' => 40,
     ];
 
+    public function __construct(
+        protected CompanyService $companyService
+    ) {}
+
     /**
      * Pastikan aktor tidak mengubah atau mereset akun Owner (kecuali aktor adalah Owner)
-     * atau akun dengan level role di atas dirinya.
+     * atau akun dengan level role di atas dirinya, serta membatasi ruang lingkup perusahaan.
      */
     protected function authorizeTargetUserModification(?User $actor, User $targetUser): void
     {
@@ -65,6 +70,12 @@ class UserManagementController extends Controller
 
         if ($targetUser->role === 'owner') {
             abort(403, 'Hanya Owner yang dapat mengubah atau mereset akun berole Owner.');
+        }
+
+        // Pastikan target user berada di perusahaan yang sama untuk non-owner
+        $company = $this->companyService->getActiveCompany();
+        if ($targetUser->store && $targetUser->store->company_id !== $company->id) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengelola staf di luar perusahaan Anda.');
         }
 
         $actorLevel = self::ROLE_LEVELS[$actor->role] ?? 0;
@@ -106,8 +117,16 @@ class UserManagementController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = Company::first();
-        $userGroups = UserGroup::withCount('users')
+        $company = $this->companyService->getActiveCompany();
+        $actor = $request->user();
+        $isOwner = $actor && $actor->role === 'owner';
+
+        // Kelompok hak akses: milik perusahaan aktif atau grup bawaan sistem (company_id is null)
+        $userGroups = UserGroup::where(function ($q) use ($company) {
+                $q->where('company_id', $company->id)
+                    ->orWhereNull('company_id');
+            })
+            ->withCount('users')
             ->orderBy('is_system', 'desc')
             ->orderBy('name', 'asc')
             ->get();
@@ -118,14 +137,30 @@ class UserManagementController extends Controller
         $catalog = UserGroup::getPermissionCatalog();
         $presets = UserGroup::getPresets();
 
-        $users = User::with(['store', 'userGroup'])
+        // Pengguna: jika manager/non-owner, sembunyikan user berole 'owner' dan hanya tampilkan user dari cabang perusahaannya
+        $usersQuery = User::with(['store', 'userGroup'])
             ->orderBy('is_active', 'desc')
-            ->orderBy('name', 'asc')
-            ->get();
+            ->orderBy('name', 'asc');
 
-        $stores = Store::orderBy('name')->get();
+        if (! $isOwner) {
+            $usersQuery->where('role', '!=', 'owner')
+                ->whereHas('store', fn ($q) => $q->where('company_id', $company->id));
+        } else {
+            $usersQuery->where(function ($q) use ($company) {
+                $q->where('role', 'owner')
+                    ->orWhereHas('store', fn ($sq) => $sq->where('company_id', $company->id));
+            });
+        }
+
+        $users = $usersQuery->get();
+
+        // Cabang / Toko di perusahaan aktif
+        $stores = Store::where('company_id', $company->id)->orderBy('name')->get();
 
         $roles = self::ROLES;
+        if (! $isOwner) {
+            unset($roles['owner']);
+        }
 
         return view('settings.users', compact(
             'company',
@@ -144,7 +179,7 @@ class UserManagementController extends Controller
      */
     public function storeGroup(Request $request): RedirectResponse
     {
-        $company = Company::first();
+        $company = $this->companyService->getActiveCompany();
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
@@ -182,11 +217,31 @@ class UserManagementController extends Controller
     }
 
     /**
+     * Pastikan kelompok hak akses berada dalam lingkup perusahaan aktor non-owner.
+     */
+    protected function authorizeGroupScope(?User $actor, UserGroup $group): void
+    {
+        if (! $actor) {
+            abort(403, 'Akses ditolak.');
+        }
+
+        if ($actor->role === 'owner') {
+            return;
+        }
+
+        $company = $this->companyService->getActiveCompany();
+        if ($group->company_id && $group->company_id !== $company->id) {
+            abort(403, 'Anda tidak memiliki hak akses untuk mengubah kelompok di luar perusahaan Anda.');
+        }
+    }
+
+    /**
      * Perbarui data kelompok hak akses / simpan matriks ceklist izin.
      */
     public function updateGroup(Request $request, string $id): RedirectResponse
     {
         $group = UserGroup::findOrFail($id);
+        $this->authorizeGroupScope($request->user(), $group);
 
         // Jika hanya memperbarui izin ceklist dari form matriks
         if ($request->has('save_permissions_matrix')) {
@@ -224,6 +279,8 @@ class UserManagementController extends Controller
     public function applyPreset(Request $request, string $id): RedirectResponse
     {
         $group = UserGroup::findOrFail($id);
+        $this->authorizeGroupScope($request->user(), $group);
+
         $presetKey = $request->input('preset');
         $presets = UserGroup::getPresets();
 
@@ -245,6 +302,7 @@ class UserManagementController extends Controller
     public function destroyGroup(string $id): RedirectResponse
     {
         $group = UserGroup::withCount('users')->findOrFail($id);
+        $this->authorizeGroupScope(Auth::user(), $group);
 
         if ($group->is_system) {
             return back()->with('error', 'Kelompok sistem bawaan tidak dapat dihapus demi keamanan sistem.');
@@ -281,6 +339,14 @@ class UserManagementController extends Controller
         ]);
 
         $this->authorizeRoleAssignment($request->user(), $validated['role']);
+
+        $company = $this->companyService->getActiveCompany();
+        if ($request->user()?->role !== 'owner' && ! empty($validated['store_id'])) {
+            $storeExists = Store::where('id', $validated['store_id'])->where('company_id', $company->id)->exists();
+            if (! $storeExists) {
+                abort(403, 'Toko/cabang yang dipilih bukan milik perusahaan Anda.');
+            }
+        }
 
         DB::transaction(function () use ($validated, $request) {
             $userData = [
@@ -342,6 +408,14 @@ class UserManagementController extends Controller
         ]);
 
         $this->authorizeRoleAssignment($request->user(), $validated['role']);
+
+        $company = $this->companyService->getActiveCompany();
+        if ($request->user()?->role !== 'owner' && ! empty($validated['store_id'])) {
+            $storeExists = Store::where('id', $validated['store_id'])->where('company_id', $company->id)->exists();
+            if (! $storeExists) {
+                abort(403, 'Toko/cabang yang dipilih bukan milik perusahaan Anda.');
+            }
+        }
 
         DB::transaction(function () use ($user, $validated, $request) {
             $oldRole = $user->role;

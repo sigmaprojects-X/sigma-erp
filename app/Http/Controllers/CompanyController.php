@@ -19,6 +19,10 @@ class CompanyController extends Controller
      */
     public function switchCompany(Request $request): RedirectResponse
     {
+        if ($request->user()?->role !== 'owner') {
+            abort(403, 'Akses ditolak. Fitur ganti perusahaan hanya untuk role Owner.');
+        }
+
         $validated = $request->validate([
             'company_id' => 'required|uuid|exists:companies,id',
         ]);
