@@ -204,9 +204,9 @@
         <!-- BRAND & LOGO HEADER (h-18) -->
         <div class="flex h-18 shrink-0 items-center justify-between px-5 border-b border-white/10 dark:border-slate-800 bg-[#071536]/40">
             <a href="{{ route('sales.index') }}" class="flex items-center space-x-3 group">
-                <img src="{{ asset('images/sigma-erp-logo.png') }}"
+                <img src="{{ asset('images/sigma-emblem-3d.png') }}"
                      alt="SIGMA ERP"
-                     class="h-10 w-auto object-contain rounded-xl shrink-0 select-none drop-shadow-md transition-transform group-hover:scale-105"
+                     class="h-10 w-10 object-contain rounded-xl shrink-0 select-none drop-shadow-md transition-transform group-hover:scale-105"
                      onerror="this.onerror=null; this.src='{{ asset('logo.svg') }}'">
                 <div>
                     <div class="font-black text-base tracking-tight text-white leading-tight flex items-center gap-1.5">
@@ -259,7 +259,7 @@
 
                 <!-- 1. Dashboard Utama -->
                 <a href="{{ route('sales.index') }}"
-                   class="flex items-center space-x-3.5 rounded-2xl px-4 py-2.5 text-sm transition-all duration-200 {{ request()->routeIs('sales.index') ? 'bg-[#125BCE] text-white font-bold shadow-sm shadow-[#125BCE]/40 ring-1 ring-[#18BDEB]' : 'text-slate-300 hover:text-white font-semibold hover:bg-white/10 hover:translate-x-1' }}">
+                   class="flex items-center space-x-3.5 rounded-2xl px-4 py-2.5 text-sm transition-all duration-200 {{ request()->routeIs('sales.index') ? 'bg-gradient-to-r from-[#0878F9] via-[#1264DA] to-[#0847A8] text-white font-bold shadow-md shadow-blue-950/30 ring-1 ring-cyan-300/60' : 'text-slate-300 hover:text-white font-semibold hover:bg-white/10 hover:translate-x-1' }}">
                     <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     <span>Dashboard Utama</span>
                 </a>
@@ -1048,7 +1048,7 @@
         <header class="sticky top-0 z-20 flex h-18 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-800/95 px-4 md:px-8 backdrop-blur-xl transition-colors">
             <!-- Mobile Brand -->
             <div class="flex items-center space-x-2.5 md:hidden">
-                <img src="{{ asset('images/sigma-erp-logo.png') }}" alt="SIGMA ERP" class="h-8 w-auto object-contain rounded-lg shrink-0" onerror="this.onerror=null; this.src='{{ asset('logo.svg') }}'">
+                <img src="{{ asset('images/sigma-emblem-3d.png') }}" alt="SIGMA ERP" class="h-8 w-8 object-contain rounded-lg shrink-0" onerror="this.onerror=null; this.src='{{ asset('logo.svg') }}'">
                 <div>
                     <span class="font-black text-sm text-[#0B1F4D] dark:text-white">SIGMA ERP</span>
                 </div>
