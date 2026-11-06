@@ -268,31 +268,6 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Beralih antara Mode Development dan Mode Production.
-     * Owner only.
-     */
-    public function switchMode(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'mode' => ['required', 'in:development,production,dev,prod'],
-        ]);
-
-        $target = strtolower($request->input('mode'));
-        $normalized = in_array($target, ['prod', 'production']) ? 'prod' : 'dev';
-
-        try {
-            Artisan::call('sigma:mode', ['target' => $normalized]);
-            $msg = $normalized === 'prod'
-                ? 'Sistem berhasil dialihkan ke MODE PRODUCTION! Caching aktif & performa transaksi kasir maksimal.'
-                : 'Sistem berhasil dialihkan ke MODE DEVELOPMENT! Debug aktif & live reload kode tanpa cache.';
-
-            return redirect()->route('settings.maintenance.index')->with('success', $msg);
-        } catch (\Throwable $e) {
-            return redirect()->route('settings.maintenance.index')->with('error', 'Gagal mengubah mode sistem: ' . $e->getMessage());
-        }
-    }
-
-    /**
      * Daftar eksplisit tabel sistem & master yang TIDAK dihapus saat Reset Demo.
      *
      * @return list<string>
