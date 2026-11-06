@@ -660,7 +660,6 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::delete('/delete/{filename}', [MaintenanceController::class, 'deleteBackup'])->middleware('permission:settings_backup_db.hapus')->name('delete');
             Route::post('/clear-cache', [MaintenanceController::class, 'clearCache'])->middleware('permission:settings_backup_db.buka')->name('clear-cache');
             Route::post('/optimize-db', [MaintenanceController::class, 'optimizeDatabase'])->middleware('permission:settings_backup_db.buka')->name('optimize-db');
-            Route::post('/switch-mode', [MaintenanceController::class, 'switchMode'])->middleware('permission:settings_backup_db.buka')->name('switch-mode');
             // Demo Reset — owner only (extra protection via confirm_text)
             Route::post('/reset-demo', [MaintenanceController::class, 'resetDemo'])->middleware('role:owner')->name('reset-demo');
         });
