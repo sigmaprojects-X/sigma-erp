@@ -42,14 +42,23 @@ jobs:
           script: |
             set -eu
             APP_PATH=/var/www/sigma-erp-staging
+            SOURCE_PATH=/var/www/sigma-erp
+
+            if [ ! -d "$SOURCE_PATH/.git" ]; then
+              echo "Production checkout is missing; cannot safely prepare staging source."
+              exit 1
+            fi
+
+            git -C "$SOURCE_PATH" fetch --depth=1 origin staging
+
             if [ -d "$APP_PATH/.git" ]; then
-              git -C "$APP_PATH" fetch --depth=1 origin staging
-              git -C "$APP_PATH" reset --hard origin/staging
+              git -C "$APP_PATH" fetch --depth=1 "$SOURCE_PATH" staging
+              git -C "$APP_PATH" reset --hard FETCH_HEAD
             elif [ -e "$APP_PATH" ]; then
               echo "Staging path exists but is not a Git checkout; stopping without modifying it."
               exit 1
             else
-              git clone --depth=1 --branch staging https://github.com/sigmaprojects-X/sigma-erp.git "$APP_PATH"
+              git clone --depth=1 --branch staging "$SOURCE_PATH" "$APP_PATH"
             fi
             mkdir -p "$APP_PATH/public/build"
 
