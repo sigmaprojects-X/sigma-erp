@@ -139,6 +139,8 @@ class CleanupSigmaTrialTransactions extends Command
                         'restored_quantity' => $row['restored_quantity'],
                         'qty_before' => (float) $row['mutation']->qty_before,
                         'qty_after' => (float) $row['mutation']->qty_after,
+                        'qty_before_after_replay' => (float) $row['mutation']->qty_before + $row['restored_quantity'],
+                        'qty_after_after_replay' => (float) $row['mutation']->qty_after + $row['restored_quantity'],
                     ])->values()->all(),
                     'issued_foot_vouchers' => $footVouchers->count(),
                 ];
