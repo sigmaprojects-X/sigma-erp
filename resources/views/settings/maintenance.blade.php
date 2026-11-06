@@ -281,10 +281,10 @@
             </div>
 
             <!-- KARTU PENGALIH MODE OPERASIONAL (DEVELOPMENT VS PRODUCTION) -->
-            <div class="bg-white dark:bg-slate-800 border-2 {{ app()->isProduction() ? 'border-emerald-300 dark:border-emerald-800/80' : 'border-amber-300 dark:border-amber-800/80' }} rounded-2xl p-5 shadow-xs space-y-4">
+            <div class="bg-white dark:bg-slate-800 border-2 {{ app()->isProduction() ? 'border-emerald-300 dark:border-emerald-800/80' : (app()->environment('staging') ? 'border-sky-300 dark:border-sky-800/80' : 'border-amber-300 dark:border-amber-800/80') }} rounded-2xl p-5 shadow-xs space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
                     <div class="flex items-center gap-2.5">
-                        <span class="text-2xl">{{ app()->isProduction() ? '🚀' : '🛠️' }}</span>
+                        <span class="text-2xl">{{ app()->isProduction() ? '🚀' : (app()->environment('staging') ? '🧪' : '🛠️') }}</span>
                         <div>
                             <div class="flex items-center gap-2">
                                 <h2 class="text-sm font-black text-slate-900 dark:text-white">Mode Operasional Sistem</h2>
@@ -292,6 +292,11 @@
                                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                         PRODUCTION
+                                    </span>
+                                @elseif(app()->environment('staging'))
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-300 dark:border-sky-800 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                                        STAGING
                                     </span>
                                 @else
                                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
@@ -303,7 +308,7 @@
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                 {{ app()->isProduction() 
                                     ? 'Dioptimalkan untuk komputer kasir & cabang: Transaksi kilat & data sistem terlindungi.' 
-                                    : 'Dioptimalkan untuk developer: Live reload kode tanpa cache & penelusuran bug detail.' }}
+                                    : (app()->environment('staging') ? 'Lingkungan uji dengan database terpisah dari production.' : 'Lingkungan developer lokal untuk coding dan penelusuran bug.') }}
                             </p>
                         </div>
                     </div>
@@ -406,8 +411,8 @@
                 <div class="space-y-2 text-xs">
                     <div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-700/60">
                         <span class="text-slate-500 dark:text-slate-400">Mode Sistem:</span>
-                        <span class="font-bold {{ app()->isProduction() ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">
-                            {{ app()->isProduction() ? 'PRODUCTION (Live Kasir)' : 'DEVELOPMENT (Uji Coba)' }}
+                        <span class="font-bold {{ app()->isProduction() ? 'text-emerald-600 dark:text-emerald-400' : (app()->environment('staging') ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400') }}">
+                            {{ app()->isProduction() ? 'PRODUCTION (Live Kasir)' : (app()->environment('staging') ? 'STAGING (Uji Coba Terpisah)' : 'DEVELOPMENT (Lokal)') }}
                         </span>
                     </div>
 
