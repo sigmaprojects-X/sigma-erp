@@ -70,94 +70,25 @@ Artisan::command('sigma:release-expired-reservations', function (InventoryServic
 Schedule::command('sigma:release-expired-reservations')->everyFiveMinutes();
 
 /**
- * Pengalih Mode Operasional SIGMA ERP:
- * - Mode Development: APP_ENV=local, APP_DEBUG=true, cache nonaktif (live reload)
- * - Mode Production: APP_ENV=production, APP_DEBUG=false, cache penuh (transaksi kasir kilat & aman)
+ * Tampilkan environment aplikasi. Nilai APP_ENV dan APP_DEBUG ditentukan
+ * oleh konfigurasi masing-masing deployment, bukan diubah saat aplikasi berjalan.
  */
-Artisan::command('sigma:mode {target? : Mode tujuan: dev|prod|status}', function (?string $target = null) {
-    $envPath = base_path('.env');
-    if (! file_exists($envPath)) {
-        $this->error('File .env tidak ditemukan!');
+Artisan::command('sigma:mode {target? : Gunakan status untuk melihat konfigurasi aktif}', function (?string $target = null) {
+    if ($target && ! in_array(strtolower($target), ['status', 'check', 'info'], true)) {
+        $this->error('Mode bersifat read-only. Atur APP_ENV dan APP_DEBUG pada konfigurasi deployment atau .env lokal; gunakan staging terpisah untuk uji coba.');
         return 1;
     }
 
-    $currentEnv = config('app.env', 'local');
-    $currentDebug = config('app.debug', true) ? 'true' : 'false';
+    $currentEnv = config('app.env', 'production');
+    $currentDebug = config('app.debug', false);
 
-    if (! $target || in_array(strtolower($target), ['status', 'check', 'info'])) {
-        $this->info('========================================');
-        $this->info('  STATUS MODE SISTEM SIGMA ERP & POS   ');
-        $this->info('========================================');
-        $this->line('Mode Lingkungan (APP_ENV) : '.($currentEnv === 'production' ? '<fg=green;options=bold>PRODUCTION</>' : '<fg=yellow;options=bold>DEVELOPMENT (local)</>'));
-        $this->line('Debug Mode (APP_DEBUG)    : '.($currentDebug === 'true' ? '<fg=yellow>ENABLED (true)</>' : '<fg=green>DISABLED (false)</>'));
-        $this->line('Status Cache Konfigurasi : '.(app()->configurationIsCached() ? '<fg=green>CACHED (Aktif)</>' : '<fg=yellow>NOT CACHED (Nonaktif)</>'));
-        $this->line('Status Cache Rute URL    : '.(app()->routesAreCached() ? '<fg=green>CACHED (Aktif)</>' : '<fg=yellow>NOT CACHED (Nonaktif)</>'));
-        $this->info('----------------------------------------');
-        $this->line('Gunakan perintah berikut untuk beralih:');
-        $this->line('  php artisan sigma:mode dev   -> Mode Development (Uji Coba)');
-        $this->line('  php artisan sigma:mode prod  -> Mode Production (Kasir Toko)');
-        return 0;
-    }
-
-    $target = strtolower($target);
-    $envContent = file_get_contents($envPath);
-
-    if (in_array($target, ['dev', 'development', 'local'])) {
-        $envContent = preg_replace('/^APP_ENV=.*/m', 'APP_ENV=local', $envContent);
-        $envContent = preg_replace('/^APP_DEBUG=.*/m', 'APP_DEBUG=true', $envContent);
-        file_put_contents($envPath, $envContent);
-
-        $this->info('========================================');
-        $this->info('  BERALIH KE MODE DEVELOPMENT 🛠️       ');
-        $this->info('========================================');
-        $this->comment('Membersihkan cache aplikasi...');
-        if (PHP_OS_FAMILY === 'Windows') {
-            @exec('attrib -r "'.base_path('bootstrap/cache').'" 2>nul');
-            @exec('attrib -r "'.base_path('bootstrap/cache\*.*').'" 2>nul');
-        }
-        Artisan::call('optimize:clear');
-        if (PHP_OS_FAMILY === 'Windows') {
-            @exec('attrib -r "'.base_path('bootstrap/cache').'" 2>nul');
-            @exec('attrib -r "'.base_path('bootstrap/cache\*.*').'" 2>nul');
-        }
-        $this->line(Artisan::output());
-
-        $this->info('✅ Sistem SIGMA ERP sekarang dalam MODE DEVELOPMENT!');
-        $this->line('• APP_ENV=local | APP_DEBUG=true');
-        $this->line('• Caching dinonaktifkan (perubahan kode langsung aktif di browser)');
-        $this->line('• Halaman error debug lengkap untuk penelusuran kendala');
-        return 0;
-    }
-
-    if (in_array($target, ['prod', 'production', 'live'])) {
-        $envContent = preg_replace('/^APP_ENV=.*/m', 'APP_ENV=production', $envContent);
-        $envContent = preg_replace('/^APP_DEBUG=.*/m', 'APP_DEBUG=false', $envContent);
-        file_put_contents($envPath, $envContent);
-
-        $this->info('========================================');
-        $this->info('  BERALIH KE MODE PRODUCTION 🚀         ');
-        $this->info('========================================');
-        $this->comment('Mengoptimalkan & mengompilasi cache...');
-        if (PHP_OS_FAMILY === 'Windows') {
-            @exec('attrib -r "'.base_path('bootstrap/cache').'" 2>nul');
-            @exec('attrib -r "'.base_path('bootstrap/cache\*.*').'" 2>nul');
-        }
-        Artisan::call('optimize:clear');
-        if (PHP_OS_FAMILY === 'Windows') {
-            @exec('attrib -r "'.base_path('bootstrap/cache').'" 2>nul');
-            @exec('attrib -r "'.base_path('bootstrap/cache\*.*').'" 2>nul');
-        }
-        Artisan::call('config:cache');
-        Artisan::call('route:cache');
-        Artisan::call('view:cache');
-
-        $this->info('✅ Sistem SIGMA ERP sekarang dalam MODE PRODUCTION!');
-        $this->line('• APP_ENV=production | APP_DEBUG=false');
-        $this->line('• Caching aktif penuh (kecepatan transaksi kasir maksimal)');
-        $this->line('• Informasi rahasia dan database terlindungi dari kebocoran');
-        return 0;
-    }
-
-    $this->error("Mode '{$target}' tidak dikenal. Pilih 'dev' atau 'prod'.");
-    return 1;
-})->purpose('Mengubah mode operasional SIGMA ERP: Development (Uji Coba & Coding) atau Production (Kasir Toko Live)');
+    $this->info('========================================');
+    $this->info('  STATUS MODE SISTEM SIGMA ERP & POS   ');
+    $this->info('========================================');
+    $this->line('Mode Lingkungan (APP_ENV) : '.($currentEnv === 'production' ? '<fg=green;options=bold>PRODUCTION</>' : '<fg=yellow;options=bold>'.strtoupper($currentEnv).'</>'));
+    $this->line('Debug Mode (APP_DEBUG)    : '.($currentDebug ? '<fg=yellow>ENABLED (true)</>' : '<fg=green>DISABLED (false)</>'));
+    $this->line('Status Cache Konfigurasi : '.(app()->configurationIsCached() ? '<fg=green>CACHED (Aktif)</>' : '<fg=yellow>NOT CACHED (Nonaktif)</>'));
+    $this->line('Status Cache Rute URL    : '.(app()->routesAreCached() ? '<fg=green>CACHED (Aktif)</>' : '<fg=yellow>NOT CACHED (Nonaktif)</>'));
+    $this->comment('Mode tidak dapat diubah dari aplikasi yang sedang berjalan.');
+    return 0;
+})->purpose('Menampilkan status environment SIGMA ERP secara read-only');
