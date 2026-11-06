@@ -12,7 +12,7 @@ on:
           - delete
         default: dry-run
       confirm_phrase:
-        description: Required only for delete: HAPUS-3-TRIAL-PT-SIGMA
+        description: "Required only for delete: HAPUS-3-TRIAL-PT-SIGMA"
         required: false
         type: string
 
