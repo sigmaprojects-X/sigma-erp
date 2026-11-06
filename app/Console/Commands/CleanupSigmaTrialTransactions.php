@@ -306,7 +306,10 @@ class CleanupSigmaTrialTransactions extends Command
     /**
      * @param  \Illuminate\Support\Collection<int, PosTransaction>  $transactions
      * @param  \Illuminate\Support\Collection<int, StockMutation>  $mutations
-     * @return array<string, array{stock: ProductStock, product: Product, store_id: string, quantity: float, total_cost: float, unit_cost: float}>
+     * @return array{
+     *     restore: array<string, array{stock: ProductStock, product: Product, store_id: string, quantity: float, total_cost: float, unit_cost: float}>,
+     *     replay: array<int, array{mutation: StockMutation, product_name: string, restored_quantity: float}>
+     * }
      */
     private function buildAndValidateStockPlan(string $companyId, $transactions, $mutations, bool $includeAuditDetails = false): array
     {
@@ -336,6 +339,7 @@ class CleanupSigmaTrialTransactions extends Command
             || abs((float) $mutation->quantity) > 0.0001
             || abs((float) $mutation->total_cost) > 0.0001
             || abs((float) $mutation->qty_before - (float) $mutation->qty_after) > 0.0001
+            || abs((float) $mutation->unit_cost - (float) ($products->get($mutation->product_id)?->cost_price ?? 0)) > 0.0001
         )) {
             $details = '';
 
@@ -356,7 +360,10 @@ class CleanupSigmaTrialTransactions extends Command
             }
 
             $costs = $productMutations->pluck('unit_cost')->map(fn ($cost): float => (float) $cost)->unique();
-            if ($costs->count() !== 1 || abs((float) $product->cost_price - $costs->first()) > 0.0001) {
+            $invalidSaleValuation = $productMutations->contains(fn (StockMutation $mutation): bool =>
+                abs((float) $mutation->total_cost - (abs((float) $mutation->quantity) * (float) $mutation->unit_cost)) > 0.01
+            );
+            if ($costs->count() !== 1 || $invalidSaleValuation || abs((float) $product->cost_price - $costs->first()) > 0.0001) {
                 $details = $includeAuditDetails
                     ? ' Read-only product cost audit: '.json_encode([
                         'product' => $product->name,
@@ -424,8 +431,8 @@ class CleanupSigmaTrialTransactions extends Command
     }
 
     /**
-     * @param  Illuminate\Support\Collection<int, StockMutation>  $mutations
-     * @param  Illuminate\Support\Collection<string, Product>  $products
+     * @param  \Illuminate\Support\Collection<int, StockMutation>  $mutations
+     * @param  \Illuminate\Support\Collection<string, Product>  $products
      * @return array<int, array<string, mixed>>
      */
     private function stockAuditDetails($mutations, $products): array
