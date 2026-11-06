@@ -42,19 +42,15 @@ jobs:
             set -eu
             cd /var/www/sigma-erp
 
-            case "$CLEANUP_MODE" in
-              dry-run)
-                php artisan sigma:cleanup-pt-sigma-trial-transactions --no-interaction
-                ;;
-              delete)
-                test "$CLEANUP_CONFIRM" = "HAPUS-3-TRIAL-PT-SIGMA" || {
-                  echo "Delete refused: the exact confirmation phrase is required."
-                  exit 1
-                }
-                php artisan sigma:cleanup-pt-sigma-trial-transactions --execute --confirm="$CLEANUP_CONFIRM" --no-interaction
-                ;;
-              *)
-                echo "Unknown cleanup mode; stopping without changes."
+            if [ "${CLEANUP_MODE:-}" = "dry-run" ]; then
+              php artisan sigma:cleanup-pt-sigma-trial-transactions --no-interaction
+            elif [ "${CLEANUP_MODE:-}" = "delete" ]; then
+              test "${CLEANUP_CONFIRM:-}" = "HAPUS-3-TRIAL-PT-SIGMA" || {
+                echo "Delete refused: the exact confirmation phrase is required."
                 exit 1
-                ;;
-            esac
+              }
+              php artisan sigma:cleanup-pt-sigma-trial-transactions --execute --confirm="$CLEANUP_CONFIRM" --no-interaction
+            else
+              echo "Unknown cleanup mode; stopping without changes."
+              exit 1
+            fi
