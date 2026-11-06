@@ -124,7 +124,22 @@ class CleanupSigmaTrialTransactions extends Command
                     'journal_entries' => $journals->count(),
                     'cash_transactions' => $cashTransactions->count(),
                     'sale_stock_mutations' => $saleMutations->count(),
-                    'stock_restore_groups' => count($stockPlan),
+                    'stock_restore_groups' => count($stockPlan['restore']),
+                    'stock_restore_plan' => collect($stockPlan['restore'])->map(fn (array $group): array => [
+                        'product' => $group['product']->name,
+                        'quantity' => $group['quantity'],
+                        'unit_cost' => $group['unit_cost'],
+                        'total_cost' => $group['total_cost'],
+                    ])->values()->all(),
+                    'stock_replay_rows' => count($stockPlan['replay']),
+                    'stock_replay_plan' => collect($stockPlan['replay'])->map(fn (array $row): array => [
+                        'product' => $row['product_name'],
+                        'mutation_type' => $row['mutation']->mutation_type,
+                        'at' => $row['mutation']->created_at?->toIso8601String(),
+                        'restored_quantity' => $row['restored_quantity'],
+                        'qty_before' => (float) $row['mutation']->qty_before,
+                        'qty_after' => (float) $row['mutation']->qty_after,
+                    ])->values()->all(),
                     'issued_foot_vouchers' => $footVouchers->count(),
                 ];
 
@@ -135,7 +150,7 @@ class CleanupSigmaTrialTransactions extends Command
                 $cleanupReference = 'CLEANUP-PTSIGMA-'.now()->format('Ymd-His');
                 $stockMutationIds = $saleMutations->pluck('id')->all();
 
-                foreach ($stockPlan as $group) {
+                foreach ($stockPlan['restore'] as $group) {
                     /** @var ProductStock $stock */
                     $stock = $group['stock'];
                     /** @var Product $product */
@@ -163,6 +178,16 @@ class CleanupSigmaTrialTransactions extends Command
                         'qty_after' => $after,
                         'notes' => 'Pemulihan stok setelah penghapusan transaksi percobaan PT Sigma.',
                         'created_by' => null,
+                    ]);
+                }
+
+                foreach ($stockPlan['replay'] as $replayRow) {
+                    /** @var StockMutation $mutation */
+                    $mutation = $replayRow['mutation'];
+                    $restoredQuantity = $replayRow['restored_quantity'];
+                    $mutation->update([
+                        'qty_before' => (float) $mutation->qty_before + $restoredQuantity,
+                        'qty_after' => (float) $mutation->qty_after + $restoredQuantity,
                     ]);
                 }
 
@@ -195,6 +220,7 @@ class CleanupSigmaTrialTransactions extends Command
                     newValues: [
                         'deleted_transactions' => count($invoiceNumbers),
                         'stock_restore_groups' => $summary['stock_restore_groups'],
+                        'stock_replay_rows' => $summary['stock_replay_rows'],
                         'cleanup_reference' => $cleanupReference,
                     ],
                     companyId: $company->id,
@@ -286,58 +312,61 @@ class CleanupSigmaTrialTransactions extends Command
     {
         $mutationIds = $mutations->pluck('id')->all();
         $firstTransactionAt = $transactions->min('created_at');
-
         $productIds = $mutations->pluck('product_id')->unique()->values();
-        $laterMutationsQuery = StockMutation::query()
+
+        $laterMutations = StockMutation::query()
             ->where('company_id', $companyId)
             ->whereIn('product_id', $productIds)
             ->where('created_at', '>=', $firstTransactionAt)
-            ->whereNotIn('id', $mutationIds);
+            ->whereNotIn('id', $mutationIds)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
 
-        if ($laterMutationsQuery->exists()) {
-            $auditDetails = [];
+        $products = Product::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $productIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        if ($laterMutations->contains(fn (StockMutation $mutation): bool =>
+            $mutation->mutation_type !== 'RESERVATION_RELEASE'
+            || abs((float) $mutation->quantity) > 0.0001
+            || abs((float) $mutation->total_cost) > 0.0001
+            || abs((float) $mutation->qty_before - (float) $mutation->qty_after) > 0.0001
+        )) {
+            $details = '';
 
             if ($includeAuditDetails) {
-                $laterMutations = (clone $laterMutationsQuery)
-                    ->orderBy('created_at')
-                    ->get();
-
-                $products = Product::query()
-                    ->where('company_id', $companyId)
-                    ->whereIn('id', $productIds)
-                    ->get(['id', 'name'])
-                    ->keyBy('id');
-
-                $auditDetails = $mutations
-                    ->concat($laterMutations)
-                    ->sortBy('created_at')
-                    ->map(fn (StockMutation $mutation): array => [
-                        'product' => $products->get($mutation->product_id)?->name ?? 'Unknown product',
-                        'mutation_type' => $mutation->mutation_type,
-                        'at' => $mutation->created_at?->toIso8601String(),
-                        'quantity' => (float) $mutation->quantity,
-                        'unit_cost' => (float) $mutation->unit_cost,
-                        'total_cost' => (float) $mutation->total_cost,
-                        'qty_before' => (float) $mutation->qty_before,
-                        'qty_after' => (float) $mutation->qty_after,
-                    ])
-                    ->values()
-                    ->all();
+                $details = ' Read-only stock audit: '.json_encode(
+                    $this->stockAuditDetails($mutations->concat($laterMutations), $products),
+                    JSON_UNESCAPED_SLASHES
+                );
             }
 
-            $details = $auditDetails === []
-                ? ''
-                : ' Read-only stock audit: '.json_encode($auditDetails, JSON_UNESCAPED_SLASHES);
-
-            throw new RuntimeException('There are other stock movements for affected products during/after the trial period; inventory replay is required, so cleanup was stopped.'.$details.' No changes were made.');
+            throw new RuntimeException('Affected products have stock movements that are not zero-quantity reservation releases; inventory replay is required, so cleanup was stopped.'.$details.' No changes were made.');
         }
 
-        $byProduct = $mutations->groupBy('product_id');
-        foreach ($byProduct as $productId => $productMutations) {
-            $product = Product::query()->where('company_id', $companyId)->whereKey($productId)->lockForUpdate()->firstOrFail();
+        foreach ($mutations->groupBy('product_id') as $productId => $productMutations) {
+            $product = $products->get($productId);
+            if (! $product) {
+                throw new RuntimeException('An affected product could not be found in the audited company; no changes were made.');
+            }
+
             $costs = $productMutations->pluck('unit_cost')->map(fn ($cost): float => (float) $cost)->unique();
             if ($costs->count() !== 1 || abs((float) $product->cost_price - $costs->first()) > 0.0001) {
-                throw new RuntimeException('An affected product cost changed after the trial sale; stock valuation replay is required, so cleanup was stopped.');
+                $details = $includeAuditDetails
+                    ? ' Read-only product cost audit: '.json_encode([
+                        'product' => $product->name,
+                        'current_cost_price' => (float) $product->cost_price,
+                        'sale_unit_costs' => $costs->values()->all(),
+                        'trial_mutations' => $this->stockAuditDetails($productMutations, $products),
+                    ], JSON_UNESCAPED_SLASHES)
+                    : '';
+
+                throw new RuntimeException('An affected product cost changed after the trial sale; stock valuation replay is required, so cleanup was stopped.'.$details.' No changes were made.');
             }
         }
 
@@ -350,7 +379,7 @@ class CleanupSigmaTrialTransactions extends Command
                 ->where('product_id', $productId)
                 ->lockForUpdate()
                 ->firstOrFail();
-            $product = Product::query()->where('company_id', $companyId)->whereKey($productId)->lockForUpdate()->firstOrFail();
+            $product = $products->get($productId);
             $quantity = (float) $group->sum(fn (StockMutation $mutation): float => abs((float) $mutation->quantity));
             $unitCost = (float) $group->first()->unit_cost;
             $totalCost = (float) $group->sum('total_cost');
@@ -369,8 +398,54 @@ class CleanupSigmaTrialTransactions extends Command
             ];
         }
 
-        return $plan;
+        $replayRows = [];
+        foreach ($laterMutations as $laterMutation) {
+            $restoredQuantity = (float) $mutations
+                ->filter(fn (StockMutation $saleMutation): bool =>
+                    $saleMutation->product_id === $laterMutation->product_id
+                    && $saleMutation->store_id === $laterMutation->store_id
+                    && $saleMutation->created_at <= $laterMutation->created_at
+                )
+                ->sum(fn (StockMutation $saleMutation): float => abs((float) $saleMutation->quantity));
+
+            if ($restoredQuantity > 0) {
+                $replayRows[] = [
+                    'mutation' => $laterMutation,
+                    'product_name' => $products->get($laterMutation->product_id)?->name ?? 'Unknown product',
+                    'restored_quantity' => $restoredQuantity,
+                ];
+            }
+        }
+
+        return [
+            'restore' => $plan,
+            'replay' => $replayRows,
+        ];
     }
+
+    /**
+     * @param  Illuminate\Support\Collection<int, StockMutation>  $mutations
+     * @param  Illuminate\Support\Collection<string, Product>  $products
+     * @return array<int, array<string, mixed>>
+     */
+    private function stockAuditDetails($mutations, $products): array
+    {
+        return $mutations
+            ->sortBy('created_at')
+            ->map(fn (StockMutation $mutation): array => [
+                'product' => $products->get($mutation->product_id)?->name ?? 'Unknown product',
+                'mutation_type' => $mutation->mutation_type,
+                'at' => $mutation->created_at?->toIso8601String(),
+                'quantity' => (float) $mutation->quantity,
+                'unit_cost' => (float) $mutation->unit_cost,
+                'total_cost' => (float) $mutation->total_cost,
+                'qty_before' => (float) $mutation->qty_before,
+                'qty_after' => (float) $mutation->qty_after,
+            ])
+            ->values()
+            ->all();
+    }
+
 
     /**
      * @param  \Illuminate\Support\Collection<int, PosTransaction>  $transactions
