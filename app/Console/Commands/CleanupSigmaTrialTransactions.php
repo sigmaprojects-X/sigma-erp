@@ -228,19 +228,31 @@ class CleanupSigmaTrialTransactions extends Command
 
         foreach ($transactions as $transaction) {
             $expectedAmount = self::INVOICES[$transaction->invoice_number] ?? null;
-            if (
-                $expectedAmount === null
-                || (int) round((float) $transaction->grand_total) !== $expectedAmount
-                || $transaction->status !== 'COMPLETED'
-                || $transaction->payment_method !== 'TRANSFER'
-                || $transaction->customer_id !== null
-                || $transaction->voucher_id !== null
-                || (int) $transaction->points_earned !== 0
-                || (int) $transaction->points_redeemed !== 0
-                || (float) $transaction->credit_amount !== 0.0
-                || (float) $transaction->remaining_receivable !== 0.0
-            ) {
-                throw new RuntimeException("Transaction {$transaction->invoice_number} no longer matches the audited trial profile; no changes were made.");
+            $observed = [
+                'amount' => (int) round((float) $transaction->grand_total),
+                'status' => $transaction->status,
+                'payment_method' => $transaction->payment_method,
+                'has_customer' => $transaction->customer_id !== null,
+                'has_voucher' => $transaction->voucher_id !== null,
+                'points_earned' => (int) $transaction->points_earned,
+                'points_redeemed' => (int) $transaction->points_redeemed,
+                'credit_amount' => (float) $transaction->credit_amount,
+                'remaining_receivable' => (float) $transaction->remaining_receivable,
+            ];
+            $expected = [
+                'amount' => $expectedAmount,
+                'status' => 'COMPLETED',
+                'payment_method' => 'TRANSFER',
+                'has_customer' => false,
+                'has_voucher' => false,
+                'points_earned' => 0,
+                'points_redeemed' => 0,
+                'credit_amount' => 0.0,
+                'remaining_receivable' => 0.0,
+            ];
+
+            if ($observed !== $expected) {
+                throw new RuntimeException('Transaction '.$transaction->invoice_number.' differs from the audited trial profile; observed safe metadata: '.json_encode($observed, JSON_UNESCAPED_SLASHES).'. No changes were made.');
             }
         }
 
