@@ -4,6 +4,11 @@ on:
   push:
     branches: [staging]
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branch or ref to deploy to the isolated staging environment"
+        required: true
+        default: staging
 
 permissions:
   contents: read
@@ -19,7 +24,7 @@ jobs:
       - name: Checkout staging branch
         uses: actions/checkout@v4
         with:
-          ref: staging
+          ref: ${{ inputs.source_ref || 'staging' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
