@@ -36,13 +36,20 @@ class SalesController extends Controller
         $today = Carbon::today();
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
-            ?? Store::where('company_id', $company->id)->first()
-            ?? Store::first();
+            ?? Store::where('company_id', $company->id)->first();
 
         // Query transaksi hari ini (Terfilter per Perusahaan Aktif)
+        $user = Auth::user();
+        $storeRestrictedRoles = ['cashier', 'warehouse', 'sales'];
+        $restrictToStore = $user && in_array($user->role, $storeRestrictedRoles, true);
+
         $todayTransactions = PosTransaction::where('company_id', $company->id)
             ->whereDate('created_at', $today)
             ->where('status', '!=', 'VOID');
+
+        if ($restrictToStore) {
+            $user->store_id ? $todayTransactions->where('store_id', $user->store_id) : $todayTransactions->whereRaw('1 = 0');
+        }
 
         $todayRevenue = (float) (clone $todayTransactions)->sum('grand_total');
         $todayCount = (int) (clone $todayTransactions)->count();
@@ -53,35 +60,24 @@ class SalesController extends Controller
             + (float) (clone $todayTransactions)->where('payment_method', 'SPLIT')->where('split_payment_method', 'TRANSFER')->sum('paid_amount');
 
         // Retur hari ini
-        $todayReturnsCount = PosReturn::where('company_id', $company->id)->whereDate('created_at', $today)->count();
-        $todayReturnsAmount = (float) PosReturn::where('company_id', $company->id)->whereDate('created_at', $today)->sum('total_refund_amount');
+        $todayReturnsQuery = PosReturn::where('company_id', $company->id)->whereDate('created_at', $today);
+        if ($restrictToStore) {
+            $user->store_id ? $todayReturnsQuery->where('store_id', $user->store_id) : $todayReturnsQuery->whereRaw('1 = 0');
+        }
+        $todayReturnsCount = (clone $todayReturnsQuery)->count();
+        $todayReturnsAmount = (float) (clone $todayReturnsQuery)->sum('total_refund_amount');
 
-        // Top 5 Produk Terlaris (Best Sellers) - Filter per Perusahaan Aktif
-        $topProducts = PosTransactionItem::whereHas('transaction', function ($q) use ($company) {
-                $q->where('company_id', $company->id)->where('status', '!=', 'VOID');
-            })
-            ->with('product')
-            ->selectRaw('product_id, SUM(quantity) as total_qty, SUM(subtotal) as total_revenue')
-            ->groupBy('product_id')
-            ->orderByDesc('total_qty')
-            ->limit(5)
-            ->get();
-
-        // Kinerja Penjualan per Kasir / Sales Person - Filter per Perusahaan Aktif
-        $salesByCashier = PosTransaction::where('company_id', $company->id)
-            ->with('cashier')
-            ->where('status', '!=', 'VOID')
-            ->selectRaw('cashier_id, COUNT(*) as tx_count, SUM(grand_total) as total_revenue')
-            ->whereNotNull('cashier_id')
-            ->groupBy('cashier_id')
-            ->orderByDesc('total_revenue')
-            ->limit(5)
-            ->get();
+        $initialTopProducts = $this->getDashboardTopProducts('7_days');
+        $initialCashierPerformance = $this->getDashboardCashierPerformance('7_days');
 
         // Transaksi terakhir - Filter per Perusahaan Aktif
-        $recentTransactions = PosTransaction::where('company_id', $company->id)
+        $recentTransactionsQuery = PosTransaction::where('company_id', $company->id)
             ->with(['customer', 'customerTier'])
-            ->where('status', '!=', 'VOID')
+            ->where('status', '!=', 'VOID');
+        if ($restrictToStore) {
+            $user->store_id ? $recentTransactionsQuery->where('store_id', $user->store_id) : $recentTransactionsQuery->whereRaw('1 = 0');
+        }
+        $recentTransactions = $recentTransactionsQuery
             ->orderByDesc('created_at')
             ->limit(10)
             ->get();
@@ -102,8 +98,8 @@ class SalesController extends Controller
             'todayTransferCollected',
             'todayReturnsCount',
             'todayReturnsAmount',
-            'topProducts',
-            'salesByCashier',
+            'initialTopProducts',
+            'initialCashierPerformance',
             'recentTransactions',
             'initialTrendData',
             'initialBranchData'
@@ -115,17 +111,106 @@ class SalesController extends Controller
      */
     public function analytics(Request $request): JsonResponse
     {
-        $trendPeriod = $request->input('trend_period', '7_days');
-        $branchPeriod = $request->input('branch_period', 'this_month');
-
-        $trendData = $this->getTrendAnalytics($trendPeriod);
-        $branchData = $this->getBranchAnalytics($branchPeriod);
+        $period = $request->input('period', $request->input('trend_period', '7_days'));
+        if (! in_array($period, ['7_days', '30_days', 'this_month'], true)) {
+            $period = '7_days';
+        }
 
         return response()->json([
             'success' => true,
-            'trend' => $trendData,
-            'branch' => $branchData,
+            'trend' => $this->getTrendAnalytics($period),
+            'branch' => $this->getBranchAnalytics($period),
+            'products' => $this->getDashboardTopProducts($period),
+            'cashiers' => $this->getDashboardCashierPerformance($period),
         ]);
+    }
+
+    /**
+     * Date range shared by all dashboard analytics.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function dashboardPeriodBounds(string $period): array
+    {
+        $today = Carbon::today();
+
+        return match ($period) {
+            '30_days' => [$today->copy()->subDays(29)->startOfDay(), $today->copy()->endOfDay()],
+            'this_month' => [$today->copy()->startOfMonth()->startOfDay(), $today->copy()->endOfDay()],
+            default => [$today->copy()->subDays(6)->startOfDay(), $today->copy()->endOfDay()],
+        };
+    }
+
+    /**
+     * Top products for the selected dashboard period, scoped to the active company.
+     */
+    private function getDashboardTopProducts(string $period): array
+    {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        [$startDate, $endDate] = $this->dashboardPeriodBounds($period);
+        $user = Auth::user();
+
+        return PosTransactionItem::whereHas('transaction', function ($query) use ($company, $startDate, $endDate, $user) {
+                $query->where('company_id', $company->id)
+                    ->where('status', '!=', 'VOID')
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+
+                if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+                    $user->store_id ? $query->where('store_id', $user->store_id) : $query->whereRaw('1 = 0');
+                }
+            })
+            ->with('product')
+            ->selectRaw('product_id, SUM(quantity) as total_qty, SUM(subtotal) as total_revenue')
+            ->groupBy('product_id')
+            ->orderByDesc('total_qty')
+            ->limit(5)
+            ->get()
+            ->map(fn ($item) => [
+                'product_id' => $item->product_id,
+                'name' => $item->product->name ?? 'Produk',
+                'sku' => $item->product->sku ?? '-',
+                'total_qty' => (float) $item->total_qty,
+                'formatted_qty' => number_format((float) $item->total_qty, 0, ',', '.'),
+                'total_revenue' => (float) $item->total_revenue,
+                'formatted_revenue' => 'Rp ' . number_format((float) $item->total_revenue, 0, ',', '.'),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Cashier performance for the selected dashboard period, scoped to the active company.
+     */
+    private function getDashboardCashierPerformance(string $period): array
+    {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        [$startDate, $endDate] = $this->dashboardPeriodBounds($period);
+        $user = Auth::user();
+        $query = PosTransaction::where('company_id', $company->id)
+            ->where('status', '!=', 'VOID')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('cashier_id');
+
+        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+            $user->store_id ? $query->where('store_id', $user->store_id) : $query->whereRaw('1 = 0');
+        }
+
+        return $query->with('cashier')
+            ->selectRaw('cashier_id, COUNT(*) as tx_count, SUM(grand_total) as total_revenue')
+            ->groupBy('cashier_id')
+            ->orderByDesc('total_revenue')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => [
+                'cashier_id' => $row->cashier_id,
+                'name' => $row->cashier->name ?? 'Kasir #' . substr((string) $row->cashier_id, 0, 6),
+                'initials' => strtoupper(substr($row->cashier->name ?? 'K', 0, 1)),
+                'tx_count' => (int) $row->tx_count,
+                'total_revenue' => (float) $row->total_revenue,
+                'formatted_revenue' => 'Rp ' . number_format((float) $row->total_revenue, 0, ',', '.'),
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -158,8 +243,8 @@ class SalesController extends Controller
             ->where('status', '!=', 'VOID')
             ->whereBetween('created_at', [$startDate, $endDate]);
 
-        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales']) && $user->store_id) {
-            $query->where('store_id', $user->store_id);
+        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+            $user->store_id ? $query->where('store_id', $user->store_id) : $query->whereRaw('1 = 0');
         }
 
         $dailySales = $query->selectRaw('DATE(created_at) as date, SUM(grand_total) as total')
@@ -231,8 +316,8 @@ class SalesController extends Controller
             $storesQuery->where('company_id', $company->id);
         }
 
-        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales']) && $user->store_id) {
-            $storesQuery->where('id', $user->store_id);
+        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+            $user->store_id ? $storesQuery->where('id', $user->store_id) : $storesQuery->whereRaw('1 = 0');
         }
 
         $stores = $storesQuery->orderBy('code')->get();
