@@ -109,7 +109,7 @@ class CleanupSigmaTrialTransactions extends Command
                     throw new RuntimeException('Stock ledger does not contain only expected negative SALE mutations; no changes were made.');
                 }
 
-                $stockPlan = $this->buildAndValidateStockPlan($company->id, $transactions, $saleMutations);
+                $stockPlan = $this->buildAndValidateStockPlan($company->id, $transactions, $saleMutations, includeAuditDetails: ! $execute);
                 $footVouchers = $this->findFootVouchers($company->id, $transactions);
 
                 $summary = [
@@ -282,22 +282,54 @@ class CleanupSigmaTrialTransactions extends Command
      * @param  \Illuminate\Support\Collection<int, StockMutation>  $mutations
      * @return array<string, array{stock: ProductStock, product: Product, store_id: string, quantity: float, total_cost: float, unit_cost: float}>
      */
-    private function buildAndValidateStockPlan(string $companyId, $transactions, $mutations): array
+    private function buildAndValidateStockPlan(string $companyId, $transactions, $mutations, bool $includeAuditDetails = false): array
     {
-        $transactionIds = $transactions->pluck('id')->all();
         $mutationIds = $mutations->pluck('id')->all();
         $firstTransactionAt = $transactions->min('created_at');
 
         $productIds = $mutations->pluck('product_id')->unique()->values();
-        $laterMutationsExist = StockMutation::query()
+        $laterMutationsQuery = StockMutation::query()
             ->where('company_id', $companyId)
             ->whereIn('product_id', $productIds)
             ->where('created_at', '>=', $firstTransactionAt)
-            ->whereNotIn('id', $mutationIds)
-            ->exists();
+            ->whereNotIn('id', $mutationIds);
 
-        if ($laterMutationsExist) {
-            throw new RuntimeException('There are other stock movements for affected products during/after the trial period; inventory replay is required, so cleanup was stopped.');
+        if ($laterMutationsQuery->exists()) {
+            $auditDetails = [];
+
+            if ($includeAuditDetails) {
+                $laterMutations = (clone $laterMutationsQuery)
+                    ->orderBy('created_at')
+                    ->get();
+
+                $products = Product::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('id', $productIds)
+                    ->get(['id', 'name'])
+                    ->keyBy('id');
+
+                $auditDetails = $mutations
+                    ->concat($laterMutations)
+                    ->sortBy('created_at')
+                    ->map(fn (StockMutation $mutation): array => [
+                        'product' => $products->get($mutation->product_id)?->name ?? 'Unknown product',
+                        'mutation_type' => $mutation->mutation_type,
+                        'at' => $mutation->created_at?->toIso8601String(),
+                        'quantity' => (float) $mutation->quantity,
+                        'unit_cost' => (float) $mutation->unit_cost,
+                        'total_cost' => (float) $mutation->total_cost,
+                        'qty_before' => (float) $mutation->qty_before,
+                        'qty_after' => (float) $mutation->qty_after,
+                    ])
+                    ->values()
+                    ->all();
+            }
+
+            $details = $auditDetails === []
+                ? ''
+                : ' Read-only stock audit: '.json_encode($auditDetails, JSON_UNESCAPED_SLASHES);
+
+            throw new RuntimeException('There are other stock movements for affected products during/after the trial period; inventory replay is required, so cleanup was stopped.'.$details.' No changes were made.');
         }
 
         $byProduct = $mutations->groupBy('product_id');
