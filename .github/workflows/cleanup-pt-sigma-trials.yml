@@ -1,0 +1,60 @@
+name: Scoped PT Sigma Trial Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Dry-run reports the exact scope; delete executes the guarded cleanup.
+        required: true
+        type: choice
+        options:
+          - dry-run
+          - delete
+        default: dry-run
+      confirm_phrase:
+        description: Required only for delete: HAPUS-3-TRIAL-PT-SIGMA
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cleanup-pt-sigma-trials
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run guarded cleanup command on production
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          CLEANUP_MODE: ${{ inputs.mode }}
+          CLEANUP_CONFIRM: ${{ inputs.confirm_phrase }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: CLEANUP_MODE,CLEANUP_CONFIRM
+          script_stop: true
+          script: |
+            set -eu
+            cd /var/www/sigma-erp
+
+            case "$CLEANUP_MODE" in
+              dry-run)
+                php artisan sigma:cleanup-pt-sigma-trial-transactions --no-interaction
+                ;;
+              delete)
+                test "$CLEANUP_CONFIRM" = "HAPUS-3-TRIAL-PT-SIGMA" || {
+                  echo "Delete refused: the exact confirmation phrase is required."
+                  exit 1
+                }
+                php artisan sigma:cleanup-pt-sigma-trial-transactions --execute --confirm="$CLEANUP_CONFIRM" --no-interaction
+                ;;
+              *)
+                echo "Unknown cleanup mode; stopping without changes."
+                exit 1
+                ;;
+            esac
