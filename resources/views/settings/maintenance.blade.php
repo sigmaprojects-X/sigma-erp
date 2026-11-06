@@ -324,24 +324,10 @@
                     </div>
                 </div>
 
-                <!-- Form Ganti Mode 1-Klik -->
-                <form action="{{ route('settings.maintenance.switch-mode') }}" method="POST"
-                      onsubmit="return confirm('Apakah Anda yakin ingin mengubah mode operasional sistem SIGMA ERP?')">
-                    @csrf
-                    @if(app()->isProduction())
-                        <input type="hidden" name="mode" value="development">
-                        <button type="submit"
-                                class="w-full py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer">
-                            <span>🛠️ Alihkan ke Mode Development (Uji Coba & Coding)</span>
-                        </button>
-                    @else
-                        <input type="hidden" name="mode" value="production">
-                        <button type="submit"
-                                class="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer">
-                            <span>🚀 Alihkan ke Mode Production (Kasir Toko Siap Pakai)</span>
-                        </button>
-                    @endif
-                </form>
+                <div class="rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 p-3 text-xs text-slate-600 dark:text-slate-300">
+                    <p class="font-bold text-slate-800 dark:text-slate-100">Mode environment hanya-baca</p>
+                    <p class="mt-1">Mode ini ditetapkan melalui konfigurasi deployment, bukan dari aplikasi. Untuk uji coba karyawan, gunakan staging dengan database terpisah. Jangan aktifkan APP_DEBUG pada server publik.</p>
+                </div>
             </div>
 
             <!-- KARTU DEMO RESET (Owner Only) -->
