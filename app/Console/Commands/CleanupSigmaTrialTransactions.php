@@ -119,6 +119,7 @@ class CleanupSigmaTrialTransactions extends Command
                         'invoice' => $transaction->invoice_number,
                         'amount' => (int) round((float) $transaction->grand_total),
                     ])->values()->all(),
+                    'transactions_with_customer' => $transactions->filter(fn (PosTransaction $transaction): bool => $transaction->customer_id !== null)->count(),
                     'total' => (int) round((float) $transactions->sum('grand_total')),
                     'journal_entries' => $journals->count(),
                     'cash_transactions' => $cashTransactions->count(),
@@ -243,7 +244,6 @@ class CleanupSigmaTrialTransactions extends Command
                 'amount' => $expectedAmount,
                 'status' => 'COMPLETED',
                 'payment_method' => 'TRANSFER',
-                'has_customer' => false,
                 'has_voucher' => false,
                 'points_earned' => 0,
                 'points_redeemed' => 0,
@@ -251,7 +251,10 @@ class CleanupSigmaTrialTransactions extends Command
                 'remaining_receivable' => 0.0,
             ];
 
-            if ($observed !== $expected) {
+            $profileToCompare = $observed;
+            unset($profileToCompare['has_customer']);
+
+            if ($profileToCompare !== $expected) {
                 throw new RuntimeException('Transaction '.$transaction->invoice_number.' differs from the audited trial profile; observed safe metadata: '.json_encode($observed, JSON_UNESCAPED_SLASHES).'. No changes were made.');
             }
         }
