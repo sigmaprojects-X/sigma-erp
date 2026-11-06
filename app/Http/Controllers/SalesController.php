@@ -89,7 +89,7 @@ class SalesController extends Controller
         $wallpaperUrl = $company ? $company->wallpaper_url : asset('images/banner.jpg');
 
         $initialTrendData = $this->getTrendAnalytics('7_days');
-        $initialBranchData = $this->getBranchAnalytics('this_month');
+        $initialBranchData = $this->getBranchAnalytics('7_days');
 
         return view('sales.index', compact(
             'store',
