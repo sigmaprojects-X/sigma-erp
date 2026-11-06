@@ -96,7 +96,9 @@ jobs:
             cd "$APP_PATH"
             composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
             php artisan migrate --force
-            php artisan storage:link
+            if [ ! -L public/storage ]; then
+              php artisan storage:link
+            fi
             php artisan optimize:clear
             php artisan config:cache
             php artisan route:cache
