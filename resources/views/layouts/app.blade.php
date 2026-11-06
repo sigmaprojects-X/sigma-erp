@@ -264,15 +264,7 @@
                     <span>Dashboard Utama</span>
                 </a>
 
-                <!-- 2. Kasir POS (Flagship Action Card) -->
-                <a href="{{ route('pos.index') }}"
-                   class="flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm transition-all duration-200 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/40 hover:scale-[1.02] cursor-pointer mb-2">
-                    <div class="flex items-center space-x-3.5">
-                        <svg class="h-5 w-5 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        <span>Buka Kasir POS</span>
-                    </div>
-                    <kbd class="px-1.5 py-0.5 rounded text-[10px] bg-black/25 font-mono">F12</kbd>
-                </a>
+
 
                 <div class="pt-2 pb-1 px-3 text-[10px] font-black uppercase tracking-wider text-slate-400">
                     Modul ERP &amp; Bisnis
