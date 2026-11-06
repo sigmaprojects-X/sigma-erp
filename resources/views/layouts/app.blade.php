@@ -1134,7 +1134,7 @@
                     <kbd class="px-1.5 py-0.5 bg-white dark:bg-slate-800 rounded text-[9.5px] font-mono shadow-2xs">F1</kbd>
                 </a>
 
-                <!-- SYSTEM ENVIRONMENT MODE BADGE (DEV / PROD) -->
+                <!-- SYSTEM ENVIRONMENT STATUS BADGE -->
                 @if(app()->isProduction())
                     <a href="{{ route('settings.maintenance.index') }}"
                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/80 shadow-2xs select-none transition-colors"
@@ -1142,12 +1142,19 @@
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span class="hidden sm:inline">MODE</span> PROD
                     </a>
+                @elseif(app()->environment('staging'))
+                    <a href="{{ route('settings.maintenance.index') }}"
+                       class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-black bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/80 shadow-2xs select-none transition-colors"
+                       title="Lingkungan staging terpisah untuk uji coba">
+                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                        <span class="hidden sm:inline">ENV</span> STAGING
+                    </a>
                 @else
                     <a href="{{ route('settings.maintenance.index') }}"
                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-black bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/80 shadow-2xs select-none transition-colors"
-                       title="Mode Development Aktif: Live reload kode & debug aktif">
+                       title="Lingkungan Development lokal">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span class="hidden sm:inline">MODE</span> DEV
+                        <span class="hidden sm:inline">ENV</span> DEV
                     </a>
                 @endif
 
