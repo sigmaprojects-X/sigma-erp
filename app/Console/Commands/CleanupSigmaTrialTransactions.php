@@ -165,22 +165,10 @@ class CleanupSigmaTrialTransactions extends Command
                         'total_stock_value' => (float) $product->total_stock_value + $group['total_cost'],
                     ]);
 
-                    StockMutation::create([
-                        'company_id' => $company->id,
-                        'store_id' => $group['store_id'],
-                        'product_id' => $product->id,
-                        'reference_number' => $cleanupReference,
-                        'mutation_type' => 'DEMO_CLEANUP_RESTORE',
-                        'quantity' => $group['quantity'],
-                        'unit_cost' => $group['unit_cost'],
-                        'total_cost' => $group['total_cost'],
-                        'qty_before' => $before,
-                        'qty_after' => $after,
-                        'notes' => 'Pemulihan stok setelah penghapusan transaksi percobaan PT Sigma.',
-                        'created_by' => null,
-                    ]);
                 }
 
+                // The original SALE rows are removed and later zero-quantity snapshots are restated.
+                // Do not append a compensating physical movement, which would double-count the restored stock.
                 foreach ($stockPlan['replay'] as $replayRow) {
                     /** @var StockMutation $mutation */
                     $mutation = $replayRow['mutation'];
