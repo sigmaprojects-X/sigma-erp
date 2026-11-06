@@ -41,14 +41,14 @@ class SalesController extends Controller
         // Query transaksi hari ini (Terfilter per Perusahaan Aktif)
         $user = Auth::user();
         $storeRestrictedRoles = ['cashier', 'warehouse', 'sales'];
-        $restrictToStore = $user && in_array($user->role, $storeRestrictedRoles, true) && $user->store_id;
+        $restrictToStore = $user && in_array($user->role, $storeRestrictedRoles, true);
 
         $todayTransactions = PosTransaction::where('company_id', $company->id)
             ->whereDate('created_at', $today)
             ->where('status', '!=', 'VOID');
 
         if ($restrictToStore) {
-            $todayTransactions->where('store_id', $user->store_id);
+            $user->store_id ? $todayTransactions->where('store_id', $user->store_id) : $todayTransactions->whereRaw('1 = 0');
         }
 
         $todayRevenue = (float) (clone $todayTransactions)->sum('grand_total');
@@ -62,7 +62,7 @@ class SalesController extends Controller
         // Retur hari ini
         $todayReturnsQuery = PosReturn::where('company_id', $company->id)->whereDate('created_at', $today);
         if ($restrictToStore) {
-            $todayReturnsQuery->where('store_id', $user->store_id);
+            $user->store_id ? $todayReturnsQuery->where('store_id', $user->store_id) : $todayReturnsQuery->whereRaw('1 = 0');
         }
         $todayReturnsCount = (clone $todayReturnsQuery)->count();
         $todayReturnsAmount = (float) (clone $todayReturnsQuery)->sum('total_refund_amount');
@@ -75,7 +75,7 @@ class SalesController extends Controller
             ->with(['customer', 'customerTier'])
             ->where('status', '!=', 'VOID');
         if ($restrictToStore) {
-            $recentTransactionsQuery->where('store_id', $user->store_id);
+            $user->store_id ? $recentTransactionsQuery->where('store_id', $user->store_id) : $recentTransactionsQuery->whereRaw('1 = 0');
         }
         $recentTransactions = $recentTransactionsQuery
             ->orderByDesc('created_at')
@@ -155,8 +155,8 @@ class SalesController extends Controller
                     ->where('status', '!=', 'VOID')
                     ->whereBetween('created_at', [$startDate, $endDate]);
 
-                if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true) && $user->store_id) {
-                    $query->where('store_id', $user->store_id);
+                if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+                    $user->store_id ? $query->where('store_id', $user->store_id) : $query->whereRaw('1 = 0');
                 }
             })
             ->with('product')
@@ -191,8 +191,8 @@ class SalesController extends Controller
             ->whereBetween('created_at', [$startDate, $endDate])
             ->whereNotNull('cashier_id');
 
-        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true) && $user->store_id) {
-            $query->where('store_id', $user->store_id);
+        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+            $user->store_id ? $query->where('store_id', $user->store_id) : $query->whereRaw('1 = 0');
         }
 
         return $query->with('cashier')
@@ -243,8 +243,8 @@ class SalesController extends Controller
             ->where('status', '!=', 'VOID')
             ->whereBetween('created_at', [$startDate, $endDate]);
 
-        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales']) && $user->store_id) {
-            $query->where('store_id', $user->store_id);
+        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+            $user->store_id ? $query->where('store_id', $user->store_id) : $query->whereRaw('1 = 0');
         }
 
         $dailySales = $query->selectRaw('DATE(created_at) as date, SUM(grand_total) as total')
@@ -316,8 +316,8 @@ class SalesController extends Controller
             $storesQuery->where('company_id', $company->id);
         }
 
-        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales']) && $user->store_id) {
-            $storesQuery->where('id', $user->store_id);
+        if ($user && in_array($user->role, ['cashier', 'warehouse', 'sales'], true)) {
+            $user->store_id ? $storesQuery->where('id', $user->store_id) : $storesQuery->whereRaw('1 = 0');
         }
 
         $stores = $storesQuery->orderBy('code')->get();
