@@ -248,7 +248,7 @@ class PosController extends Controller
 
         // Tentukan customer tier yang aktif (default: retail / umum)
         $tierId = $request->input('customer_tier_id');
-        $tier = $tierId ? CustomerTier::find($tierId) : null;
+        $tier = $tierId ? CustomerTier::where('company_id', $company->id)->find($tierId) : null;
         if (! $tier) {
             $tier = CustomerTier::where('company_id', $company->id)->where('is_default', true)->first()
                 ?? CustomerTier::where('company_id', $company->id)->first();
@@ -624,9 +624,15 @@ class PosController extends Controller
         // Tentukan kasir yang membuka shift
         $cashierId = $request->input('cashier_id') ?: session('pos_active_cashier_id');
         if ($cashierId && $user && in_array($user->role, ['owner', 'manager', 'store_head'], true)) {
-            $cashier = User::find($cashierId) ?? $user;
+            $cashier = User::where('store_id', $store->id)->where('is_active', true)->findOrFail($cashierId);
+        } elseif ($user && $user->store_id === $store->id) {
+            $cashier = $user;
         } else {
-            $cashier = $user ?? (User::where('email', 'kasir1@sigma.test')->first() ?? User::first());
+            $cashier = User::where('store_id', $store->id)
+                ->where('role', 'cashier')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->firstOrFail();
         }
 
         $shift = $this->posService->openShift(
@@ -667,11 +673,11 @@ class PosController extends Controller
                 $store = Store::where('company_id', $company->id)->find($request->store_id)
                     ?? Store::where('company_id', $company->id)->where('is_main_store', true)->first()
                     ?? Store::where('company_id', $company->id)->first()
-                    ?? Store::firstOrFail();
+                    ?? Store::where('company_id', $company->id)->firstOrFail();
             } else {
                 $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
                     ?? Store::where('company_id', $company->id)->first()
-                    ?? Store::firstOrFail();
+                    ?? Store::where('company_id', $company->id)->firstOrFail();
             }
         }
 
@@ -983,6 +989,7 @@ class PosController extends Controller
      */
     public function sampleReceipt(Request $request): View
     {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $transaction = PosTransaction::with([
             'items.product',
             'items.unit',
@@ -992,13 +999,13 @@ class PosController extends Controller
             'company',
             'cashier',
             'shift.cashier',
-        ])->latest()->first();
+        ])->where('company_id', $company->id)->latest()->first();
 
         if (! $transaction) {
             abort(404, 'Belum ada transaksi contoh yang dapat dicetak.');
         }
 
-        $company = $transaction->company ?? Company::first();
+        $company = $transaction->company;
         $paperSize = $request->query('paper', $company->receipt_paper_size ?? '58');
 
         return view('pos.receipt', [
@@ -1143,6 +1150,10 @@ class PosController extends Controller
             $authorizedManagers = User::whereIn('role', ['owner', 'manager', 'store_head'])
                 ->where('is_active', true)
                 ->whereNotNull('manager_pin')
+                ->where(function ($q) use ($company) {
+                    $q->where('role', 'owner')
+                        ->orWhereHas('store', fn ($sq) => $sq->where('company_id', $company->id));
+                })
                 ->get();
 
             $approver = null;
@@ -1433,3 +1444,4 @@ class PosController extends Controller
         ]);
     }
 }
+
