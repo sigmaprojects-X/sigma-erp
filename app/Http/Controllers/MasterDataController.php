@@ -141,6 +141,13 @@ class MasterDataController extends Controller
         $query = Product::where('company_id', $company->id)
             ->with(['units', 'barcodes', 'prices.customerTier', 'stocks']);
 
+        if (! $request->boolean('show_discontinued')) {
+            $query->where(function ($q) {
+                $q->whereNull('sale_status')
+                    ->orWhere('sale_status', '!=', 'DISCONTINUED');
+            });
+        }
+
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', "%{$search}%")
