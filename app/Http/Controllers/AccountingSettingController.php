@@ -144,7 +144,7 @@ class AccountingSettingController extends Controller
 
         $validated = $request->validate([
             'settings' => 'required|array',
-            'settings.*' => 'required|uuid|exists:chart_of_accounts,id',
+            'settings.*' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
         ]);
 
         DB::transaction(function () use ($company, $validated) {
@@ -166,3 +166,4 @@ class AccountingSettingController extends Controller
             ->with('success', 'Setting Perkiraan (Default Linked Accounts) berhasil disimpan dan aktif digunakan oleh sistem.');
     }
 }
+
