@@ -68,7 +68,7 @@ class AutoNumberSettingController extends Controller
      */
     public function update(Request $request, string $id): RedirectResponse
     {
-        $pattern = TransactionNumberPattern::findOrFail($id);
+        $pattern = TransactionNumberPattern::where('company_id', $this->companyService->getActiveCompanyId())->findOrFail($id);
 
         $validated = $request->validate([
             'prefix' => 'required|string|max:30|alpha_dash',
@@ -101,7 +101,7 @@ class AutoNumberSettingController extends Controller
      */
     public function resetSequence(Request $request, string $id): RedirectResponse
     {
-        $pattern = TransactionNumberPattern::findOrFail($id);
+        $pattern = TransactionNumberPattern::where('company_id', $this->companyService->getActiveCompanyId())->findOrFail($id);
 
         $validated = $request->validate([
             'current_sequence' => 'required|integer|min:0',
@@ -147,3 +147,4 @@ class AutoNumberSettingController extends Controller
             ->with('success', 'Semua pola penomoran transaksi berhasil dikembalikan ke standar bawaan sistem.');
     }
 }
+
