@@ -104,7 +104,7 @@ class FixedAssetController extends Controller
             'acquisition_cost' => 'required|numeric|min:1000',
             'salvage_value' => 'nullable|numeric|min:0',
             'useful_life_months' => 'required|integer|min:1',
-            'store_id' => 'nullable|uuid',
+            'store_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('stores', 'id')->where('company_id', $company->id)],
             'funding_source' => 'required|in:CASH,BANK,MODAL_AWAL,NONE',
             'bank_account_id' => 'nullable|uuid',
         ]);
@@ -121,9 +121,13 @@ class FixedAssetController extends Controller
 
         try {
             $asset = DB::transaction(function () use ($request, $company, $cost, $salvage, $months, $monthlyDepreciation) {
+                $storeId = $request->filled('store_id')
+                    ? Store::where('company_id', $company->id)->findOrFail($request->store_id)->id
+                    : null;
+
                 $asset = FixedAsset::create([
                     'company_id' => $company->id,
-                    'store_id' => $request->store_id,
+                    'store_id' => $storeId,
                     'asset_code' => $request->asset_code,
                     'name' => $request->name,
                     'category' => $request->category,
@@ -138,7 +142,9 @@ class FixedAssetController extends Controller
                 ]);
 
                 if ($request->funding_source !== 'NONE') {
-                    $bankAccount = $request->bank_account_id ? BankAccount::find($request->bank_account_id) : null;
+                    $bankAccount = $request->bank_account_id
+                        ? BankAccount::where('company_id', $company->id)->findOrFail($request->bank_account_id)
+                        : null;
                     $this->accountingService->recordAssetAcquisition(
                         asset: $asset,
                         fundingSource: $request->funding_source,
@@ -173,11 +179,12 @@ class FixedAssetController extends Controller
      */
     public function show(string $id): View
     {
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
         $asset = FixedAsset::with([
             'company',
             'store',
             'depreciationRecords.journalEntry',
-        ])->findOrFail($id);
+        ])->where('company_id', $companyId)->findOrFail($id);
 
         return view('assets.show', compact('asset'));
     }
@@ -187,7 +194,8 @@ class FixedAssetController extends Controller
      */
     public function depreciate(Request $request, string $id): RedirectResponse|JsonResponse
     {
-        $asset = FixedAsset::findOrFail($id);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $asset = FixedAsset::where('company_id', $companyId)->findOrFail($id);
         $periodDate = $request->input('period_date', now()->endOfMonth()->toDateString());
 
         try {
@@ -261,7 +269,8 @@ class FixedAssetController extends Controller
      */
     public function dispose(Request $request, string $id): RedirectResponse|JsonResponse
     {
-        $asset = FixedAsset::findOrFail($id);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $asset = FixedAsset::where('company_id', $company->id)->findOrFail($id);
 
         $request->validate([
             'disposal_proceeds' => 'nullable|numeric|min:0',
@@ -270,7 +279,9 @@ class FixedAssetController extends Controller
         ]);
 
         try {
-            $bankAccount = $request->bank_account_id ? BankAccount::find($request->bank_account_id) : null;
+            $bankAccount = $request->bank_account_id
+                ? BankAccount::where('company_id', $company->id)->findOrFail($request->bank_account_id)
+                : null;
             $this->accountingService->recordAssetDisposal(
                 asset: $asset,
                 disposalProceeds: (float) ($request->disposal_proceeds ?? 0.0),
@@ -296,3 +307,4 @@ class FixedAssetController extends Controller
         }
     }
 }
+
