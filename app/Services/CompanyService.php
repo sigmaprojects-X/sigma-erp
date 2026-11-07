@@ -46,9 +46,18 @@ class CompanyService
             return $company;
         }
 
-        // 2. Jika user adalah staf / kasir / manager yang terikat dengan store
-        if ($user && $user->store && $user->store->company) {
-            $company = $user->store->company;
+        // 2. Staff must resolve their tenant from an active store assignment.
+        // Never fall back to a session or the first company for an authenticated
+        // non-owner: that would give orphaned accounts an arbitrary tenant.
+        if ($user) {
+            $store = $user->store;
+            $company = $store?->company;
+
+            if (! $store || ! $store->is_active || ! $company || ! $company->is_active) {
+                session()->forget('active_company_id');
+                abort(403, 'Akun Anda belum terikat ke cabang aktif. Hubungi Owner untuk menetapkan perusahaan dan cabang.');
+            }
+
             session(['active_company_id' => $company->id]);
             return $company;
         }
@@ -104,8 +113,8 @@ class CompanyService
             return Company::where('is_active', true)->orderBy('name')->get();
         }
 
-        if ($user && $user->store && $user->store->company) {
-            return collect([$user->store->company]);
+        if ($user) {
+            return collect([$this->getActiveCompany()]);
         }
 
         return collect([$this->getActiveCompany()]);
@@ -346,3 +355,4 @@ class CompanyService
         );
     }
 }
+
