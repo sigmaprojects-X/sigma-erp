@@ -86,8 +86,8 @@ class StockTransferController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $sourceStore = Store::findOrFail($request->source_store_id);
-        $destinationStore = Store::findOrFail($request->destination_store_id);
+        $sourceStore = Store::where('company_id', $company->id)->findOrFail($request->source_store_id);
+        $destinationStore = Store::where('company_id', $company->id)->findOrFail($request->destination_store_id);
 
         $transfer = $this->warehouseService->createTransfer(
             company: $company,
@@ -118,6 +118,7 @@ class StockTransferController extends Controller
      */
     public function show(string $id): View
     {
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
         $transfer = StockTransfer::with([
             'sourceStore',
             'destinationStore',
@@ -126,7 +127,7 @@ class StockTransferController extends Controller
             'receiver',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', $companyId)->findOrFail($id);
 
         return view('warehouse.transfers.show', compact('transfer'));
     }
@@ -136,6 +137,7 @@ class StockTransferController extends Controller
      */
     public function printDeliveryNote(string $id): View
     {
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
         $transfer = StockTransfer::with([
             'company',
             'sourceStore',
@@ -145,9 +147,9 @@ class StockTransferController extends Controller
             'receiver',
             'items.product',
             'items.productUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', $companyId)->findOrFail($id);
 
-        $company = $transfer->company ?? Company::firstOrFail();
+        $company = $transfer->company;
 
         return view('warehouse.transfers.print', compact('transfer', 'company'));
     }
@@ -157,7 +159,7 @@ class StockTransferController extends Controller
      */
     public function dispatch(string $id): JsonResponse|RedirectResponse
     {
-        $transfer = StockTransfer::findOrFail($id);
+        $transfer = StockTransfer::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         try {
             $dispatched = $this->warehouseService->dispatchTransfer($transfer, Auth::user());
@@ -185,7 +187,7 @@ class StockTransferController extends Controller
      */
     public function receive(Request $request, string $id): JsonResponse|RedirectResponse
     {
-        $transfer = StockTransfer::with('items')->findOrFail($id);
+        $transfer = StockTransfer::with('items')->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
         $receivedQuantities = $request->input('received_quantities', []);
 
         try {
@@ -214,7 +216,7 @@ class StockTransferController extends Controller
      */
     public function cancel(Request $request, string $id): JsonResponse|RedirectResponse
     {
-        $transfer = StockTransfer::findOrFail($id);
+        $transfer = StockTransfer::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         try {
             $reason = $request->input('reason', 'Dibatalkan oleh staf.');
@@ -238,3 +240,4 @@ class StockTransferController extends Controller
         }
     }
 }
+
