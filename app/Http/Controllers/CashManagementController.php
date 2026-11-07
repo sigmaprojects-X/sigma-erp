@@ -100,15 +100,17 @@ class CashManagementController extends Controller
 
         $validated = $request->validate([
             'transaction_date' => 'required|date',
-            'destination_account_id' => 'required|uuid|exists:chart_of_accounts,id',
-            'category_account_id' => 'required|uuid|exists:chart_of_accounts,id',
+            'destination_account_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
+            'category_account_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
             'amount' => 'required|numeric|min:0.01',
             'contact_person' => 'nullable|string|max:150',
             'notes' => 'nullable|string|max:500',
             'store_id' => 'nullable|uuid|exists:stores,id',
         ]);
 
-        $store = ! empty($validated['store_id']) ? Store::find($validated['store_id']) : null;
+        $store = ! empty($validated['store_id'])
+            ? Store::where('company_id', $company->id)->findOrFail($validated['store_id'])
+            : null;
 
         try {
             $tx = $this->cashService->recordCashIn($company, $store, $validated, Auth::user());
@@ -147,15 +149,17 @@ class CashManagementController extends Controller
 
         $validated = $request->validate([
             'transaction_date' => 'required|date',
-            'source_account_id' => 'required|uuid|exists:chart_of_accounts,id',
-            'category_account_id' => 'required|uuid|exists:chart_of_accounts,id',
+            'source_account_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
+            'category_account_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
             'amount' => 'required|numeric|min:0.01',
             'contact_person' => 'nullable|string|max:150',
             'notes' => 'nullable|string|max:500',
             'store_id' => 'nullable|uuid|exists:stores,id',
         ]);
 
-        $store = ! empty($validated['store_id']) ? Store::find($validated['store_id']) : null;
+        $store = ! empty($validated['store_id'])
+            ? Store::where('company_id', $company->id)->findOrFail($validated['store_id'])
+            : null;
 
         try {
             $tx = $this->cashService->recordCashOut($company, $store, $validated, Auth::user());
@@ -193,17 +197,19 @@ class CashManagementController extends Controller
 
         $validated = $request->validate([
             'transaction_date' => 'required|date',
-            'source_account_id' => 'required|uuid|exists:chart_of_accounts,id',
-            'destination_account_id' => 'required|uuid|exists:chart_of_accounts,id|different:source_account_id',
+            'source_account_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
+            'destination_account_id' => ['required', 'uuid', 'different:source_account_id', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
             'amount' => 'required|numeric|min:0.01',
             'admin_fee' => 'nullable|numeric|min:0',
-            'admin_fee_account_id' => 'nullable|uuid|exists:chart_of_accounts,id',
+            'admin_fee_account_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('chart_of_accounts', 'id')->where('company_id', $company->id)],
             'contact_person' => 'nullable|string|max:150',
             'notes' => 'nullable|string|max:500',
             'store_id' => 'nullable|uuid|exists:stores,id',
         ]);
 
-        $store = ! empty($validated['store_id']) ? Store::find($validated['store_id']) : null;
+        $store = ! empty($validated['store_id'])
+            ? Store::where('company_id', $company->id)->findOrFail($validated['store_id'])
+            : null;
 
         try {
             $tx = $this->cashService->recordCashTransfer($company, $store, $validated, Auth::user());
@@ -227,3 +233,4 @@ class CashManagementController extends Controller
         return view('accounting.cash.show', compact('transaction', 'company'));
     }
 }
+
