@@ -193,7 +193,8 @@
                                             ✏️ Edit
                                         </a>
                                         <form action="{{ route('master.products.destroy', $prod->id) }}" method="POST" class="inline"
-                                              onsubmit="return confirm('Apakah Anda yakin ingin menghapus barang [{{ addslashes($prod->name) }}]?\n\nPenghapusan hanya dapat diproses jika barang ini BELUM PERNAH digunakan dalam transaksi apapun.');">
+                                              data-confirm
+                                              data-confirm-message="Hapus item [{{ $prod->name }}]? Sistem akan menolak penghapusan jika item sudah memiliki riwayat transaksi agar catatan audit tetap terjaga.">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit"
