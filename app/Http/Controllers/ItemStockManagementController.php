@@ -158,6 +158,7 @@ class ItemStockManagementController extends Controller
 
         $store = Store::where('company_id', $company->id)->findOrFail($validated['store_id']);
         $product = Product::where('company_id', $company->id)->findOrFail($validated['product_id']);
+        $baseUnitCode = $product->baseUnit()->value('unit_code') ?? 'PCS';
 
         try {
             DB::transaction(function () use ($company, $store, $product, $validated) {
@@ -214,7 +215,7 @@ class ItemStockManagementController extends Controller
             });
 
             return redirect()->route('warehouse.opening-stock.index', ['store_id' => $store->id])
-                ->with('success', "Saldo awal untuk {$product->name} berhasil diperbarui (Qty: {$validated['quantity']} {$product->baseUnit?->unit_code}, HPP: Rp ".number_format($validated['cost_price'], 0, ',', '.').").");
+                ->with('success', "Saldo awal untuk {$product->name} berhasil diperbarui (Qty: {$validated['quantity']} {$baseUnitCode}, HPP: Rp ".number_format($validated['cost_price'], 0, ',', '.').");
         } catch (\Throwable $e) {
             return back()->withInput()->withErrors(['error' => $e->getMessage()]);
         }
@@ -623,13 +624,14 @@ class ItemStockManagementController extends Controller
         ]);
 
         $product = Product::where('company_id', $company->id)->findOrFail($validated['product_id']);
+        $baseUnitCode = $product->baseUnit()->value('unit_code') ?? 'PCS';
 
         $product->update([
             'min_stock_alert' => $validated['min_stock_alert'],
             'max_stock' => $validated['max_stock'] ?? null,
         ]);
 
-        return back()->with('success', "Batas stok minimum untuk {$product->name} berhasil diperbarui menjadi {$validated['min_stock_alert']} {$product->baseUnit?->unit_code}.");
+        return back()->with('success', "Batas stok minimum untuk {$product->name} berhasil diperbarui menjadi {$validated['min_stock_alert']} {$baseUnitCode}.");
     }
 
     public function minimumStockImport(Request $request): RedirectResponse
