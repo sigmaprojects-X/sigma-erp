@@ -454,7 +454,8 @@ class PurchaseController extends Controller
                     // B. Otomatisasi harga kemasan bertingkat berdasarkan Moving Average HPP Baru
                     $allPrices = ProductPrice::where('product_id', $p->id)->get();
                     foreach ($allPrices as $pr) {
-                        $pUnit = ProductUnit::find($pr->product_unit_id);
+                        $pUnit = ProductUnit::where('company_id', $company->id)
+                            ->where('product_id', $p->id)->find($pr->product_unit_id);
                         $conv = $pUnit ? (float) $pUnit->conversion_factor : 1.0;
                         $effCost = $newMovingAvgCost * $conv;
 
@@ -1451,7 +1452,9 @@ class PurchaseController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->query('store_id');
-        $store = $storeId ? Store::find($storeId) : Store::where('company_id', $company->id)->first();
+        $store = $storeId
+            ? Store::where('company_id', $company->id)->findOrFail($storeId)
+            : Store::where('company_id', $company->id)->first();
 
         $purchases = Purchase::where('company_id', $company->id)
             ->when($store, fn ($q) => $q->where('store_id', $store->id))
@@ -1590,3 +1593,4 @@ class PurchaseController extends Controller
     }
 
 }
+
