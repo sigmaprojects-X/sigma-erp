@@ -661,6 +661,60 @@ class MasterDataController extends Controller
             return redirect()->route('master.products')->with('error', 'Produk tidak ditemukan pada perusahaan aktif.');
         }
         [$company, $store] = $this->resolveCompanyAndStore($request);
+
+        // Perubahan status penjualan tidak boleh menyinkronkan ulang harga/satuan.
+        // Jalur ini memungkinkan item dengan konfigurasi satuan bermasalah dihentikan
+        // tanpa menulis ulang data kemasan dan harga.
+        if ($request->boolean('status_only')) {
+            $validated = $request->validate([
+                'sale_status' => 'required|in:ACTIVE,DISCONTINUED,BUY_ONLY',
+            ]);
+
+            $saleStatus = $product->type === Product::TYPE_BIAYA
+                ? 'BUY_ONLY'
+                : $validated['sale_status'];
+
+            $result = DB::transaction(function () use ($product, $company, $saleStatus) {
+                $lockedProduct = Product::where('company_id', $company->id)
+                    ->whereKey($product->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($saleStatus === 'DISCONTINUED') {
+                    $stocks = ProductStock::where('company_id', $company->id)
+                        ->where('product_id', $lockedProduct->id)
+                        ->lockForUpdate()
+                        ->get(['physical_quantity', 'reserved_quantity', 'quarantined_quantity']);
+
+                    $effectiveStock = max(
+                        (float) $lockedProduct->total_quantity,
+                        (float) $stocks->sum('physical_quantity'),
+                        (float) $stocks->sum('reserved_quantity'),
+                        (float) $stocks->sum('quarantined_quantity')
+                    );
+
+                    if ($effectiveStock > 0) {
+                        return ['blocked_stock' => $effectiveStock];
+                    }
+                }
+
+                $lockedProduct->update([
+                    'sale_status' => $saleStatus,
+                    'is_point_of_sale' => ! in_array($saleStatus, ['DISCONTINUED', 'BUY_ONLY'], true)
+                        && $lockedProduct->type !== Product::TYPE_BIAYA
+                        && $lockedProduct->is_active,
+                ]);
+
+                return ['updated' => true];
+            });
+
+            if (isset($result['blocked_stock'])) {
+                return back()->with('error', "Barang [{$product->name}] tidak dapat di-discontinue karena masih memiliki sisa stok fisik ({$result['blocked_stock']} unit). Sisa stok harus kosong (0) terlebih dahulu.")->withInput();
+            }
+
+            return redirect()->route('master.products')->with('success', "Status penjualan item [{$product->name}] berhasil diperbarui tanpa mengubah harga atau satuan.");
+        }
+
         $allowedTypes = implode(',', Product::SUPPORTED_TYPES);
 
         // Normalisasi angka desimal Indonesia (mengubah koma ',' menjadi titik '.')
