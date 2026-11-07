@@ -53,7 +53,7 @@ class CustomerPointController extends Controller
         $selectedCustomer = null;
         $customerMutations = collect();
         if ($selectedCustomerId) {
-            $selectedCustomer = Customer::with('tier')->find($selectedCustomerId);
+            $selectedCustomer = Customer::where('company_id', $company->id)->with('tier')->find($selectedCustomerId);
             if ($selectedCustomer) {
                 $customerMutations = CustomerPointMutation::where('customer_id', $selectedCustomer->id)
                     ->with(['transaction', 'creator'])
@@ -106,8 +106,8 @@ class CustomerPointController extends Controller
      */
     public function lookup(string $customerId): JsonResponse
     {
-        $customer = Customer::with('tier')->findOrFail($customerId);
-        $company = $customer->company ?? $this->companyService->getActiveCompany();
+        $company = $this->companyService->getActiveCompany();
+        $customer = Customer::where('company_id', $company->id)->with('tier')->findOrFail($customerId);
         $program = $this->loyaltyPointService->getActiveProgram($company);
 
         $mutations = CustomerPointMutation::where('customer_id', $customer->id)
@@ -158,7 +158,8 @@ class CustomerPointController extends Controller
             'reason' => 'required|string|max:255',
         ]);
 
-        $customer = Customer::findOrFail($request->customer_id);
+        $company = $this->companyService->getActiveCompany();
+        $customer = Customer::where('company_id', $company->id)->findOrFail($request->customer_id);
         $pointsDelta = (int) $request->points_delta;
         $reason = trim($request->reason);
 
@@ -181,3 +182,4 @@ class CustomerPointController extends Controller
         }
     }
 }
+
