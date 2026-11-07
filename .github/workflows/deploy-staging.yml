@@ -40,16 +40,24 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
           script: |
-            set -eu
+            set -eux
             APP_PATH=/var/www/sigma-erp-staging
-            if [ -d "$APP_PATH/.git" ]; then
-              git -C "$APP_PATH" fetch --depth=1 origin staging
-              git -C "$APP_PATH" reset --hard origin/staging
-            elif [ -e "$APP_PATH" ]; then
-              echo "Staging path exists but is not a Git checkout; stopping without modifying it."
-              exit 1
+            REPO_URL=https://github.com/sigmaprojects-X/sigma-erp.git
+
+            echo "Checking staging checkout path."
+            if [ -e "$APP_PATH" ]; then
+              if [ -d "$APP_PATH/.git" ]; then
+                echo "Staging path exists and contains a Git checkout."
+                git -C "$APP_PATH" rev-parse --is-inside-work-tree
+                git -C "$APP_PATH" fetch --depth=1 "$REPO_URL" refs/heads/staging
+                git -C "$APP_PATH" reset --hard FETCH_HEAD
+              else
+                echo "Staging path exists but is not a Git checkout; stopping without modifying it."
+                exit 1
+              fi
             else
-              git clone --depth=1 --branch staging https://github.com/sigmaprojects-X/sigma-erp.git "$APP_PATH"
+              echo "Staging path does not exist; cloning the staging branch."
+              git clone --depth=1 --branch staging "$REPO_URL" "$APP_PATH"
             fi
             mkdir -p "$APP_PATH/public/build"
 
