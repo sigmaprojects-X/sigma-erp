@@ -153,7 +153,7 @@ class InventoryController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->get('store_id', Auth::user()?->store_id);
-        $store = Store::findOrFail($storeId);
+        $store = Store::where('company_id', $company->id)->findOrFail($storeId);
 
         $query = Product::where('company_id', $company->id)
             ->where('is_active', true)
@@ -304,7 +304,7 @@ class InventoryController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $store = Store::findOrFail($request->store_id);
+        $store = Store::where('company_id', $company->id)->findOrFail($request->store_id);
         $userId = Auth::id();
 
         $dateStr = date('Ymd');
@@ -317,8 +317,10 @@ class InventoryController extends Controller
             $itemsData = [];
 
             foreach ($request->items as $row) {
-                $product = Product::findOrFail($row['product_id']);
-                $unit = ProductUnit::findOrFail($row['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($row['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $product->id)
+                    ->findOrFail($row['product_unit_id']);
 
                 $qty = (float) $row['quantity'];
                 $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
@@ -474,14 +476,19 @@ class InventoryController extends Controller
             'notes' => 'nullable|string|max:255',
         ]);
 
-        $store = Store::findOrFail($request->store_id);
-        $product = Product::findOrFail($request->product_id);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $store = Store::where('company_id', $company->id)->findOrFail($request->store_id);
+        $product = Product::where('company_id', $company->id)->findOrFail($request->product_id);
         $qty = (float) $request->quantity;
         $resolutionType = $request->resolution_type;
         $userId = Auth::id();
 
-        $supplier = $request->supplier_id ? Supplier::find($request->supplier_id) : null;
-        $bankAccount = $request->bank_account_id ? BankAccount::find($request->bank_account_id) : null;
+        $supplier = $request->supplier_id
+            ? Supplier::where('company_id', $company->id)->findOrFail($request->supplier_id)
+            : null;
+        $bankAccount = $request->bank_account_id
+            ? BankAccount::where('company_id', $company->id)->findOrFail($request->bank_account_id)
+            : null;
 
         $dateStr = date('Ymd');
         $refNumber = 'QRES-' . $dateStr . '-' . strtoupper(substr(uniqid(), -4));
@@ -651,3 +658,4 @@ class InventoryController extends Controller
         return response()->json($result);
     }
 }
+
