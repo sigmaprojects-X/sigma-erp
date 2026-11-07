@@ -117,7 +117,8 @@ class LoyaltyController extends Controller
      */
     public function customerLedger(string $customerId): View|JsonResponse
     {
-        $customer = Customer::with(['tier'])->findOrFail($customerId);
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $customer = Customer::where('company_id', $company->id)->with(['tier'])->findOrFail($customerId);
         $mutations = CustomerPointMutation::where('customer_id', $customer->id)
             ->with(['transaction', 'creator'])
             ->latest('created_at')
@@ -145,7 +146,8 @@ class LoyaltyController extends Controller
         ]);
 
         try {
-            $customer = Customer::findOrFail($customerId);
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+            $customer = Customer::where('company_id', $company->id)->findOrFail($customerId);
             $user = Auth::user();
 
             $mutation = $this->loyaltyService->adjustPoints(
@@ -206,8 +208,8 @@ class LoyaltyController extends Controller
      */
     public function pointsLookup(string $customerId): JsonResponse
     {
-        $customer = Customer::findOrFail($customerId);
-        $company = $customer->company;
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $customer = Customer::where('company_id', $company->id)->findOrFail($customerId);
         $program = $this->loyaltyService->getActiveProgram($company);
 
         $points = (int) $customer->loyalty_points;
@@ -230,3 +232,4 @@ class LoyaltyController extends Controller
         ]);
     }
 }
+
