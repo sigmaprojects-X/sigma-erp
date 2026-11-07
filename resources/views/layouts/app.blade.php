@@ -1236,7 +1236,7 @@
                              x-transition:leave-start="opacity-100 translate-y-0"
                              x-transition:leave-end="opacity-0 -translate-y-2"
                              role="{{ $notification['type'] === 'error' ? 'alert' : 'status' }}"
-                             class="relative flex items-start gap-3.5 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 {{ $notificationStyle['accent'] }} {{ $notificationStyle['soft'] }} p-4 md:p-4.5 shadow-md shadow-slate-900/5 ring-1 {{ $notificationStyle['ring'] }} backdrop-blur-sm">
+                             class="relative flex items-start gap-3.5 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 {{ $notificationStyle['accent'] }} {{ $notificationStyle['soft'] }} p-4 md:p-4 shadow-md shadow-slate-900/5 ring-1 {{ $notificationStyle['ring'] }} backdrop-blur-sm">
                         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br {{ $notificationStyle['icon'] }} text-white shadow-sm">
                             @if($notification['type'] === 'success')
                                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>
