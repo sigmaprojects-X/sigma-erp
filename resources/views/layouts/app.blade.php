@@ -1309,8 +1309,85 @@
         </a>
     </nav>
 
+    <!-- BRANDED CONFIRMATION DIALOG -->
+    <div x-data="sigmaConfirmDialog()"
+         @sigma-confirm-request.window="openFor($event.detail)"
+         @keydown.window.escape="cancel()"
+         x-show="visible"
+         x-cloak
+         x-transition.opacity
+         class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
+         role="presentation"
+         @click.self="cancel()">
+        <section x-show="visible"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 class="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/30 dark:border-slate-700 dark:bg-slate-900"
+                 role="alertdialog"
+                 aria-modal="true"
+                 aria-labelledby="sigma-confirm-title"
+                 aria-describedby="sigma-confirm-message">
+            <div class="flex items-start gap-4 p-6">
+                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-900">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18m-2 0-.9 14.1a2 2 0 0 1-2 1.9H7.9a2 2 0 0 1-2-1.9L5 6m4 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-5 4v7m4-7v7"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <h2 id="sigma-confirm-title" class="text-base font-black tracking-tight text-slate-900 dark:text-white">Konfirmasi penghapusan</h2>
+                    <p id="sigma-confirm-message" x-text="message" class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
+                </div>
+                <button type="button" @click="cancel()" aria-label="Tutup dialog" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white">
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/80 p-4 sm:flex-row sm:justify-end dark:border-slate-800 dark:bg-slate-950/50">
+                <button type="button" @click="cancel()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">Batal</button>
+                <button type="button" @click="confirm()" class="rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-rose-900/15 transition hover:from-rose-500 hover:to-red-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">Ya, hapus item</button>
+            </div>
+        </section>
+    </div>
+
     <!-- JAVASCRIPT STATE ENGINE -->
     <script>
+        function sigmaConfirmDialog() {
+            return {
+                visible: false,
+                form: null,
+                message: '',
+                openFor(detail) {
+                    this.form = detail.form;
+                    this.message = detail.message || 'Lanjutkan tindakan ini?';
+                    this.visible = true;
+                },
+                cancel() {
+                    this.visible = false;
+                    this.form = null;
+                },
+                confirm() {
+                    const form = this.form;
+                    if (!form) return;
+                    form.dataset.confirmed = 'true';
+                    this.visible = false;
+                    this.form = null;
+                    form.requestSubmit();
+                }
+            };
+        }
+
+        // Intercept only explicitly marked forms; all other forms keep their current behavior.
+        document.addEventListener('submit', function(event) {
+            const form = event.target.closest && event.target.closest('form[data-confirm]');
+            if (!form) return;
+            if (form.dataset.confirmed === 'true') {
+                delete form.dataset.confirmed;
+                return;
+            }
+            event.preventDefault();
+            window.dispatchEvent(new CustomEvent('sigma-confirm-request', {
+                detail: { form, message: form.dataset.confirmMessage }
+            }));
+        }, true);
+
         window.toggleSigmaTheme = function() {
             const isDark = document.documentElement.classList.contains('dark');
             if (isDark) {
