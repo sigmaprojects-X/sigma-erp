@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use App\\Models\\Product;
-use App\\Models\\ProductUnit;
-use App\\Models\\User;
-use Illuminate\\Foundation\\Testing\\RefreshDatabase;
-use Tests\\TestCase;
+use App\Models\Product;
+use App\Models\ProductUnit;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class InventoryProductEditRegressionTest extends TestCase
 {
@@ -54,7 +54,7 @@ class InventoryProductEditRegressionTest extends TestCase
             ])
             ->assertRedirect(route('warehouse.opening-stock.index', ['store_id' => $this->owner->store_id]))
             ->assertSessionHas('success', fn (string $message): bool => str_contains($message, 'PCS'))
-            ->assertSessionMissing('errors');
+            ->assertSessionHasNoErrors();
     }
 
     public function test_status_only_update_bypasses_duplicate_legacy_unit_payload_without_rewriting_units(): void
