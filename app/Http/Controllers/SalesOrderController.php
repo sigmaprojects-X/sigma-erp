@@ -90,22 +90,22 @@ class SalesOrderController extends Controller
      */
     public function store(Request $request): RedirectResponse|JsonResponse
     {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $validated = $request->validate([
-            'store_id' => 'required|uuid|exists:stores,id',
-            'customer_id' => 'nullable|uuid|exists:customers,id',
+            'store_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('stores', 'id')->where('company_id', $company->id)],
+            'customer_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('customers', 'id')->where('company_id', $company->id)],
             'order_date' => 'required|date',
             'expected_delivery_date' => 'nullable|date',
             'notes' => 'nullable|string|max:500',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|uuid|exists:products,id',
-            'items.*.product_unit_id' => 'required|uuid|exists:product_units,id',
+            'items.*.product_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('products', 'id')->where('company_id', $company->id)],
+            'items.*.product_unit_id' => ['required', 'uuid', \Illuminate\Validation\Rule::exists('product_units', 'id')->where('company_id', $company->id)],
             'items.*.quantity' => 'required|numeric|min:0.01',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
         ]);
 
         try {
-            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
             $user = Auth::user();
 
             $order = DB::transaction(function () use ($validated, $company, $user) {
@@ -116,7 +116,9 @@ class SalesOrderController extends Controller
                 $preparedItems = [];
 
                 foreach ($validated['items'] as $item) {
-                    $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                    $unit = ProductUnit::where('company_id', $company->id)
+                        ->where('product_id', $item['product_id'])
+                        ->findOrFail($item['product_unit_id']);
                     $qty = (float) $item['quantity'];
                     $price = (float) $item['unit_price'];
                     $discount = (float) ($item['discount_amount'] ?? 0.0);
@@ -181,8 +183,9 @@ class SalesOrderController extends Controller
      */
     public function show(string $id): View
     {
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
         $order = SalesOrder::with(['customer.tier', 'store', 'creator', 'approver', 'items.product', 'items.productUnit'])
-            ->findOrFail($id);
+            ->where('company_id', $companyId)->findOrFail($id);
 
         return view('sales.orders.show', compact('order'));
     }
@@ -192,7 +195,7 @@ class SalesOrderController extends Controller
      */
     public function approve(string $id): RedirectResponse|JsonResponse
     {
-        $order = SalesOrder::findOrFail($id);
+        $order = SalesOrder::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
         $user = Auth::user();
 
         if ($order->status !== 'PENDING') {
@@ -218,7 +221,8 @@ class SalesOrderController extends Controller
      */
     public function cancel(string $id): RedirectResponse|JsonResponse
     {
-        $order = SalesOrder::with(['items.product', 'items.productUnit', 'store'])->findOrFail($id);
+        $order = SalesOrder::with(['items.product', 'items.productUnit', 'store'])
+            ->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if (in_array($order->status, ['PROCESSED', 'COMPLETED', 'SELESAI'], true) || $order->stock_deducted_at !== null) {
             return back()->withErrors(['error' => 'Pesanan yang telah berstatus Selesai / Terproses tidak dapat dibatalkan.']);
@@ -259,7 +263,8 @@ class SalesOrderController extends Controller
      */
     public function complete(Request $request, string $id): RedirectResponse|JsonResponse
     {
-        $order = SalesOrder::with(['items.product', 'items.productUnit', 'store'])->findOrFail($id);
+        $order = SalesOrder::with(['items.product', 'items.productUnit', 'store'])
+            ->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if ($order->status === 'CANCELLED') {
             return back()->withErrors(['error' => 'Pesanan yang telah dibatalkan tidak dapat diselesaikan.']);
@@ -305,7 +310,8 @@ class SalesOrderController extends Controller
      */
     public function processToSale(Request $request, string $id): RedirectResponse|JsonResponse
     {
-        $order = SalesOrder::with(['items.product', 'items.productUnit', 'customer.tier', 'store.company'])->findOrFail($id);
+        $order = SalesOrder::with(['items.product', 'items.productUnit', 'customer.tier', 'store.company'])
+            ->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if ($order->status === 'CANCELLED') {
             return back()->withErrors(['error' => 'Pesanan yang telah dibatalkan tidak dapat diproses.']);
@@ -396,3 +402,4 @@ class SalesOrderController extends Controller
         }
     }
 }
+
