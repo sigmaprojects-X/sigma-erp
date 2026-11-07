@@ -76,7 +76,7 @@ class RewardController extends Controller
             'name' => 'required|string|max:200',
             'points_required' => 'required|integer|min:1',
             'stock_quantity' => 'required|numeric|min:0',
-            'product_id' => 'nullable|uuid|exists:products,id',
+            'product_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('products', 'id')->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())],
             'description' => 'nullable|string|max:500',
             'is_active' => 'nullable|boolean',
         ]);
@@ -122,9 +122,10 @@ class RewardController extends Controller
         ]);
 
         try {
-            $customer = Customer::findOrFail($validated['customer_id']);
-            $reward = LoyaltyReward::findOrFail($validated['loyalty_reward_id']);
-            $store = Store::where('company_id', $customer->company_id)->firstOrFail();
+            $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+            $customer = Customer::where('company_id', $company->id)->findOrFail($validated['customer_id']);
+            $reward = LoyaltyReward::where('company_id', $company->id)->findOrFail($validated['loyalty_reward_id']);
+            $store = Store::where('company_id', $company->id)->where('is_active', true)->firstOrFail();
             $user = Auth::user();
 
             $redemption = $this->loyaltyService->redeemMerchandise(
@@ -159,6 +160,7 @@ class RewardController extends Controller
      */
     public function destroy(LoyaltyReward $reward): RedirectResponse|JsonResponse
     {
+        abort_unless($reward->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $name = $reward->name;
         $reward->delete();
 
@@ -170,3 +172,4 @@ class RewardController extends Controller
             ->with('success', "Hadiah {$name} berhasil dihapus dari katalog.");
     }
 }
+
