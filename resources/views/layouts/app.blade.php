@@ -264,15 +264,7 @@
                     <span>Dashboard Utama</span>
                 </a>
 
-                <!-- 2. Kasir POS (Flagship Action Card) -->
-                <a href="{{ route('pos.index') }}"
-                   class="flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm transition-all duration-200 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/40 hover:scale-[1.02] cursor-pointer mb-2">
-                    <div class="flex items-center space-x-3.5">
-                        <svg class="h-5 w-5 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        <span>Buka Kasir POS</span>
-                    </div>
-                    <kbd class="px-1.5 py-0.5 rounded text-[10px] bg-black/25 font-mono">F12</kbd>
-                </a>
+
 
                 <div class="pt-2 pb-1 px-3 text-[10px] font-black uppercase tracking-wider text-slate-400">
                     Modul ERP &amp; Bisnis
@@ -1215,23 +1207,60 @@
         </header>
 
         <!-- FLASH NOTIFICATIONS -->
-        @if(session('success'))
-            <div class="mx-4 md:mx-8 mt-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-                <div class="flex items-center gap-2">
-                    <span class="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs">✓</span>
-                    <span class="font-bold">{{ session('success') }}</span>
-                </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:text-emerald-950 font-bold text-sm cursor-pointer">&times;</button>
-            </div>
-        @endif
-        @if(session('error'))
-            <div class="mx-4 md:mx-8 mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-                <div class="flex items-center gap-2">
-                    <span class="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-xs">✕</span>
-                    <span class="font-bold">{{ session('error') }}</span>
-                </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:text-rose-950 font-bold text-sm cursor-pointer">&times;</button>
-            </div>
+        @php
+            $flashNotifications = collect([
+                ['type' => 'success', 'title' => 'Berhasil', 'message' => session('success')],
+                ['type' => 'error', 'title' => 'Tidak dapat diproses', 'message' => session('error')],
+                ['type' => 'warning', 'title' => 'Perhatian', 'message' => session('warning')],
+                ['type' => 'info', 'title' => 'Informasi', 'message' => session('info')],
+            ])->filter(fn (array $notification) => filled($notification['message']));
+        @endphp
+
+        @if($flashNotifications->isNotEmpty())
+            <section class="mx-4 md:mx-8 mt-4 space-y-3" aria-label="Notifikasi sistem" aria-live="polite" aria-relevant="additions text">
+                @foreach($flashNotifications as $notification)
+                    @php
+                        $notificationStyle = match ($notification['type']) {
+                            'success' => ['accent' => 'border-emerald-500', 'icon' => 'from-emerald-500 to-teal-600', 'text' => 'text-emerald-800 dark:text-emerald-200', 'soft' => 'bg-emerald-50/80 dark:bg-emerald-950/30', 'ring' => 'ring-emerald-200/80 dark:ring-emerald-800/70'],
+                            'error' => ['accent' => 'border-rose-500', 'icon' => 'from-rose-500 to-red-600', 'text' => 'text-rose-800 dark:text-rose-200', 'soft' => 'bg-rose-50/80 dark:bg-rose-950/30', 'ring' => 'ring-rose-200/80 dark:ring-rose-800/70'],
+                            'warning' => ['accent' => 'border-amber-500', 'icon' => 'from-amber-400 to-orange-500', 'text' => 'text-amber-900 dark:text-amber-200', 'soft' => 'bg-amber-50/80 dark:bg-amber-950/30', 'ring' => 'ring-amber-200/80 dark:ring-amber-800/70'],
+                            default => ['accent' => 'border-sky-500', 'icon' => 'from-sky-500 to-blue-600', 'text' => 'text-sky-900 dark:text-sky-200', 'soft' => 'bg-sky-50/80 dark:bg-sky-950/30', 'ring' => 'ring-sky-200/80 dark:ring-sky-800/70'],
+                        };
+                    @endphp
+                    <article x-data="{ visible: true }"
+                             x-show="visible"
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 -translate-y-2"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 -translate-y-2"
+                             role="{{ $notification['type'] === 'error' ? 'alert' : 'status' }}"
+                             class="relative flex items-start gap-3.5 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 {{ $notificationStyle['accent'] }} {{ $notificationStyle['soft'] }} p-4 md:p-4 shadow-md shadow-slate-900/5 ring-1 {{ $notificationStyle['ring'] }} backdrop-blur-sm">
+                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br {{ $notificationStyle['icon'] }} text-white shadow-sm">
+                            @if($notification['type'] === 'success')
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>
+                            @elseif($notification['type'] === 'error')
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18"/></svg>
+                            @elseif($notification['type'] === 'warning')
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.9 18.4A1.8 1.8 0 0 0 3.5 21h17a1.8 1.8 0 0 0 1.6-2.6L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                            @else
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 11v5m0-8h.01"/></svg>
+                            @endif
+                        </span>
+                        <div class="min-w-0 flex-1 pt-0.5">
+                            <h2 class="text-sm font-extrabold tracking-tight {{ $notificationStyle['text'] }}">{{ $notification['title'] }}</h2>
+                            <p class="mt-1 whitespace-pre-line break-words text-xs md:text-[13px] leading-relaxed text-slate-700 dark:text-slate-300">{{ $notification['message'] }}</p>
+                        </div>
+                        <button type="button"
+                                @click="visible = false"
+                                aria-label="Tutup notifikasi"
+                                class="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/80 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-white">
+                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/></svg>
+                        </button>
+                    </article>
+                @endforeach
+            </section>
         @endif
 
         <!-- MAIN WORKSPACE CONTENT -->
@@ -1280,8 +1309,85 @@
         </a>
     </nav>
 
+    <!-- BRANDED CONFIRMATION DIALOG -->
+    <div x-data="sigmaConfirmDialog()"
+         @sigma-confirm-request.window="openFor($event.detail)"
+         @keydown.window.escape="cancel()"
+         x-show="visible"
+         x-cloak
+         x-transition.opacity
+         class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
+         role="presentation"
+         @click.self="cancel()">
+        <section x-show="visible"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 class="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/30 dark:border-slate-700 dark:bg-slate-900"
+                 role="alertdialog"
+                 aria-modal="true"
+                 aria-labelledby="sigma-confirm-title"
+                 aria-describedby="sigma-confirm-message">
+            <div class="flex items-start gap-4 p-6">
+                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-900">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18m-2 0-.9 14.1a2 2 0 0 1-2 1.9H7.9a2 2 0 0 1-2-1.9L5 6m4 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-5 4v7m4-7v7"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <h2 id="sigma-confirm-title" class="text-base font-black tracking-tight text-slate-900 dark:text-white">Konfirmasi penghapusan</h2>
+                    <p id="sigma-confirm-message" x-text="message" class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
+                </div>
+                <button type="button" @click="cancel()" aria-label="Tutup dialog" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white">
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div class="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/80 p-4 sm:flex-row sm:justify-end dark:border-slate-800 dark:bg-slate-950/50">
+                <button type="button" @click="cancel()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">Batal</button>
+                <button type="button" @click="confirm()" class="rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-rose-900/15 transition hover:from-rose-500 hover:to-red-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">Ya, hapus item</button>
+            </div>
+        </section>
+    </div>
+
     <!-- JAVASCRIPT STATE ENGINE -->
     <script>
+        function sigmaConfirmDialog() {
+            return {
+                visible: false,
+                form: null,
+                message: '',
+                openFor(detail) {
+                    this.form = detail.form;
+                    this.message = detail.message || 'Lanjutkan tindakan ini?';
+                    this.visible = true;
+                },
+                cancel() {
+                    this.visible = false;
+                    this.form = null;
+                },
+                confirm() {
+                    const form = this.form;
+                    if (!form) return;
+                    form.dataset.confirmed = 'true';
+                    this.visible = false;
+                    this.form = null;
+                    form.requestSubmit();
+                }
+            };
+        }
+
+        // Intercept only explicitly marked forms; all other forms keep their current behavior.
+        document.addEventListener('submit', function(event) {
+            const form = event.target.closest && event.target.closest('form[data-confirm]');
+            if (!form) return;
+            if (form.dataset.confirmed === 'true') {
+                delete form.dataset.confirmed;
+                return;
+            }
+            event.preventDefault();
+            window.dispatchEvent(new CustomEvent('sigma-confirm-request', {
+                detail: { form, message: form.dataset.confirmMessage }
+            }));
+        }, true);
+
         window.toggleSigmaTheme = function() {
             const isDark = document.documentElement.classList.contains('dark');
             if (isDark) {
