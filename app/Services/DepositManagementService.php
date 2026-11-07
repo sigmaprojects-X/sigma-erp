@@ -101,7 +101,10 @@ class DepositManagementService
 
         return DB::transaction(function () use ($company, $data, $user, $amount) {
             $customer = Customer::where('company_id', $company->id)->lockForUpdate()->findOrFail($data['customer_id']);
-            $store = ! empty($data['store_id']) ? Store::find($data['store_id']) : ($customer->store ?? Store::where('company_id', $company->id)->first());
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : (Store::where('company_id', $company->id)->find($customer->store_id)
+                    ?? Store::where('company_id', $company->id)->firstOrFail());
 
             $balanceBefore = (float) $customer->deposit_balance;
             $balanceAfter = round($balanceBefore + $amount, 2);
@@ -184,7 +187,10 @@ class DepositManagementService
 
         return DB::transaction(function () use ($company, $data, $user, $amount) {
             $customer = Customer::where('company_id', $company->id)->lockForUpdate()->findOrFail($data['customer_id']);
-            $store = ! empty($data['store_id']) ? Store::find($data['store_id']) : ($customer->store ?? Store::where('company_id', $company->id)->first());
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : (Store::where('company_id', $company->id)->find($customer->store_id)
+                    ?? Store::where('company_id', $company->id)->firstOrFail());
 
             $balanceBefore = (float) $customer->deposit_balance;
             if ($amount > $balanceBefore) {
@@ -308,7 +314,9 @@ class DepositManagementService
 
         return DB::transaction(function () use ($company, $data, $user, $amount) {
             $supplier = Supplier::where('company_id', $company->id)->lockForUpdate()->findOrFail($data['supplier_id']);
-            $store = ! empty($data['store_id']) ? Store::find($data['store_id']) : Store::where('company_id', $company->id)->first();
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : Store::where('company_id', $company->id)->firstOrFail();
 
             $balanceBefore = (float) $supplier->deposit_balance;
             $balanceAfter = round($balanceBefore + $amount, 2);
@@ -390,7 +398,9 @@ class DepositManagementService
 
         return DB::transaction(function () use ($company, $data, $user, $amount) {
             $supplier = Supplier::where('company_id', $company->id)->lockForUpdate()->findOrFail($data['supplier_id']);
-            $store = ! empty($data['store_id']) ? Store::find($data['store_id']) : Store::where('company_id', $company->id)->first();
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : Store::where('company_id', $company->id)->firstOrFail();
 
             $balanceBefore = (float) $supplier->deposit_balance;
             if ($amount > $balanceBefore) {
@@ -493,3 +503,4 @@ class DepositManagementService
         return $query->orderByDesc('deposit_balance')->orderBy('name')->paginate(20);
     }
 }
+
