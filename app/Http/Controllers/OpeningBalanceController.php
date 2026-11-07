@@ -90,7 +90,7 @@ class OpeningBalanceController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
 
         $receivables = $this->openingService->getCustomerOpeningReceivables($company, $store);
         $totalReceivable = $receivables->sum('remaining_receivable');
@@ -393,7 +393,7 @@ class OpeningBalanceController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
 
         $payables = $this->openingService->getSupplierOpeningPayables($company, $store);
         $totalPayable = $payables->sum('grand_total');
@@ -716,3 +716,4 @@ class OpeningBalanceController extends Controller
         return $rows;
     }
 }
+
