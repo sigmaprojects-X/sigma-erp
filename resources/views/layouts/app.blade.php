@@ -1207,23 +1207,60 @@
         </header>
 
         <!-- FLASH NOTIFICATIONS -->
-        @if(session('success'))
-            <div class="mx-4 md:mx-8 mt-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-                <div class="flex items-center gap-2">
-                    <span class="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs">✓</span>
-                    <span class="font-bold">{{ session('success') }}</span>
-                </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 dark:text-emerald-400 hover:text-emerald-950 font-bold text-sm cursor-pointer">&times;</button>
-            </div>
-        @endif
-        @if(session('error'))
-            <div class="mx-4 md:mx-8 mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-                <div class="flex items-center gap-2">
-                    <span class="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-xs">✕</span>
-                    <span class="font-bold">{{ session('error') }}</span>
-                </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-rose-700 dark:text-rose-400 hover:text-rose-950 font-bold text-sm cursor-pointer">&times;</button>
-            </div>
+        @php
+            $flashNotifications = collect([
+                ['type' => 'success', 'title' => 'Berhasil', 'message' => session('success')],
+                ['type' => 'error', 'title' => 'Tidak dapat diproses', 'message' => session('error')],
+                ['type' => 'warning', 'title' => 'Perhatian', 'message' => session('warning')],
+                ['type' => 'info', 'title' => 'Informasi', 'message' => session('info')],
+            ])->filter(fn (array $notification) => filled($notification['message']));
+        @endphp
+
+        @if($flashNotifications->isNotEmpty())
+            <section class="mx-4 md:mx-8 mt-4 space-y-3" aria-label="Notifikasi sistem" aria-live="polite" aria-relevant="additions text">
+                @foreach($flashNotifications as $notification)
+                    @php
+                        $notificationStyle = match ($notification['type']) {
+                            'success' => ['accent' => 'border-emerald-500', 'icon' => 'from-emerald-500 to-teal-600', 'text' => 'text-emerald-800 dark:text-emerald-200', 'soft' => 'bg-emerald-50/80 dark:bg-emerald-950/30', 'ring' => 'ring-emerald-200/80 dark:ring-emerald-800/70'],
+                            'error' => ['accent' => 'border-rose-500', 'icon' => 'from-rose-500 to-red-600', 'text' => 'text-rose-800 dark:text-rose-200', 'soft' => 'bg-rose-50/80 dark:bg-rose-950/30', 'ring' => 'ring-rose-200/80 dark:ring-rose-800/70'],
+                            'warning' => ['accent' => 'border-amber-500', 'icon' => 'from-amber-400 to-orange-500', 'text' => 'text-amber-900 dark:text-amber-200', 'soft' => 'bg-amber-50/80 dark:bg-amber-950/30', 'ring' => 'ring-amber-200/80 dark:ring-amber-800/70'],
+                            default => ['accent' => 'border-sky-500', 'icon' => 'from-sky-500 to-blue-600', 'text' => 'text-sky-900 dark:text-sky-200', 'soft' => 'bg-sky-50/80 dark:bg-sky-950/30', 'ring' => 'ring-sky-200/80 dark:ring-sky-800/70'],
+                        };
+                    @endphp
+                    <article x-data="{ visible: true }"
+                             x-show="visible"
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 -translate-y-2"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 -translate-y-2"
+                             role="{{ $notification['type'] === 'error' ? 'alert' : 'status' }}"
+                             class="relative flex items-start gap-3.5 overflow-hidden rounded-2xl border border-slate-200/80 border-l-4 {{ $notificationStyle['accent'] }} {{ $notificationStyle['soft'] }} p-4 md:p-4.5 shadow-md shadow-slate-900/5 ring-1 {{ $notificationStyle['ring'] }} backdrop-blur-sm">
+                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br {{ $notificationStyle['icon'] }} text-white shadow-sm">
+                            @if($notification['type'] === 'success')
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>
+                            @elseif($notification['type'] === 'error')
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18"/></svg>
+                            @elseif($notification['type'] === 'warning')
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.9 18.4A1.8 1.8 0 0 0 3.5 21h17a1.8 1.8 0 0 0 1.6-2.6L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                            @else
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 11v5m0-8h.01"/></svg>
+                            @endif
+                        </span>
+                        <div class="min-w-0 flex-1 pt-0.5">
+                            <h2 class="text-sm font-extrabold tracking-tight {{ $notificationStyle['text'] }}">{{ $notification['title'] }}</h2>
+                            <p class="mt-1 whitespace-pre-line break-words text-xs md:text-[13px] leading-relaxed text-slate-700 dark:text-slate-300">{{ $notification['message'] }}</p>
+                        </div>
+                        <button type="button"
+                                @click="visible = false"
+                                aria-label="Tutup notifikasi"
+                                class="ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/80 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-white">
+                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"/></svg>
+                        </button>
+                    </article>
+                @endforeach
+            </section>
         @endif
 
         <!-- MAIN WORKSPACE CONTENT -->
