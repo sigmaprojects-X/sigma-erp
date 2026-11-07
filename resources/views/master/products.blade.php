@@ -72,11 +72,19 @@
                     <option value="BIAYA" {{ request('type') === 'BIAYA' ? 'selected' : '' }}>💸 Biaya / Beban</option>
                 </select>
             </div>
+            <label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-600">
+                <input type="checkbox"
+                       name="show_discontinued"
+                       value="1"
+                       {{ request()->boolean('show_discontinued') ? 'checked' : '' }}
+                       class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                Tampilkan item Discontinue
+            </label>
             <button type="submit"
                     class="py-1.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors cursor-pointer">
                 Cari Produk
             </button>
-            @if(request('search') || request('type'))
+            @if(request('search') || request('type') || request()->boolean('show_discontinued'))
                 <a href="{{ route('master.products') }}"
                    class="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors">
                     Reset
