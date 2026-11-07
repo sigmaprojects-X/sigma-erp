@@ -196,7 +196,7 @@
                             </td>
                             <td class="px-4 py-4 text-xs">
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                    {{ $p->baseUnit?->unit_code ?? 'PCS' }}
+                                    {{ $p->getRelation('baseUnit')?->unit_code ?? 'PCS' }}
                                 </span>
                             </td>
                             <td class="px-4 py-4 text-right font-black {{ $physical > 0 ? 'text-blue-600 dark:text-blue-400 text-base' : 'text-slate-400' }}">

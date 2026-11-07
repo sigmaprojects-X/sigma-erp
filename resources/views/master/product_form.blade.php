@@ -630,6 +630,13 @@
                             <option value="DISCONTINUED" {{ $currentSaleStatus === 'DISCONTINUED' ? 'selected' : '' }}>🔴 Tidak Dijual (Discontinue)</option>
                             <option value="BUY_ONLY" {{ $currentSaleStatus === 'BUY_ONLY' ? 'selected' : '' }}>🟡 Bisa Beli Tapi Tidak Dijual</option>
                         </select>
+                        @if($isEdit)
+                            <button type="submit" name="status_only" value="1" formnovalidate
+                                    class="mt-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition">
+                                Simpan Status Saja
+                            </button>
+                            <p class="mt-1 text-[10px] text-slate-500">Mengubah status penjualan/POS saja; harga dan satuan tetap.</p>
+                        @endif
                         <p class="text-[11px] text-slate-500 font-medium" x-show="tracksInventory()">
                             <span class="text-rose-600 font-bold">* Catatan:</span> Status <strong>Discontinue</strong> hanya dapat dipilih jika sisa stok fisik barang sudah <strong>0 (kosong)</strong>.
                         </p>
