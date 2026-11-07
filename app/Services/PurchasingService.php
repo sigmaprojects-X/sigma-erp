@@ -131,6 +131,10 @@ class PurchasingService
         ?string $notes = null,
         ?string $userId = null
     ): PurchaseOrder {
+        if ($store->company_id !== $company->id || $supplier->company_id !== $company->id) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Supplier dan cabang pembelian harus berada dalam perusahaan aktif yang sama.');
+        }
+
         if (empty($items)) {
             throw new \InvalidArgumentException('Daftar barang pada Purchase Order tidak boleh kosong.');
         }
@@ -155,7 +159,10 @@ class PurchasingService
             $productTotals = [];
             foreach ($items as $item) {
                 $pId = $item['product_id'];
-                $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($item['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $product->id)
+                    ->findOrFail($item['product_unit_id']);
                 $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
                 $bQty = round((float) $item['quantity'] * $conv, 4);
                 $productTotals[$pId] = ($productTotals[$pId] ?? 0.0) + $bQty;
@@ -163,7 +170,7 @@ class PurchasingService
 
             $requirements = [];
             foreach ($productTotals as $productId => $totalBaseQty) {
-                $product = Product::findOrFail($productId);
+                $product = Product::where('company_id', $company->id)->findOrFail($productId);
 
                 // Aturan Transfer-First: Cek apakah ada transfer masuk aktif ke toko ini
                 if ($this->stockAllocationService->isTransferActive($store, $product)) {
@@ -196,8 +203,10 @@ class PurchasingService
             $preparedItems = [];
 
             foreach ($items as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($item['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $product->id)
+                    ->findOrFail($item['product_unit_id']);
 
                 $qty = (float) $item['quantity'];
                 $price = (float) $item['unit_price'];
@@ -462,7 +471,7 @@ class PurchasingService
             ]);
 
             // Jurnal Akuntansi Double Entry Seimbang
-            $bankAcc = $bankAccountId ? BankAccount::find($bankAccountId) : null;
+            $bankAcc = $bankAccountId ? BankAccount::where('company_id', $company->id)->find($bankAccountId) : null;
             $this->accountingService->recordGoodsReceiptJournal(
                 company: $company,
                 store: $store,
@@ -975,3 +984,4 @@ class PurchasingService
         });
     }
 }
+

@@ -53,11 +53,11 @@ class MasterDataController extends Controller
                 $store = Store::where('company_id', $company->id)->find($request->store_id)
                     ?? Store::where('company_id', $company->id)->where('is_main_store', true)->first()
                     ?? Store::where('company_id', $company->id)->first()
-                    ?? Store::firstOrFail();
+                    ?? Store::where('company_id', $company->id)->firstOrFail();
             } else {
                 $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
                     ?? Store::where('company_id', $company->id)->first()
-                    ?? Store::firstOrFail();
+                    ?? Store::where('company_id', $company->id)->firstOrFail();
             }
         }
 
@@ -376,7 +376,7 @@ class MasterDataController extends Controller
             $categoryId = $request->category_id;
             $categoryName = $request->category;
             if ($categoryId && ! $categoryName) {
-                $categoryName = ProductCategory::find($categoryId)?->name;
+                $categoryName = ProductCategory::where('company_id', $company->id)->find($categoryId)?->name;
             } elseif (! $categoryId && $categoryName) {
                 $matchedCat = ProductCategory::where('name', $categoryName)->orWhere('code', $categoryName)->first();
                 $categoryId = $matchedCat?->id;
@@ -559,7 +559,7 @@ class MasterDataController extends Controller
                                     'company_id' => $company->id,
                                     'product_id' => $product->id,
                                     'product_unit_id' => $pUnit->id,
-                                    'customer_tier_id' => $tierRetail ? $tierRetail->id : CustomerTier::first()->id,
+                                    'customer_tier_id' => $tierRetail ? $tierRetail->id : CustomerTier::where('company_id', $company->id)->firstOrFail()->id,
                                     'store_id' => null,
                                     'min_quantity' => $minQty,
                                     'price' => $qtyPrice,
@@ -803,253 +803,13 @@ class MasterDataController extends Controller
             $categoryId = $request->category_id;
             $categoryName = $request->category;
             if ($categoryId && ! $categoryName) {
-                $categoryName = ProductCategory::find($categoryId)?->name;
-            } elseif (! $categoryId && $categoryName) {
-                $matchedCat = ProductCategory::where('name', $categoryName)->orWhere('code', $categoryName)->first();
-                $categoryId = $matchedCat?->id;
-            }
-
-            $isPointOfSale = ($newSaleStatus === 'DISCONTINUED' || $newSaleStatus === 'BUY_ONLY' || $productType === Product::TYPE_BIAYA)
-                ? false
-                : $request->boolean('is_point_of_sale', $product->is_point_of_sale);
-
-            $updateData = [
-                'sku' => strtoupper(trim($request->sku)),
-                'type' => $productType,
-                'name' => trim($request->name),
-                'category_id' => $categoryId,
-                'supplier_id' => $request->supplier_id ?: Supplier::generalFor($product->company_id)->id,
-                'category' => $categoryName ?: $product->category,
-                'sub_category' => $request->sub_category,
-                'brand' => $request->brand,
-                'rack_location' => $tracksInventory ? $request->rack_location : null,
-                'sale_status' => $newSaleStatus,
-                'cost_price' => (float) $request->cost_price,
-                'min_stock_alert' => $tracksInventory ? (float) ($request->min_stock_alert ?? $product->min_stock_alert) : 0.00,
-                'max_stock' => ($tracksInventory && $request->filled('max_stock')) ? (float) $request->max_stock : null,
-                'has_serial_number' => $tracksInventory ? $request->boolean('has_serial_number') : false,
-                'has_batch_expiry' => $tracksInventory ? $request->boolean('has_batch_expiry') : false,
-                'is_point_of_sale' => $isPointOfSale,
-                'is_active' => $request->boolean('is_active', true),
-                'notes' => $request->notes,
-                'tax_type' => $request->input('tax_type', $product->tax_type),
-                'tax_reference_code' => $request->tax_reference_code,
-            ];
-
-            if ($request->hasFile('image')) {
-                $updateData['image_path'] = $request->file('image')->store('products', 'public');
-            }
-
-            if ($request->hasFile('additional_images')) {
-                $existingGallery = $product->additional_images ?: [];
-                foreach ($request->file('additional_images') as $file) {
-                    $existingGallery[] = $file->store('products/gallery', 'public');
-                }
-                $updateData['additional_images'] = $existingGallery;
-            }
-
-            $product->update($updateData);
-
-            // Sinkronisasi Multi-Satuan & Mencegah Collision Unique Constraint PostgreSQL
-            if ($request->has('units') && is_array($request->input('units'))) {
-                $existingUnits = ProductUnit::where('product_id', $product->id)->get()->keyBy('id');
-                $submittedRows = $request->input('units');
-
-                // Kumpulkan ID satuan yang tetap dipertahankan
-                $submittedUnitIds = [];
-                foreach ($submittedRows as $uData) {
-                    if (! empty($uData['id'])) {
-                        $submittedUnitIds[] = $uData['id'];
-                    }
-                }
-
-                // 1. Tangani unit yang dihapus dari baris UI
-                $removedUnits = $existingUnits->filter(fn ($u) => ! in_array($u->id, $submittedUnitIds));
-                foreach ($removedUnits as $remUnit) {
-                    $isUsedInTx = DB::table('pos_transaction_items')->where('product_unit_id', $remUnit->id)->exists()
-                        || DB::table('sales_order_items')->where('product_unit_id', $remUnit->id)->exists()
-                        || DB::table('purchase_order_items')->where('product_unit_id', $remUnit->id)->exists()
-                        || DB::table('purchase_items')->where('product_unit_id', $remUnit->id)->exists()
-                        || DB::table('goods_receipt_items')->where('product_unit_id', $remUnit->id)->exists()
-                        || DB::table('stock_mutations')->where('product_unit_id', $remUnit->id)->exists()
-                        || DB::table('pos_return_items')->where('product_unit_id', $remUnit->id)->exists();
-
-                    if ($isUsedInTx) {
-                        $remUnit->update([
-                            'is_active' => false,
-                            'unit_code' => substr($remUnit->unit_code . '_ARCH_' . Str::random(6), 0, 50),
-                        ]);
-                    } else {
-                        ProductBarcode::where('product_unit_id', $remUnit->id)->delete();
-                        ProductPrice::where('product_unit_id', $remUnit->id)->delete();
-                        $remUnit->delete();
-                    }
-                }
-
-                // 2. Tahap 1: Temporary Rename jika ada perubahan kode satuan untuk menghindari UniqueConstraintViolationException
-                foreach ($submittedRows as $uData) {
-                    if (! empty($uData['id']) && isset($existingUnits[$uData['id']])) {
-                        $pUnit = $existingUnits[$uData['id']];
-                        $targetCode = strtoupper(trim($uData['unit_code'] ?? ''));
-                        if ($targetCode !== '' && $pUnit->unit_code !== $targetCode) {
-                            $pUnit->update([
-                                'unit_code' => 'TMP_' . Str::random(10),
-                            ]);
-                        }
-                    }
-                }
-
-                // 3. Tahap 2: Terapkan kode satuan final, konversi, harga dan barcode
-                foreach ($submittedRows as $idx => $uData) {
-                    if (empty($uData['unit_code'])) {
-                        continue;
-                    }
-
-                    $unitCode = strtoupper(trim($uData['unit_code']));
-                    $conversion = (float) ($uData['conversion_factor'] ?? 1);
-                    $isBase = $idx === 0 || ! empty($uData['is_base_unit']);
-
-                    $pUnit = null;
-                    if (! empty($uData['id'])) {
-                        $pUnit = ProductUnit::where('id', $uData['id'])->where('product_id', $product->id)->first();
-                    }
-                    if (! $pUnit) {
-                        $pUnit = ProductUnit::where('product_id', $product->id)->where('unit_code', $unitCode)->first();
-                    }
-                    $isActiveUnit = $isBase ? true : (! empty($uData['is_active']));
-
-                    $unitPayload = [
-                        'unit_code' => $unitCode,
-                        'unit_name' => trim($uData['unit_name'] ?? $unitCode),
-                        'conversion_factor' => $conversion > 0 ? $conversion : 1.0000,
-                        'weight_gram' => (float) ($uData['weight_gram'] ?? 0.00),
-                        'length_cm' => (float) ($uData['length_cm'] ?? 0.00),
-                        'width_cm' => (float) ($uData['width_cm'] ?? 0.00),
-                        'height_cm' => (float) ($uData['height_cm'] ?? 0.00),
-                        'point_reward' => (float) ($uData['point_reward'] ?? 0.00),
-                        'commission_rate' => (float) ($uData['commission_rate'] ?? 0.00),
-                        'is_base_unit' => $isBase,
-                        'is_active' => $isActiveUnit,
-                    ];
-
-                    if (! $pUnit) {
-                        $unitPayload['company_id'] = $company->id;
-                        $unitPayload['store_id'] = $store->id;
-                        $unitPayload['product_id'] = $product->id;
-                        $pUnit = ProductUnit::create($unitPayload);
-                    } else {
-                        $pUnit->update($unitPayload);
-                    }
-
-                    // Update atau create barcode
-                    if (! empty($uData['barcode'])) {
-                        ProductBarcode::updateOrCreate(
-                            ['product_id' => $product->id, 'product_unit_id' => $pUnit->id],
-                            [
-                                'company_id' => $company->id,
-                                'store_id' => $store->id,
-                                'barcode' => trim($uData['barcode']),
-                                'is_primary' => $isBase,
-                            ]
-                        );
-                    }
-
-                    // 1. Simpan Harga per Level Pelanggan (Customer Tier: Level 1 s/d Level 6)
-                    if (! empty($uData['tier_prices']) && is_array($uData['tier_prices'])) {
-                        foreach ($uData['tier_prices'] as $tierId => $tData) {
-                            $tier = CustomerTier::where('company_id', $company->id)->whereKey($tierId)->first();
-                            if (! $tier) {
-                                continue;
-                            }
-                            $tierPrice = (float) ($tData['price'] ?? 0);
-                            if ($tier->code === 'GROSIR' && (empty($tData['is_active']) || $tierPrice <= 0)) {
-                                ProductPrice::where('company_id', $company->id)
-                                    ->where('product_id', $product->id)
-                                    ->where('product_unit_id', $pUnit->id)
-                                    ->where('customer_tier_id', $tierId)
-                                    ->where('min_quantity', 1.00)
-                                    ->whereNull('store_id')
-                                    ->update(['is_active' => false]);
-                                continue;
-                            }
-                            if (isset($tData['price']) && $tData['price'] !== '' && (float) $tData['price'] > 0) {
+                $categoryName = ProductCategory::where('company_               if ($minQty > 1 && $qtyPrice > 0) {
                                 ProductPrice::updateOrCreate(
                                     [
                                         'company_id' => $company->id,
                                         'product_id' => $product->id,
                                         'product_unit_id' => $pUnit->id,
-                                        'customer_tier_id' => $tierId,
-                                        'min_quantity' => 1.00,
-                                        'store_id' => null,
-                                    ],
-                                    [
-                                        'price' => (float) $tData['price'],
-                                        'margin_percentage' => isset($tData['margin']) ? (float) $tData['margin'] : null,
-                                        'discount_1' => (float) ($uData['discount_1'] ?? 0.00),
-                                        'discount_2' => (float) ($uData['discount_2'] ?? 0.00),
-                                        'discount_3' => (float) ($uData['discount_3'] ?? 0.00),
-                                        'discount_4' => (float) ($uData['discount_4'] ?? 0.00),
-                                        'is_active' => true,
-                                    ]
-                                );
-                            }
-                        }
-                    } else {
-                        // Update harga Retail
-                        if ($tierRetail && isset($uData['price_retail']) && $uData['price_retail'] !== '') {
-                            ProductPrice::updateOrCreate(
-                                [
-                                    'company_id' => $company->id,
-                                    'product_id' => $product->id,
-                                    'product_unit_id' => $pUnit->id,
-                                    'customer_tier_id' => $tierRetail->id,
-                                    'min_quantity' => 1.00,
-                                    'store_id' => null,
-                                ],
-                                [
-                                    'price' => (float) $uData['price_retail'],
-                                    'margin_percentage' => isset($uData['margin_retail']) ? (float) $uData['margin_retail'] : null,
-                                    'discount_1' => (float) ($uData['discount_1'] ?? 0.00),
-                                    'discount_2' => (float) ($uData['discount_2'] ?? 0.00),
-                                    'discount_3' => (float) ($uData['discount_3'] ?? 0.00),
-                                    'discount_4' => (float) ($uData['discount_4'] ?? 0.00),
-                                    'is_active' => true,
-                                ]
-                            );
-                        }
-
-                        // Update harga Grosir
-                        if ($tierGrosir && isset($uData['price_grosir']) && $uData['price_grosir'] !== '') {
-                            ProductPrice::updateOrCreate(
-                                [
-                                    'company_id' => $company->id,
-                                    'product_id' => $product->id,
-                                    'product_unit_id' => $pUnit->id,
-                                    'customer_tier_id' => $tierGrosir->id,
-                                    'min_quantity' => 1.00,
-                                    'store_id' => null,
-                                ],
-                                [
-                                    'price' => (float) $uData['price_grosir'],
-                                    'margin_percentage' => isset($uData['margin_grosir']) ? (float) $uData['margin_grosir'] : null,
-                                    'is_active' => true,
-                                ]
-                            );
-                        }
-                    }
-
-                    // 2. Simpan Harga Berdasarkan Jumlah Pembelian (Tiered Qty / Grosir Min Qty)
-                    if (! empty($uData['tiered_prices']) && is_array($uData['tiered_prices'])) {
-                        foreach ($uData['tiered_prices'] as $tPrice) {
-                            $minQty = (float) ($tPrice['min_qty'] ?? 1);
-                            $qtyPrice = (float) ($tPrice['price'] ?? 0);
-                            if ($minQty > 1 && $qtyPrice > 0) {
-                                ProductPrice::updateOrCreate(
-                                    [
-                                        'company_id' => $company->id,
-                                        'product_id' => $product->id,
-                                        'product_unit_id' => $pUnit->id,
-                                        'customer_tier_id' => $tierRetail ? $tierRetail->id : CustomerTier::first()->id,
+                                        'customer_tier_id' => $tierRetail ? $tierRetail->id : CustomerTier::where('company_id', $company->id)->firstOrFail()->id,
                                         'min_quantity' => $minQty,
                                         'store_id' => null,
                                     ],
@@ -1818,15 +1578,21 @@ class MasterDataController extends Controller
      */
     public function storeStore(Request $request): RedirectResponse
     {
+        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+
         $request->validate([
-            'code' => 'required|string|max:50|unique:stores,code',
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('stores', 'code')->where('company_id', $company->id),
+            ],
             'name' => 'required|string|max:150',
             'type' => 'required|in:STORE,WAREHOUSE',
             'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string',
         ]);
-
-        $company = app(\App\Services\CompanyService::class)->getActiveCompany();
 
         Store::create([
             'company_id' => $company->id,
@@ -1846,10 +1612,17 @@ class MasterDataController extends Controller
      */
     public function updateStore(Request $request, string $id): RedirectResponse
     {
-        $store = Store::where('company_id', $this->activeCompanyId())->findOrFail($id);
+        $companyId = $this->activeCompanyId();
+        $store = Store::where('company_id', $companyId)->findOrFail($id);
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
 
         $request->validate([
-            'code' => 'required|string|max:50|unique:stores,code,' . $store->id,
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('stores', 'code')->where('company_id', $companyId)->ignore($store->id),
+            ],
             'name' => 'required|string|max:150',
             'type' => 'required|in:STORE,WAREHOUSE',
             'phone' => 'nullable|string|max:30',
@@ -2494,3 +2267,4 @@ class MasterDataController extends Controller
         return null;
     }
 }
+

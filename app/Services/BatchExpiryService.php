@@ -43,10 +43,14 @@ class BatchExpiryService
             $unitCost,
             $notes
         ) {
-            $company = $product->company ?? Company::first();
+            $company = $product->company;
+            if (! $company || $store->company_id !== $company->id) {
+                abort(403, 'Produk dan cabang batch harus berasal dari perusahaan yang sama.');
+            }
 
             /** @var ProductBatch|null $batch */
-            $batch = ProductBatch::where('store_id', $store->id)
+            $batch = ProductBatch::where('company_id', $company->id)
+                ->where('store_id', $store->id)
                 ->where('product_id', $product->id)
                 ->where('batch_number', trim($batchNumber))
                 ->whereDate('expired_date', $expDateObj)
@@ -229,3 +233,4 @@ class BatchExpiryService
             ->update(['status' => 'EXPIRED']);
     }
 }
+

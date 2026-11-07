@@ -50,6 +50,10 @@ class WarehouseService
         ?string $notes = null,
         ?string $userId = null
     ): StockTransfer {
+        if ($sourceStore->company_id !== $company->id || $destinationStore->company_id !== $company->id) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Cabang transfer harus berada dalam perusahaan aktif yang sama.');
+        }
+
         if ($sourceStore->id === $destinationStore->id) {
             throw new \InvalidArgumentException('Toko asal dan toko tujuan transfer tidak boleh sama.');
         }
@@ -76,7 +80,7 @@ class WarehouseService
             $productTotals = [];
             foreach ($items as $item) {
                 $pId = $item['product_id'];
-                $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                $unit = ProductUnit::where('company_id', $company->id)->findOrFail($item['product_unit_id']);
                 $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
                 $bQty = round((float) $item['quantity'] * $conv, 4);
                 $productTotals[$pId] = ($productTotals[$pId] ?? 0.0) + $bQty;
@@ -84,7 +88,7 @@ class WarehouseService
 
             $requirements = [];
             foreach ($productTotals as $productId => $totalBaseQty) {
-                $product = Product::findOrFail($productId);
+                $product = Product::where('company_id', $company->id)->findOrFail($productId);
 
                 $existingReq = StockRequirement::active()
                     ->where('company_id', $company->id)
@@ -110,8 +114,10 @@ class WarehouseService
             $preparedItems = [];
 
             foreach ($items as $item) {
-                $product = Product::findOrFail($item['product_id']);
-                $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($item['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $product->id)
+                    ->findOrFail($item['product_unit_id']);
                 $qty = (float) $item['quantity'];
 
                 $conversion = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
@@ -672,6 +678,10 @@ class WarehouseService
         ?string $notes = null,
         ?User $user = null
     ): TransferRequest {
+        if ($requestingStore->company_id !== $company->id || $destinationStore->company_id !== $company->id) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Cabang permintaan transfer harus berada dalam perusahaan aktif yang sama.');
+        }
+
         if ($requestingStore->id === $destinationStore->id) {
             throw new \InvalidArgumentException('Toko cabang peminta dan toko tujuan tidak boleh sama.');
         }
@@ -711,14 +721,17 @@ class WarehouseService
             $totalRequestedBaseQty = 0;
 
             foreach ($items as $item) {
-                $unit = ProductUnit::findOrFail($item['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($item['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('product_id', $product->id)
+                    ->findOrFail($item['product_unit_id']);
                 $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
                 $baseQty = round((float) $item['requested_quantity'] * $conv, 4);
                 $totalRequestedBaseQty += $baseQty;
 
                 TransferRequestItem::create([
                     'transfer_request_id' => $transferRequest->id,
-                    'product_id' => $item['product_id'],
+                    'product_id' => $product->id,
                     'product_unit_id' => $unit->id,
                     'requested_quantity' => (float) $item['requested_quantity'],
                     'approved_quantity' => 0,
@@ -764,7 +777,9 @@ class WarehouseService
                     ->firstOrFail();
 
                 $approvedQty = max(0.0, (float) ($app['approved_quantity'] ?? 0));
-                $unit = ProductUnit::findOrFail($reqItem->product_unit_id);
+                $unit = ProductUnit::where('company_id', $transferRequest->company_id)
+                    ->where('product_id', $reqItem->product_id)
+                    ->findOrFail($reqItem->product_unit_id);
                 $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
                 $baseQty = round($approvedQty * $conv, 4);
 
@@ -838,3 +853,4 @@ class WarehouseService
         });
     }
 }
+

@@ -205,15 +205,16 @@ class PwaStorefrontController extends Controller
     /**
      * Detail Produk untuk PWA Popup / Modal.
      */
-    public function productDetail(string $id): JsonResponse
+    public function productDetail(Request $request, string $id): JsonResponse
     {
+        $store = Store::where('is_active', true)->findOrFail($request->query('store_id'));
+        abort_unless($store->company?->is_active, 404);
         $product = Product::with(['units', 'prices.customerTier', 'category'])
+            ->where('company_id', $store->company_id)
             ->where('is_active', true)
             ->where('type', '!=', Product::TYPE_BIAYA)
             ->whereNotIn('sale_status', ['DISCONTINUED', 'BUY_ONLY'])
             ->findOrFail($id);
-
-        $store = Store::where('is_active', true)->first();
 
         $stock = ProductStock::where('product_id', $product->id)
             ->where('store_id', $store?->id)
@@ -253,8 +254,9 @@ class PwaStorefrontController extends Controller
 
         try {
             $order = DB::transaction(function () use ($validated) {
-                $store = Store::with('company')->findOrFail($validated['store_id']);
+                $store = Store::with('company')->where('is_active', true)->findOrFail($validated['store_id']);
                 $company = $store->company;
+                abort_unless($company?->is_active, 404);
 
                 // 1. Cari atau buat akun pelanggan berdasarkan nomor HP
                 $phoneClean = preg_replace('/[^0-9]/', '', $validated['customer_phone']);
@@ -480,3 +482,4 @@ class PwaStorefrontController extends Controller
         return view('pwa.order_status', compact('order', 'bankAccounts'));
     }
 }
+

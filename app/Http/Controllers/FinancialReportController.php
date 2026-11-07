@@ -35,7 +35,7 @@ class FinancialReportController extends Controller
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->reportService->getIncomeStatement($company, $startDate, $endDate, $store);
@@ -62,7 +62,7 @@ class FinancialReportController extends Controller
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $asOfDate = $request->input('as_of_date', now()->toDateString());
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->reportService->getBalanceSheet($company, $asOfDate, $store);
@@ -90,7 +90,7 @@ class FinancialReportController extends Controller
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->reportService->getTrialBalance($company, $startDate, $endDate, $store);
@@ -118,7 +118,7 @@ class FinancialReportController extends Controller
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $accounts = ChartOfAccount::where('company_id', $company->id)
@@ -127,7 +127,7 @@ class FinancialReportController extends Controller
             ->get();
 
         $accountId = $request->input('account_id', $accounts->first()?->id);
-        $selectedAccount = $accountId ? ChartOfAccount::findOrFail($accountId) : $accounts->first();
+        $selectedAccount = $accountId ? ChartOfAccount::where('company_id', $company->id)->findOrFail($accountId) : $accounts->first();
 
         $report = $selectedAccount
             ? $this->reportService->getGeneralLedger($selectedAccount, $startDate, $endDate, $store)
@@ -153,7 +153,7 @@ class FinancialReportController extends Controller
         $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->reportService->getCashFlow($company, $startDate, $endDate, $store);
@@ -197,7 +197,7 @@ class FinancialReportController extends Controller
      */
     public function shiftZReport(string $id): View
     {
-        $shift = CashierShift::with([
+        $shift = CashierShift::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->with([
             'cashier',
             'store.company',
             'cashDrops',
@@ -252,7 +252,7 @@ class FinancialReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $cashierId = $request->input('cashier_id');
         $paymentMethod = $request->input('payment_method');
 
@@ -322,7 +322,7 @@ class FinancialReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $supplierId = $request->input('supplier_id');
 
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
@@ -378,7 +378,7 @@ class FinancialReportController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->reportService->getAgingReceivables($company, $store);
@@ -393,7 +393,7 @@ class FinancialReportController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->reportService->getAgingPayables($company, $store);
@@ -1162,3 +1162,4 @@ class FinancialReportController extends Controller
         ]);
     }
 }
+

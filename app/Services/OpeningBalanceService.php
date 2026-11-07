@@ -154,7 +154,10 @@ class OpeningBalanceService
 
         return DB::transaction(function () use ($company, $data, $user, $amount) {
             $customer = Customer::where('company_id', $company->id)->lockForUpdate()->findOrFail($data['customer_id']);
-            $store = ! empty($data['store_id']) ? Store::find($data['store_id']) : ($customer->store ?? Store::where('company_id', $company->id)->firstOrFail());
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : (Store::where('company_id', $company->id)->find($customer->store_id)
+                    ?? Store::where('company_id', $company->id)->firstOrFail());
             $tier = $customer->tier ?? CustomerTier::where('company_id', $company->id)->firstOrFail();
 
             $txDate = $data['transaction_date'] ?? now()->toDateString();
@@ -316,7 +319,9 @@ class OpeningBalanceService
 
         return DB::transaction(function () use ($company, $data, $user, $amount) {
             $supplier = Supplier::where('company_id', $company->id)->findOrFail($data['supplier_id']);
-            $store = ! empty($data['store_id']) ? Store::find($data['store_id']) : Store::where('company_id', $company->id)->firstOrFail();
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : Store::where('company_id', $company->id)->firstOrFail();
 
             $date = $data['purchase_date'] ?? now()->toDateString();
             $dueDate = $data['due_date'] ?? date('Y-m-d', strtotime($date.' +30 days'));
@@ -415,3 +420,4 @@ class OpeningBalanceService
         });
     }
 }
+

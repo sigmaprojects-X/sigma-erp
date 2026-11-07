@@ -73,7 +73,7 @@ class StockOpnameController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $store = Store::findOrFail($request->store_id);
+        $store = Store::where('company_id', $company->id)->findOrFail($request->store_id);
 
         $opname = $this->warehouseService->startOpname(
             company: $company,
@@ -101,7 +101,9 @@ class StockOpnameController extends Controller
      */
     public function show(string $id): View|JsonResponse
     {
-        $opname = StockOpname::with(['store', 'creator', 'approver', 'items.product.category', 'items.product.barcodes', 'items.product.units', 'items.product.baseUnit'])->findOrFail($id);
+        $opname = StockOpname::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())
+            ->with(['store', 'creator', 'approver', 'items.product.category', 'items.product.barcodes', 'items.product.units', 'items.product.baseUnit'])
+            ->findOrFail($id);
         $user = Auth::user();
 
         // Cek wewenang: apakah user adalah Manager / Owner
@@ -151,7 +153,7 @@ class StockOpnameController extends Controller
             return back()->withErrors(['counts' => 'Kuantitas hitungan fisik harus diisi.']);
         }
 
-        $opname = StockOpname::with('items')->findOrFail($id);
+        $opname = StockOpname::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->with('items')->findOrFail($id);
 
         try {
             $updatedOpname = $this->warehouseService->submitBlindCounts($opname, $counts, Auth::user(), $notes);
@@ -179,7 +181,7 @@ class StockOpnameController extends Controller
      */
     public function approve(Request $request, string $id): JsonResponse|RedirectResponse
     {
-        $opname = StockOpname::with('items.product')->findOrFail($id);
+        $opname = StockOpname::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->with('items.product')->findOrFail($id);
         $user = Auth::user();
 
         if (! in_array($user?->role, ['owner', 'manager', 'store_head'], true)) {
@@ -211,3 +213,4 @@ class StockOpnameController extends Controller
         }
     }
 }
+

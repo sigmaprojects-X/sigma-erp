@@ -150,6 +150,7 @@ class VoucherController extends Controller
      */
     public function destroy(Voucher $voucher): RedirectResponse|JsonResponse
     {
+        abort_unless($voucher->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $code = $voucher->code;
         $voucher->delete();
 
@@ -161,3 +162,4 @@ class VoucherController extends Controller
             ->with('success', "Voucher {$code} berhasil dihapus.");
     }
 }
+

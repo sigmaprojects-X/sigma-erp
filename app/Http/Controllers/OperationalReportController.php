@@ -32,7 +32,7 @@ class OperationalReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->auditService->getHourlyPeakHoursReport($company, $startDate, $endDate, $store);
@@ -54,7 +54,7 @@ class OperationalReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->auditService->getVoidReturnAuditReport($company, $startDate, $endDate, $store);
@@ -76,7 +76,7 @@ class OperationalReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $supplierId = $request->input('supplier_id');
 
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
@@ -349,3 +349,4 @@ class OperationalReportController extends Controller
         ]);
     }
 }
+

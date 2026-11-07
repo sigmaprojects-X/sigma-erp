@@ -94,8 +94,8 @@ class TransferRequestController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $requestingStore = Store::findOrFail($request->requesting_store_id);
-        $destinationStore = Store::findOrFail($request->destination_store_id);
+        $requestingStore = Store::where('company_id', $company->id)->findOrFail($request->requesting_store_id);
+        $destinationStore = Store::where('company_id', $company->id)->findOrFail($request->destination_store_id);
 
         try {
             $transferRequest = $this->warehouseService->createTransferRequest(
@@ -135,6 +135,7 @@ class TransferRequestController extends Controller
      */
     public function show(TransferRequest $transferRequest): View
     {
+        abort_unless($transferRequest->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $transferRequest->load([
             'requestingStore',
             'destinationStore',
@@ -154,6 +155,7 @@ class TransferRequestController extends Controller
      */
     public function approve(Request $request, TransferRequest $transferRequest): JsonResponse|RedirectResponse
     {
+        abort_unless($transferRequest->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $request->validate([
             'approved_items' => 'required|array|min:1',
             'approved_items.*.item_id' => 'required|uuid',
@@ -202,6 +204,7 @@ class TransferRequestController extends Controller
      */
     public function reject(Request $request, TransferRequest $transferRequest): JsonResponse|RedirectResponse
     {
+        abort_unless($transferRequest->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $request->validate([
             'rejection_reason' => 'required|string|max:500',
         ]);
@@ -246,8 +249,11 @@ class TransferRequestController extends Controller
             return response()->json(['success' => false, 'message' => 'Store ID wajib diisi.'], 400);
         }
 
-        $requestingStore = Store::findOrFail($requestingStoreId);
-        $sourceStore = $request->filled('source_store_id') ? Store::find($request->source_store_id) : null;
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $requestingStore = Store::where('company_id', $companyId)->findOrFail($requestingStoreId);
+        $sourceStore = $request->filled('source_store_id')
+            ? Store::where('company_id', $companyId)->findOrFail($request->source_store_id)
+            : null;
         $days = (int) $request->query('days', 30);
 
         $recommendations = $this->warehouseService->getSmartRestockBranchRecommendations(
@@ -267,3 +273,4 @@ class TransferRequestController extends Controller
         ]);
     }
 }
+

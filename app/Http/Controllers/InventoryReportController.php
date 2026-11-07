@@ -31,7 +31,7 @@ class InventoryReportController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $categoryId = $request->input('category_id');
 
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
@@ -60,7 +60,7 @@ class InventoryReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
 
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
         $products = Product::where('company_id', $company->id)
@@ -96,7 +96,7 @@ class InventoryReportController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->inventoryService->getLowStockAlertReport($company, $store);
@@ -118,7 +118,7 @@ class InventoryReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->inventoryService->getInventoryTurnoverReport($company, $startDate, $endDate, $store);
@@ -137,7 +137,7 @@ class InventoryReportController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $withinDays = (int) $request->input('within_days', 90);
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
@@ -160,7 +160,7 @@ class InventoryReportController extends Controller
         $startDate = $period['start_date'];
         $endDate = $period['end_date'];
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $stores = Store::where('company_id', $company->id)->where('is_active', true)->get();
 
         $report = $this->inventoryService->getOpnameDiscrepancyReport($company, $startDate, $endDate, $store);
@@ -641,3 +641,4 @@ class InventoryReportController extends Controller
         ]);
     }
 }
+

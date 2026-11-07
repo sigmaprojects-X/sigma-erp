@@ -277,7 +277,9 @@ class AccountingController extends Controller
             'lines.*.memo' => 'nullable|string|max:255',
         ]);
 
-        $store = ! empty($validated['store_id']) ? Store::find($validated['store_id']) : null;
+        $store = ! empty($validated['store_id'])
+            ? Store::where('company_id', $company->id)->findOrFail($validated['store_id'])
+            : null;
         $userId = Auth::id();
 
         // Siapkan baris jurnal
@@ -293,7 +295,7 @@ class AccountingController extends Controller
                 continue;
             }
 
-            $account = ChartOfAccount::findOrFail($line['account_id']);
+            $account = ChartOfAccount::where('company_id', $company->id)->findOrFail($line['account_id']);
             $totalDebit += $debit;
             $totalCredit += $credit;
 
@@ -349,3 +351,4 @@ class AccountingController extends Controller
         return view('accounting.journals.show', compact('journal', 'company'));
     }
 }
+

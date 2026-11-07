@@ -77,7 +77,9 @@ class BatchExpiryController extends Controller
 
         $days = (int) $request->input('days', 30);
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId
+            ? Store::where('company_id', $company->id)->findOrFail($storeId)
+            : null;
 
         $nearExpiredBatches = $this->batchExpiryService->getNearExpiredBatches($store, $days);
         $alreadyExpiredBatches = $this->batchExpiryService->getExpiredBatches($store);
@@ -133,8 +135,9 @@ class BatchExpiryController extends Controller
         ]);
 
         try {
-            $store = Store::findOrFail($validated['store_id']);
-            $product = Product::findOrFail($validated['product_id']);
+            $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+            $store = Store::where('company_id', $companyId)->findOrFail($validated['store_id']);
+            $product = Product::where('company_id', $companyId)->findOrFail($validated['product_id']);
             $quantity = (float) $validated['quantity'];
             $unitCost = (float) ($validated['unit_cost'] ?? $product->cost_price ?? 0);
 
@@ -191,8 +194,13 @@ class BatchExpiryController extends Controller
      */
     public function fefoLookup(Request $request, string $productId): JsonResponse
     {
-        $product = Product::findOrFail($productId);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $product = Product::where('company_id', $companyId)->findOrFail($productId);
         $storeId = $request->input('store_id', Auth::user()?->store_id);
+
+        if ($storeId && ! Store::where('company_id', $companyId)->whereKey($storeId)->exists()) {
+            abort(404);
+        }
 
         $batches = ProductBatch::where('product_id', $product->id)
             ->when($storeId, fn($q) => $q->where('store_id', $storeId))
@@ -210,3 +218,4 @@ class BatchExpiryController extends Controller
         ]);
     }
 }
+

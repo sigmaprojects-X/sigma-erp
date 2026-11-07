@@ -91,8 +91,9 @@ class ConsignmentController extends Controller
         ]);
 
         try {
-            $store = Store::findOrFail($validated['store_id']);
-            $supplier = Supplier::findOrFail($validated['supplier_id']);
+            $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+            $store = Store::where('company_id', $companyId)->findOrFail($validated['store_id']);
+            $supplier = Supplier::where('company_id', $companyId)->findOrFail($validated['supplier_id']);
             $user = Auth::user();
 
             $receipt = $this->consignmentService->receiveConsignment(
@@ -224,8 +225,9 @@ class ConsignmentController extends Controller
         ]);
 
         try {
-            $store = Store::findOrFail($validated['store_id']);
-            $supplier = Supplier::findOrFail($validated['supplier_id']);
+            $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+            $store = Store::where('company_id', $companyId)->findOrFail($validated['store_id']);
+            $supplier = Supplier::where('company_id', $companyId)->findOrFail($validated['supplier_id']);
             $user = Auth::user();
 
             $settlement = $this->consignmentService->createSettlement(
@@ -267,7 +269,7 @@ class ConsignmentController extends Controller
         ]);
 
         try {
-            $settlement = ConsignmentSettlement::findOrFail($id);
+            $settlement = ConsignmentSettlement::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
             $user = Auth::user();
 
             $this->consignmentService->paySettlement(
@@ -294,3 +296,4 @@ class ConsignmentController extends Controller
         }
     }
 }
+

@@ -37,7 +37,7 @@ class FiscalYearClosingService
             ->value('account_id');
 
         $retainedEarningsAccount = $settingAccId
-            ? ChartOfAccount::find($settingAccId)
+            ? ChartOfAccount::where('company_id', $company->id)->find($settingAccId)
             : (ChartOfAccount::where('company_id', $company->id)->where('code', '3002-001')->first()
                 ?? ChartOfAccount::where('company_id', $company->id)->where('type', 'EQUITY')->where(DB::raw('LOWER(name)'), 'like', '%laba ditahan%')->first());
 
@@ -146,7 +146,7 @@ class FiscalYearClosingService
 
             // 1. Tutup Akun Pendapatan (Debit Pendapatan agar bersaldo 0)
             foreach ($summary['revenue_accounts'] as $rev) {
-                $account = ChartOfAccount::findOrFail($rev['account_id']);
+                $account = ChartOfAccount::where('company_id', $company->id)->findOrFail($rev['account_id']);
                 $bal = (float) $rev['balance'];
                 if ($bal > 0) {
                     $journalLines[] = [
@@ -167,7 +167,7 @@ class FiscalYearClosingService
 
             // 2. Tutup Akun Beban (Kredit Beban agar bersaldo 0)
             foreach ($summary['expense_accounts'] as $exp) {
-                $account = ChartOfAccount::findOrFail($exp['account_id']);
+                $account = ChartOfAccount::where('company_id', $company->id)->findOrFail($exp['account_id']);
                 $bal = (float) $exp['balance'];
                 if ($bal > 0) {
                     $journalLines[] = [
@@ -295,3 +295,4 @@ class FiscalYearClosingService
         });
     }
 }
+

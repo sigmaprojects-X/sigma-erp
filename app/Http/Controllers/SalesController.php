@@ -37,7 +37,7 @@ class SalesController extends Controller
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
             ?? Store::where('company_id', $company->id)->first()
-            ?? Store::first();
+            ?? Store::where('company_id', $company->id)->firstOrFail();
 
         // Query transaksi hari ini (Terfilter per Perusahaan Aktif)
         $todayTransactions = PosTransaction::where('company_id', $company->id)
@@ -528,7 +528,9 @@ class SalesController extends Controller
                 $shift = $this->posService->openShift(
                     company: $company,
                     store: $store,
-                    cashierId: $user?->id ?? User::first()->id,
+                    cashierId: $user?->store_id === $store->id
+                        ? $user->id
+                        : User::where('store_id', $store->id)->where('role', 'cashier')->where('is_active', true)->firstOrFail()->id,
                     startingCash: 0.0
                 );
             }
@@ -753,6 +755,10 @@ class SalesController extends Controller
             $authorizedManagers = User::whereIn('role', ['owner', 'manager', 'store_head'])
                 ->where('is_active', true)
                 ->whereNotNull('manager_pin')
+                ->where(function ($q) use ($company) {
+                    $q->where('role', 'owner')
+                        ->orWhereHas('store', fn ($sq) => $sq->where('company_id', $company->id));
+                })
                 ->get();
 
             $approver = null;
@@ -850,3 +856,4 @@ class SalesController extends Controller
         return trim(preg_replace('/\s+/', ' ', $result));
     }
 }
+

@@ -74,7 +74,7 @@ class UserManagementController extends Controller
 
         // Pastikan target user berada di perusahaan yang sama untuk non-owner
         $company = $this->companyService->getActiveCompany();
-        if ($targetUser->store && $targetUser->store->company_id !== $company->id) {
+        if (! $targetUser->store || $targetUser->store->company_id !== $company->id) {
             abort(403, 'Anda tidak memiliki hak akses untuk mengelola staf di luar perusahaan Anda.');
         }
 
@@ -148,7 +148,8 @@ class UserManagementController extends Controller
         } else {
             $usersQuery->where(function ($q) use ($company) {
                 $q->where('role', 'owner')
-                    ->orWhereHas('store', fn ($sq) => $sq->where('company_id', $company->id));
+                    ->orWhereHas('store', fn ($sq) => $sq->where('company_id', $company->id))
+                    ->orWhereNull('store_id');
             });
         }
 
@@ -240,7 +241,8 @@ class UserManagementController extends Controller
      */
     public function updateGroup(Request $request, string $id): RedirectResponse
     {
-        $group = UserGroup::findOrFail($id);
+        $companyId = $this->companyService->getActiveCompanyId();
+        $group = UserGroup::where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $companyId))->findOrFail($id);
         $this->authorizeGroupScope($request->user(), $group);
 
         // Jika hanya memperbarui izin ceklist dari form matriks
@@ -278,7 +280,8 @@ class UserManagementController extends Controller
      */
     public function applyPreset(Request $request, string $id): RedirectResponse
     {
-        $group = UserGroup::findOrFail($id);
+        $companyId = $this->companyService->getActiveCompanyId();
+        $group = UserGroup::where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $companyId))->findOrFail($id);
         $this->authorizeGroupScope($request->user(), $group);
 
         $presetKey = $request->input('preset');
@@ -301,7 +304,9 @@ class UserManagementController extends Controller
      */
     public function destroyGroup(string $id): RedirectResponse
     {
-        $group = UserGroup::withCount('users')->findOrFail($id);
+        $companyId = $this->companyService->getActiveCompanyId();
+        $group = UserGroup::where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $companyId))
+            ->withCount('users')->findOrFail($id);
         $this->authorizeGroupScope(Auth::user(), $group);
 
         if ($group->is_system) {
@@ -325,13 +330,29 @@ class UserManagementController extends Controller
      */
     public function storeUser(Request $request): RedirectResponse
     {
+        $company = $this->companyService->getActiveCompany();
+        $isOwnerAccount = $request->input('role') === 'owner';
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'password' => 'required|string|min:8',
             'role' => ['required', 'string', Rule::in(array_keys(self::ROLES))],
-            'user_group_id' => 'nullable|exists:user_groups,id',
-            'store_id' => 'nullable|exists:stores,id',
+            'user_group_id' => [
+                Rule::prohibitedIf($isOwnerAccount),
+                'nullable',
+                'uuid',
+                Rule::exists('user_groups', 'id')->where(fn ($query) => $query
+                    ->whereNull('company_id')
+                    ->orWhere('company_id', $company->id)),
+            ],
+            'store_id' => [
+                Rule::prohibitedIf($isOwnerAccount),
+                Rule::requiredIf(! $isOwnerAccount),
+                'nullable',
+                'uuid',
+                Rule::exists('stores', 'id')->where('company_id', $company->id),
+            ],
             'manager_pin' => 'nullable|string|digits_between:4,6',
             'is_active' => 'nullable|boolean',
             'valid_from' => 'nullable|date',
@@ -339,14 +360,6 @@ class UserManagementController extends Controller
         ]);
 
         $this->authorizeRoleAssignment($request->user(), $validated['role']);
-
-        $company = $this->companyService->getActiveCompany();
-        if ($request->user()?->role !== 'owner' && ! empty($validated['store_id'])) {
-            $storeExists = Store::where('id', $validated['store_id'])->where('company_id', $company->id)->exists();
-            if (! $storeExists) {
-                abort(403, 'Toko/cabang yang dipilih bukan milik perusahaan Anda.');
-            }
-        }
 
         DB::transaction(function () use ($validated, $request) {
             $userData = [
@@ -394,12 +407,28 @@ class UserManagementController extends Controller
 
         $this->authorizeTargetUserModification($request->user(), $user);
 
+        $company = $this->companyService->getActiveCompany();
+        $isOwnerAccount = $request->input('role') === 'owner';
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', 'string', Rule::in(array_keys(self::ROLES))],
-            'user_group_id' => 'nullable|exists:user_groups,id',
-            'store_id' => 'nullable|exists:stores,id',
+            'user_group_id' => [
+                Rule::prohibitedIf($isOwnerAccount),
+                'nullable',
+                'uuid',
+                Rule::exists('user_groups', 'id')->where(fn ($query) => $query
+                    ->whereNull('company_id')
+                    ->orWhere('company_id', $company->id)),
+            ],
+            'store_id' => [
+                Rule::prohibitedIf($isOwnerAccount),
+                Rule::requiredIf(! $isOwnerAccount),
+                'nullable',
+                'uuid',
+                Rule::exists('stores', 'id')->where('company_id', $company->id),
+            ],
             'password' => 'nullable|string|min:8',
             'manager_pin' => 'nullable|string|digits_between:4,6',
             'is_active' => 'nullable|boolean',
@@ -408,14 +437,6 @@ class UserManagementController extends Controller
         ]);
 
         $this->authorizeRoleAssignment($request->user(), $validated['role']);
-
-        $company = $this->companyService->getActiveCompany();
-        if ($request->user()?->role !== 'owner' && ! empty($validated['store_id'])) {
-            $storeExists = Store::where('id', $validated['store_id'])->where('company_id', $company->id)->exists();
-            if (! $storeExists) {
-                abort(403, 'Toko/cabang yang dipilih bukan milik perusahaan Anda.');
-            }
-        }
 
         DB::transaction(function () use ($user, $validated, $request) {
             $oldRole = $user->role;
@@ -546,3 +567,4 @@ class UserManagementController extends Controller
             ->with('success', $msg);
     }
 }
+

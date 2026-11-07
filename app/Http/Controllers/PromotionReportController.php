@@ -134,7 +134,7 @@ class PromotionReportController extends Controller
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
         $storeId = $request->input('store_id');
-        $selectedStore = $storeId ? Store::find($storeId) : null;
+        $selectedStore = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
 
         $startDateTime = Carbon::parse($startDate)->startOfDay();
         $endDateTime = Carbon::parse($endDate)->endOfDay();
@@ -179,3 +179,4 @@ class PromotionReportController extends Controller
         ));
     }
 }
+

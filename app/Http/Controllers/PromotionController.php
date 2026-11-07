@@ -62,10 +62,10 @@ class PromotionController extends Controller
             'name' => 'required|string|max:200',
             'type' => 'required|in:BUY_X_GET_Y,TEBUS_MURAH,DISCOUNT_PERCENT,DISCOUNT_NOMINAL',
             'description' => 'nullable|string|max:500',
-            'store_id' => 'nullable|uuid|exists:stores,id',
-            'buy_product_id' => 'nullable|uuid|exists:products,id',
+            'store_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('stores', 'id')->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())],
+            'buy_product_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('products', 'id')->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())],
             'buy_quantity' => 'nullable|numeric|min:0.01',
-            'reward_product_id' => 'nullable|uuid|exists:products,id',
+            'reward_product_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::exists('products', 'id')->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())],
             'reward_quantity' => 'nullable|numeric|min:0.01',
             'special_price' => 'nullable|numeric|min:0',
             'discount_percent' => 'nullable|numeric|min:0|max:100',
@@ -118,6 +118,7 @@ class PromotionController extends Controller
      */
     public function toggle(Promotion $promotion): RedirectResponse|JsonResponse
     {
+        abort_unless($promotion->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $promotion->update(['is_active' => ! $promotion->is_active]);
 
         if (request()->expectsJson() || request()->ajax()) {
@@ -133,6 +134,7 @@ class PromotionController extends Controller
      */
     public function destroy(Promotion $promotion): RedirectResponse|JsonResponse
     {
+        abort_unless($promotion->company_id === app(\App\Services\CompanyService::class)->getActiveCompanyId(), 404);
         $name = $promotion->name;
         $promotion->delete();
 
@@ -151,7 +153,7 @@ class PromotionController extends Controller
     {
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
         $storeId = $request->input('store_id');
-        $store = $storeId ? Store::find($storeId) : null;
+        $store = $storeId ? Store::where('company_id', $company->id)->findOrFail($storeId) : null;
         $cartItems = $request->input('cart_items', []);
         $cartSubtotal = (float) $request->input('subtotal', 0.0);
 
@@ -160,3 +162,4 @@ class PromotionController extends Controller
         return response()->json(array_merge(['success' => true], $result));
     }
 }
+

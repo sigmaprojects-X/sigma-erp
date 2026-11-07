@@ -25,7 +25,7 @@ class SettingController extends Controller
         $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
             ?? Store::where('company_id', $company->id)->first()
-            ?? Store::first();
+            ?? Store::where('company_id', $company->id)->firstOrFail();
 
         return view('settings.general', compact('company', 'store'));
     }
@@ -193,7 +193,7 @@ class SettingController extends Controller
         $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
             ?? Store::where('company_id', $company->id)->first()
-            ?? Store::first();
+            ?? Store::where('company_id', $company->id)->firstOrFail();
 
         // Default value fill jika belum ada
         if (empty($company->receipt_footer_line1)) {
@@ -295,7 +295,7 @@ class SettingController extends Controller
         $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
             ?? Store::where('company_id', $company->id)->first()
-            ?? Store::first();
+            ?? Store::where('company_id', $company->id)->firstOrFail();
 
         // Buat dummy mock transaction object untuk keperluan preview/test print
         $mockTransaction = (object) [
@@ -372,7 +372,7 @@ class SettingController extends Controller
         $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->where('is_main_store', true)->first()
             ?? Store::where('company_id', $company->id)->first()
-            ?? Store::first();
+            ?? Store::where('company_id', $company->id)->firstOrFail();
 
         return view('settings.cashier', compact('company', 'store'));
     }
@@ -445,9 +445,15 @@ class SettingController extends Controller
     public function storeStore(Request $request): RedirectResponse
     {
         $company = $this->companyService->getActiveCompany();
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
 
         $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:stores,code',
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                \Illuminate\Validation\Rule::unique('stores', 'code')->where('company_id', $company->id),
+            ],
             'name' => 'required|string|max:150',
             'type' => 'required|in:STORE,WAREHOUSE',
             'pic_name' => 'nullable|string|max:100',
@@ -501,9 +507,15 @@ class SettingController extends Controller
     {
         $company = $this->companyService->getActiveCompany();
         $store = Store::where('company_id', $company->id)->findOrFail($id);
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
 
         $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:stores,code,'.$store->id,
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                \Illuminate\Validation\Rule::unique('stores', 'code')->where('company_id', $company->id)->ignore($store->id),
+            ],
             'name' => 'required|string|max:150',
             'type' => 'required|in:STORE,WAREHOUSE',
             'pic_name' => 'nullable|string|max:100',
@@ -579,3 +591,4 @@ class SettingController extends Controller
         return redirect()->route('settings.stores.index')->with('success', "Cabang [{$store->name}] sekarang ditetapkan sebagai Toko Utama / Kantor Pusat!");
     }
 }
+
