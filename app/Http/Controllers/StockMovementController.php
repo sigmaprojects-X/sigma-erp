@@ -82,7 +82,7 @@ class StockMovementController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $store = Store::findOrFail($request->store_id);
+        $store = Store::where('company_id', $company->id)->findOrFail($request->store_id);
         $userId = Auth::id();
 
         $dateStr = date('Ymd', strtotime($request->movement_date));
@@ -97,8 +97,8 @@ class StockMovementController extends Controller
             $itemsData = [];
 
             foreach ($request->items as $row) {
-                $product = Product::findOrFail($row['product_id']);
-                $unit = ProductUnit::findOrFail($row['product_unit_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($row['product_id']);
+                $unit = ProductUnit::where('company_id', $company->id)->findOrFail($row['product_unit_id']);
 
                 $qty = (float) $row['quantity'];
                 $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
@@ -228,7 +228,7 @@ class StockMovementController extends Controller
         ]);
 
         $company = app(\App\Services\CompanyService::class)->getActiveCompany();
-        $store = Store::findOrFail($request->store_id);
+        $store = Store::where('company_id', $company->id)->findOrFail($request->store_id);
         $userId = Auth::id();
 
         $dateStr = date('Ymd', strtotime($request->movement_date));
@@ -244,8 +244,8 @@ class StockMovementController extends Controller
                 $itemsData = [];
 
                 foreach ($request->items as $row) {
-                    $product = Product::findOrFail($row['product_id']);
-                    $unit = ProductUnit::findOrFail($row['product_unit_id']);
+                    $product = Product::where('company_id', $company->id)->findOrFail($row['product_id']);
+                    $unit = ProductUnit::where('company_id', $company->id)->findOrFail($row['product_unit_id']);
 
                     $qty = (float) $row['quantity'];
                     $conv = (float) $unit->conversion_factor > 0 ? (float) $unit->conversion_factor : 1.0;
@@ -333,8 +333,8 @@ class StockMovementController extends Controller
      */
     public function show(string $id): View
     {
-        $movement = StockMovement::with(['company', 'store', 'creator', 'items.product', 'items.productUnit'])
-            ->findOrFail($id);
+        $movement = StockMovement::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())
+            ->with(['company', 'store', 'creator', 'items.product', 'items.productUnit'])->findOrFail($id);
 
         return view('warehouse.movements.show', compact('movement'));
     }
@@ -344,9 +344,10 @@ class StockMovementController extends Controller
      */
     public function printSlip(string $id): View
     {
-        $movement = StockMovement::with(['company', 'store', 'creator', 'items.product', 'items.productUnit'])
-            ->findOrFail($id);
+        $movement = StockMovement::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())
+            ->with(['company', 'store', 'creator', 'items.product', 'items.productUnit'])->findOrFail($id);
 
         return view('warehouse.movements.print', compact('movement'));
     }
 }
+
