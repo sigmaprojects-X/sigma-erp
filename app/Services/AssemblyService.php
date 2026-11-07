@@ -27,6 +27,18 @@ class AssemblyService
     public function saveBom(Product $parent, array $components): void
     {
         DB::transaction(function () use ($parent, $components) {
+            $companyId = $parent->company_id;
+            if (! $companyId) {
+                abort(403, 'Produk tidak memiliki perusahaan pemilik yang valid.');
+            }
+
+            foreach ($components as $component) {
+                Product::where('company_id', $companyId)->findOrFail($component['component_product_id']);
+                ProductUnit::where('company_id', $companyId)
+                    ->where('product_id', $component['component_product_id'])
+                    ->findOrFail($component['component_product_unit_id']);
+            }
+
             ProductBom::where('parent_product_id', $parent->id)->delete();
 
             foreach ($components as $c) {
@@ -82,7 +94,10 @@ class AssemblyService
         }
 
         return DB::transaction(function () use ($store, $parent, $parentUnit, $quantity, $components, $user, $notes) {
-            $company = $parent->company ?? Company::first();
+            $company = $parent->company;
+            if (! $company || $store->company_id !== $company->id || $parentUnit->company_id !== $company->id || $parentUnit->product_id !== $parent->id) {
+                abort(403, 'Perusahaan, cabang, barang, dan satuan perakitan harus berasal dari perusahaan yang sama.');
+            }
 
             $dateStr = date('Ymd');
             $count = ProductAssembly::where('company_id', $company->id)
@@ -96,10 +111,11 @@ class AssemblyService
             // 1. Validasi & Kurangi Stok Seluruh Komponen Bahan Baku
             foreach ($components as $compData) {
                 /** @var Product $componentProduct */
-                $componentProduct = Product::findOrFail($compData['component_product_id']);
+                $componentProduct = Product::where('company_id', $company->id)->findOrFail($compData['component_product_id']);
 
                 /** @var ProductUnit $compUnit */
-                $compUnit = ProductUnit::where('id', $compData['component_product_unit_id'])
+                $compUnit = ProductUnit::where('company_id', $company->id)
+                    ->where('id', $compData['component_product_unit_id'])
                     ->where('product_id', $componentProduct->id)
                     ->firstOrFail();
 
@@ -279,3 +295,4 @@ class AssemblyService
         });
     }
 }
+
