@@ -40,26 +40,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
           script: |
-            set -eux
-            APP_PATH=/var/www/sigma-erp-staging
-            REPO_URL=https://github.com/sigmaprojects-X/sigma-erp.git
-
-            echo "Checking staging checkout path."
-            if [ -e "$APP_PATH" ]; then
-              if [ -d "$APP_PATH/.git" ]; then
-                echo "Staging path exists and contains a Git checkout."
-                git -C "$APP_PATH" rev-parse --is-inside-work-tree
-                git -C "$APP_PATH" fetch --depth=1 "$REPO_URL" refs/heads/staging
-                git -C "$APP_PATH" reset --hard FETCH_HEAD
-              else
-                echo "Staging path exists but is not a Git checkout; stopping without modifying it."
-                exit 1
-              fi
-            else
-              echo "Staging path does not exist; cloning the staging branch."
-              git clone --depth=1 --branch staging "$REPO_URL" "$APP_PATH"
-            fi
-            mkdir -p "$APP_PATH/public/build"
+            bash -eu -c 'APP_PATH=/var/www/sigma-erp-staging; REPO_URL=https://github.com/sigmaprojects-X/sigma-erp.git; if [ -d "$APP_PATH/.git" ]; then echo "Updating existing staging checkout."; git -C "$APP_PATH" fetch --depth=1 "$REPO_URL" refs/heads/staging; git -C "$APP_PATH" reset --hard FETCH_HEAD; elif [ ! -e "$APP_PATH" ]; then echo "Cloning staging branch into a new path."; git clone --depth=1 --branch staging "$REPO_URL" "$APP_PATH"; else echo "Staging path exists but is not a Git checkout; stopping without modifying it."; exit 1; fi; mkdir -p "$APP_PATH/public/build"'
 
       - name: Upload staging frontend assets
         uses: appleboy/scp-action@v1
