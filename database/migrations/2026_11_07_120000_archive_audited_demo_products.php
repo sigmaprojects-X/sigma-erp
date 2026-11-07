@@ -16,8 +16,8 @@ return new class extends Migration
                 ->where('name', 'PT SIGMA JAYA NUSANTARA')
                 ->first();
 
-            // Staging installations may not contain the production company.
-            if (! $company) {
+            // Keep staging and development data untouched.
+            if (! app()->environment('production') || ! $company) {
                 return;
             }
 
@@ -35,6 +35,8 @@ return new class extends Migration
                 ->get(['id', 'sku', 'total_quantity']);
 
             $actualProducts = $products->pluck('id', 'sku')->all();
+            ksort($actualProducts);
+            ksort($expectedProducts);
 
             if ($actualProducts !== $expectedProducts) {
                 throw new RuntimeException(
