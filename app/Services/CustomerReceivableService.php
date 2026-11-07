@@ -37,10 +37,23 @@ class CustomerReceivableService
 
         return DB::transaction(function () use ($customer, $data, $receiver, $totalAmount) {
             /** @var Customer $lockedCustomer */
-            $lockedCustomer = Customer::where('id', $customer->id)->lockForUpdate()->firstOrFail();
+            $company = $customer->company;
+            if (! $company) {
+                abort(403, 'Pelanggan tidak memiliki perusahaan pemilik yang valid.');
+            }
 
-            $company = $lockedCustomer->company ?? Company::first();
-            $store = $lockedCustomer->store ?? Store::first();
+            $lockedCustomer = Customer::where('company_id', $company->id)
+                ->whereKey($customer->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $store = ! empty($data['store_id'])
+                ? Store::where('company_id', $company->id)->findOrFail($data['store_id'])
+                : (Store::where('company_id', $company->id)->find($lockedCustomer->store_id)
+                    ?? Store::where('company_id', $company->id)->firstOrFail());
+
+            if ($receiver->role !== 'owner' && $receiver->store?->company_id !== $company->id) {
+                abort(403, 'Penerima pembayaran tidak memiliki akses ke perusahaan pelanggan ini.');
+            }
 
             $date = $data['payment_date'] ?? now()->toDateString();
             $dateStr = date('Ymd', strtotime($date));
@@ -52,7 +65,7 @@ class CustomerReceivableService
 
             $payment = CustomerPayment::create([
                 'company_id' => $company->id,
-                'store_id' => $data['store_id'] ?? $store->id,
+                'store_id' => $store->id,
                 'customer_id' => $lockedCustomer->id,
                 'payment_number' => $paymentNumber,
                 'payment_date' => $date,
@@ -79,6 +92,7 @@ class CustomerReceivableService
 
                     /** @var PosTransaction $tx */
                     $tx = PosTransaction::where('id', $posId)
+                        ->where('company_id', $company->id)
                         ->where('customer_id', $lockedCustomer->id)
                         ->lockForUpdate()
                         ->firstOrFail();
@@ -247,3 +261,4 @@ class CustomerReceivableService
         return $ledgerEntries;
     }
 }
+
