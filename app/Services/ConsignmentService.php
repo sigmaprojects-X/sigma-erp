@@ -40,7 +40,10 @@ class ConsignmentService
         }
 
         return DB::transaction(function () use ($store, $supplier, $items, $user, $notes) {
-            $company = $supplier->company ?? Company::first();
+            $company = $supplier->company;
+            if (! $company || $store->company_id !== $company->id) {
+                abort(403, 'Supplier dan cabang konsinyasi harus berasal dari perusahaan yang sama.');
+            }
 
             $dateStr = date('Ymd');
             $count = ConsignmentReceipt::where('company_id', $company->id)
@@ -54,10 +57,11 @@ class ConsignmentService
 
             foreach ($items as $itemData) {
                 /** @var Product $product */
-                $product = Product::findOrFail($itemData['product_id']);
+                $product = Product::where('company_id', $company->id)->findOrFail($itemData['product_id']);
 
                 /** @var ProductUnit $unit */
-                $unit = ProductUnit::where('id', $itemData['product_unit_id'])
+                $unit = ProductUnit::where('company_id', $company->id)
+                    ->where('id', $itemData['product_unit_id'])
                     ->where('product_id', $product->id)
                     ->firstOrFail();
 
@@ -184,7 +188,10 @@ class ConsignmentService
         }
 
         return DB::transaction(function () use ($store, $supplier, $settlementSelections, $user, $notes, $startDate, $endDate) {
-            $company = $supplier->company ?? Company::first();
+            $company = $supplier->company;
+            if (! $company || $store->company_id !== $company->id) {
+                abort(403, 'Supplier dan cabang settlement harus berasal dari perusahaan yang sama.');
+            }
 
             $dateStr = date('Ymd');
             $count = ConsignmentSettlement::where('company_id', $company->id)
@@ -199,6 +206,10 @@ class ConsignmentService
             foreach ($settlementSelections as $sel) {
                 /** @var ConsignmentReceiptItem $receiptItem */
                 $receiptItem = ConsignmentReceiptItem::where('id', $sel['consignment_receipt_item_id'])
+                    ->whereHas('receipt', fn ($query) => $query
+                        ->where('company_id', $company->id)
+                        ->where('store_id', $store->id)
+                        ->where('supplier_id', $supplier->id))
                     ->lockForUpdate()
                     ->firstOrFail();
 
@@ -331,3 +342,4 @@ class ConsignmentService
         });
     }
 }
+
