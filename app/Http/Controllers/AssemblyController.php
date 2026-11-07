@@ -99,9 +99,10 @@ class AssemblyController extends Controller
         ]);
 
         try {
-            $store = Store::findOrFail($validated['store_id']);
-            $parentProduct = Product::findOrFail($validated['parent_product_id']);
-            $parentUnit = ProductUnit::findOrFail($validated['parent_product_unit_id']);
+            $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+            $store = Store::where('company_id', $companyId)->findOrFail($validated['store_id']);
+            $parentProduct = Product::where('company_id', $companyId)->findOrFail($validated['parent_product_id']);
+            $parentUnit = ProductUnit::where('company_id', $companyId)->findOrFail($validated['parent_product_unit_id']);
             $user = Auth::user();
 
             $assembly = $this->assemblyService->assemble(
@@ -149,7 +150,7 @@ class AssemblyController extends Controller
             'creator',
             'items.componentProduct',
             'items.componentUnit',
-        ])->findOrFail($id);
+        ])->where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
 
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
@@ -167,7 +168,7 @@ class AssemblyController extends Controller
     public function disassemble(Request $request, string $id): RedirectResponse|JsonResponse
     {
         try {
-            $assembly = ProductAssembly::findOrFail($id);
+            $assembly = ProductAssembly::where('company_id', app(\App\Services\CompanyService::class)->getActiveCompanyId())->findOrFail($id);
             $user = Auth::user();
             $notes = $request->input('notes', 'Pembongkaran manual melalui sistem.');
 
@@ -225,7 +226,8 @@ class AssemblyController extends Controller
      */
     public function getBom(string $productId): JsonResponse
     {
-        $product = Product::findOrFail($productId);
+        $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+        $product = Product::where('company_id', $companyId)->findOrFail($productId);
         $bomItems = $this->assemblyService->getBom($product);
 
         return response()->json([
@@ -249,7 +251,8 @@ class AssemblyController extends Controller
         ]);
 
         try {
-            $parentProduct = Product::findOrFail($validated['parent_product_id']);
+            $companyId = app(\App\Services\CompanyService::class)->getActiveCompanyId();
+            $parentProduct = Product::where('company_id', $companyId)->findOrFail($validated['parent_product_id']);
             $this->assemblyService->saveBom($parentProduct, $validated['components']);
 
             if ($request->expectsJson() || $request->ajax()) {
@@ -269,3 +272,4 @@ class AssemblyController extends Controller
         }
     }
 }
+
